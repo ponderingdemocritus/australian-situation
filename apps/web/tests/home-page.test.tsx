@@ -7,18 +7,19 @@ describe("HomePage", () => {
     cleanup();
   });
 
-  test("renders situational dashboard heading", async () => {
+  test("renders top breadcrumb path", async () => {
     await renderHomePage();
-    expect(screen.getByRole("heading", { name: "SITUATIONAL DASHBOARD" })).toBeDefined();
+    expect(screen.getByText("australia_live / econ")).toBeDefined();
   });
 
-  test("renders australia sector map callout", async () => {
+  test("renders geospatial map callout", async () => {
     await renderHomePage();
-    expect(screen.getByText("SECTOR: AUSTRALIA")).toBeDefined();
+    expect(screen.getByText("Australia / Geospatial")).toBeDefined();
   });
 
-  test("renders priority alert rail", async () => {
+  test("renders live feed panel and command input", async () => {
     await renderHomePage();
-    expect(screen.getByText("PRIORITY_ALERTS")).toBeDefined();
+    expect(screen.getByText("Live Feed")).toBeDefined();
+    expect(screen.getByPlaceholderText("Filter logs or execute command...")).toBeDefined();
   });
 });

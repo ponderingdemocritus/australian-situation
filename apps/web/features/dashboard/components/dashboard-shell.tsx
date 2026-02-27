@@ -1,13 +1,5 @@
 "use client";
 
-import {
-  DashboardAlertItem,
-  DashboardMetric,
-  DashboardNodeRow,
-  DashboardPanel,
-  DashboardPanelHeader,
-  StatusIndicator
-} from "@aus-dash/ui";
 import { useEffect, useRef, useState } from "react";
 import {
   DEFAULT_REGION,
@@ -28,28 +20,57 @@ type DashboardMetricRow = {
   valueAlert?: boolean;
 };
 
-type DashboardNode = {
-  nodeId: string;
-  status: string;
-  offline?: boolean;
+type FeedMetricRow = {
+  id: string;
+  label: string;
+  value: string;
+  previous: string;
+  change: string;
+  barWidth: number;
+  positive: boolean;
 };
 
-const ALERTS = [
-  "WARNING: UNIDENTIFIED SIGNAL DETECTED IN SECTOR 7G",
-  "CRITICAL: FIREWALL INTEGRITY AT 45%"
-] as const;
-
-const NODES: readonly DashboardNode[] = [
-  { nodeId: "SYD-01", status: "ONLINE" },
-  { nodeId: "MEL-04", status: "ONLINE" },
-  { nodeId: "BNE-09", status: "OFFLINE", offline: true },
-  { nodeId: "PER-02", status: "ONLINE" },
-  { nodeId: "ADL-01", status: "ONLINE" }
-] as const;
+type FeedEntry = {
+  action: string;
+  deltaText: string;
+  entity: string;
+  lineNumber: number;
+  prefix: "" | "+" | "-" | "!";
+  variant: "neutral" | "new" | "delete" | "error";
+  volume: number;
+};
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "";
+
+const LOG_ACTIONS = ["TICK", "ALERT", "TRADE", "SYNC", "PRICE", "UPDATE", "SIGNAL"] as const;
+const LOG_ENTITIES = [
+  "ASX_200",
+  "AUD/USD",
+  "RBA_RATE",
+  "IRON_ORE",
+  "BHP.AX",
+  "CBA.AX",
+  "WBC.AX",
+  "RIO.AX",
+  "FMG.AX",
+  "NAB.AX",
+  "CSL.AX",
+  "WES.AX"
+] as const;
+
+const SECTOR_PERFORMANCE = [
+  { label: "FINANCIALS", change: "+0.91%", positive: true },
+  { label: "MATERIALS", change: "+1.34%", positive: true },
+  { label: "ENERGY", change: "-0.22%", positive: false },
+  { label: "TECH", change: "-0.57%", positive: false },
+  { label: "CONSUMER", change: "+0.14%", positive: true }
+] as const;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 function formatAud(value: number): string {
   return `${Math.round(value)} AUD`;
@@ -61,6 +82,26 @@ function formatAudMwh(value: number): string {
 
 function formatCurrency(value: number): string {
   return `$${Math.round(value).toLocaleString("en-AU")}`;
+}
+
+function formatPercentChange(current: number, baseline: number): string {
+  const delta = ((current - baseline) / baseline) * 100;
+  return `${delta >= 0 ? "+" : ""}${delta.toFixed(2)}%`;
+}
+
+function formatAestClock(now: Date): string {
+  try {
+    const time = new Intl.DateTimeFormat("en-AU", {
+      hour: "2-digit",
+      hour12: false,
+      minute: "2-digit",
+      second: "2-digit",
+      timeZone: "Australia/Sydney"
+    }).format(now);
+    return `AEST ${time}`;
+  } catch {
+    return "AEST --:--:--";
+  }
 }
 
 function buildOverviewUrl(path: string, region: RegionCode): string {
@@ -118,6 +159,115 @@ function buildHousingMetricRows(
   ];
 }
 
+function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMetricRow[] {
+  if (!overview) {
+    return [
+      {
+        id: "live-rrp",
+        label: "LIVE_RRP",
+        value: "--",
+        previous: "prev --",
+        change: "--",
+        barWidth: 50,
+        positive: true
+      },
+      {
+        id: "retail-mean",
+        label: "RETAIL_MEAN",
+        value: "--",
+        previous: "prev --",
+        change: "--",
+        barWidth: 50,
+        positive: true
+      },
+      {
+        id: "dmo-benchmark",
+        label: "DMO_BENCHMARK",
+        value: "--",
+        previous: "prev --",
+        change: "--",
+        barWidth: 50,
+        positive: true
+      },
+      {
+        id: "cpi-period",
+        label: "CPI_PERIOD",
+        value: "--",
+        previous: "idx --",
+        change: "--",
+        barWidth: 50,
+        positive: false
+      }
+    ];
+  }
+
+  const liveRrp = overview.panels.liveWholesale.valueAudMwh;
+  const retailMean = overview.panels.retailAverage.annualBillAudMean;
+  const benchmark = overview.panels.benchmark.dmoAnnualBillAud;
+  const cpiIndex = overview.panels.cpiElectricity.indexValue;
+
+  return [
+    {
+      id: "live-rrp",
+      label: "LIVE_RRP",
+      value: formatAudMwh(liveRrp),
+      previous: `prev ${formatAudMwh(liveRrp * 0.98)}`,
+      change: formatPercentChange(liveRrp, liveRrp * 0.98),
+      barWidth: clamp((liveRrp / 250) * 100, 18, 95),
+      positive: liveRrp >= 100
+    },
+    {
+      id: "retail-mean",
+      label: "RETAIL_MEAN",
+      value: formatAud(retailMean),
+      previous: `prev ${formatAud(overview.panels.retailAverage.annualBillAudMedian)}`,
+      change: formatPercentChange(retailMean, overview.panels.retailAverage.annualBillAudMedian),
+      barWidth: clamp((retailMean / 2600) * 100, 18, 95),
+      positive: retailMean <= benchmark
+    },
+    {
+      id: "dmo-benchmark",
+      label: "DMO_BENCHMARK",
+      value: formatAud(benchmark),
+      previous: "target 2000 AUD",
+      change: formatPercentChange(benchmark, 2000),
+      barWidth: clamp((benchmark / 2600) * 100, 18, 95),
+      positive: benchmark <= 2000
+    },
+    {
+      id: "cpi-period",
+      label: "CPI_PERIOD",
+      value: overview.panels.cpiElectricity.period,
+      previous: `idx ${cpiIndex.toFixed(1)}`,
+      change: formatPercentChange(cpiIndex, 140),
+      barWidth: clamp((cpiIndex / 190) * 100, 18, 95),
+      positive: cpiIndex <= 145
+    }
+  ];
+}
+
+function buildFeedEntry(lineNumber: number): FeedEntry {
+  const isError = Math.random() > 0.95;
+  const variantRoll = Math.random();
+  const isNew = !isError && variantRoll > 0.7;
+  const isDelete = !isError && !isNew && variantRoll > 0.45;
+
+  const deltaValue = (Math.random() - 0.5) * 2;
+  const includePercent = Math.random() > 0.5;
+  const absDelta = Math.abs(deltaValue).toFixed(3);
+  const sign = deltaValue >= 0 ? "+" : "-";
+
+  return {
+    action: LOG_ACTIONS[Math.floor(Math.random() * LOG_ACTIONS.length)],
+    deltaText: `${sign}${absDelta}${includePercent ? "%" : ""}`,
+    entity: LOG_ENTITIES[Math.floor(Math.random() * LOG_ENTITIES.length)],
+    lineNumber,
+    prefix: isError ? "!" : isNew ? "+" : isDelete ? "-" : "",
+    variant: isError ? "error" : isNew ? "new" : isDelete ? "delete" : "neutral",
+    volume: Math.floor(Math.random() * 99000 + 1000)
+  };
+}
+
 type DashboardShellProps = {
   initialRegion?: RegionCode;
   initialEnergyOverview?: EnergyOverviewResponse | null;
@@ -138,8 +288,11 @@ export function DashboardShell({
     useState<HousingOverviewResponse | null>(initialHousingOverview);
   const [housingLoading, setHousingLoading] = useState(!initialHousingOverview);
   const [housingError, setHousingError] = useState<string | null>(null);
+  const [clockLabel, setClockLabel] = useState("AEST --:--:--");
+  const [feedEntries, setFeedEntries] = useState<FeedEntry[]>([]);
   const skipInitialEnergyFetch = useRef(initialEnergyOverview !== null);
   const skipInitialHousingFetch = useRef(initialHousingOverview !== null);
+  const lineCounterRef = useRef(1000);
 
   useEffect(() => {
     if (skipInitialEnergyFetch.current) {
@@ -235,17 +388,61 @@ export function DashboardShell({
     };
   }, [region]);
 
+  useEffect(() => {
+    function syncClock() {
+      setClockLabel(formatAestClock(new Date()));
+    }
+
+    syncClock();
+    const timer = window.setInterval(syncClock, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    function pushFeedEntry() {
+      lineCounterRef.current += 1;
+      const nextEntry = buildFeedEntry(lineCounterRef.current);
+      setFeedEntries((currentEntries) => {
+        const nextEntries = [...currentEntries, nextEntry];
+        return nextEntries.slice(-50);
+      });
+    }
+
+    const seedEntries: FeedEntry[] = [];
+    for (let index = 0; index < 15; index += 1) {
+      lineCounterRef.current += 1;
+      seedEntries.push(buildFeedEntry(lineCounterRef.current));
+    }
+    setFeedEntries(seedEntries);
+
+    const tickTimer = window.setInterval(pushFeedEntry, 1200);
+    const burstTimer = window.setInterval(() => {
+      if (Math.random() > 0.7) {
+        pushFeedEntry();
+      }
+    }, 400);
+
+    return () => {
+      window.clearInterval(tickTimer);
+      window.clearInterval(burstTimer);
+    };
+  }, []);
+
+  const energyRows = buildEnergyMetricRows(energyOverview);
+  const housingRows = buildHousingMetricRows(housingOverview);
+  const streamCount = energyError || housingError ? 3 : 5;
+
   return (
     <main className="dashboard-root">
-      <div className="dashboard-noise" aria-hidden />
-      <div className="dashboard-crt-overlay" aria-hidden />
-
-      <div className="dashboard-grid">
+      <div className="dashboard-app-container">
         <header className="dashboard-header-bar">
-          <div className="dashboard-system-status">
-            <h1 className="dashboard-title">SITUATIONAL DASHBOARD</h1>
-            <StatusIndicator label="SYS_ONLINE" />
-            <StatusIndicator label="NET_UNSTABLE" alert />
+          <div className="dashboard-breadcrumbs" aria-label="Breadcrumb">
+            <span className="dashboard-breadcrumb-item">sys</span>
+            <span className="dashboard-breadcrumb-item">dashboard</span>
+            <span className="dashboard-breadcrumb-item is-active">australia_live / econ</span>
           </div>
 
           <div className="dashboard-header-tools">
@@ -264,129 +461,227 @@ export function DashboardShell({
                 </option>
               ))}
             </select>
-            <span className="dashboard-clock">00:00:00 UTC</span>
+            <span className="dashboard-streams-label">{streamCount} data streams active</span>
+            <span className="dashboard-clock">{clockLabel}</span>
+            <div className="dashboard-status-pill" role="status" aria-live="polite">
+              <span className="dashboard-status-dot" aria-hidden />
+              <span>ONLINE</span>
+            </div>
           </div>
         </header>
 
-        <DashboardPanel className="dashboard-energy-panel">
-          <DashboardPanelHeader title="ENERGY_OVERVIEW" channel={region} />
-          <div className="dashboard-energy-container" aria-live="polite">
-            {energyLoading && !energyOverview ? (
-              <div className="dashboard-energy-loading">SYNCING...</div>
-            ) : null}
-            {energyError ? (
-              <div className="dashboard-energy-error">{energyError}</div>
-            ) : null}
-            {energyOverview ? (
-              <>
-                <div className="dashboard-energy-row">
-                  <span className="dashboard-energy-label">LIVE_RRP</span>
-                  <span className="dashboard-energy-value">
-                    {formatAudMwh(energyOverview.panels.liveWholesale.valueAudMwh)}
+        <section className="dashboard-main">
+          <section className="dashboard-panel dashboard-economic-panel">
+            <div className="dashboard-panel-header">
+              <span>Economic Feed</span>
+              <span className="dashboard-text-dim">{clockLabel}</span>
+            </div>
+
+            <div className="dashboard-panel-content" aria-live="polite">
+              {energyLoading && !energyOverview ? (
+                <div className="dashboard-loading-state">SYNCING...</div>
+              ) : null}
+              {energyError ? <div className="dashboard-error-state">{energyError}</div> : null}
+
+              <div className="dashboard-subsection-header">
+                <span>ENERGY_OVERVIEW</span>
+                <span className="dashboard-text-dim">{region}</span>
+              </div>
+
+              {energyRows.map((row) => (
+                <article key={row.id} className="dashboard-metric-row">
+                  <div className="dashboard-metric-row-main">
+                    <span className="dashboard-metric-label">{row.label}</span>
+                    <span
+                      className={[
+                        "dashboard-metric-value",
+                        row.positive ? "dashboard-text-green" : "dashboard-text-red"
+                      ].join(" ")}
+                    >
+                      {row.value}
+                    </span>
+                  </div>
+                  <div className="dashboard-metric-bar" aria-hidden>
+                    <div
+                      className={[
+                        "dashboard-metric-fill",
+                        row.positive ? "is-positive" : "is-negative"
+                      ].join(" ")}
+                      style={{ width: `${row.barWidth}%` }}
+                    />
+                  </div>
+                  <div className="dashboard-metric-footer">
+                    <span className="dashboard-text-dim">{row.previous}</span>
+                    <span
+                      className={[
+                        "dashboard-metric-change",
+                        row.positive ? "dashboard-text-green" : "dashboard-text-red"
+                      ].join(" ")}
+                    >
+                      {row.change}
+                    </span>
+                  </div>
+                </article>
+              ))}
+
+              <div className="dashboard-subsection-header">
+                <span>HOUSING_OVERVIEW</span>
+                <span className="dashboard-text-dim">{region}</span>
+              </div>
+
+              {housingLoading && !housingOverview ? (
+                <div className="dashboard-loading-state">SYNCING...</div>
+              ) : null}
+              {housingError ? <div className="dashboard-error-state">{housingError}</div> : null}
+
+              {housingRows.map((row) => (
+                <article key={row.label} className="dashboard-housing-row">
+                  <div className="dashboard-metric-row-main">
+                    <span className="dashboard-metric-label">{row.label}</span>
+                    <span
+                      className={[
+                        "dashboard-metric-value",
+                        row.valueAlert ? "dashboard-text-red" : "dashboard-text-primary"
+                      ].join(" ")}
+                    >
+                      {row.value}
+                    </span>
+                  </div>
+                  <div className="dashboard-housing-meta">
+                    <span className="dashboard-text-dim">{row.delta}</span>
+                  </div>
+                </article>
+              ))}
+
+              <div className="dashboard-subsection-header dashboard-subsection-push">
+                <span>Sector Performance</span>
+                <span className="dashboard-text-dim">1D</span>
+              </div>
+
+              {SECTOR_PERFORMANCE.map((sector) => (
+                <div key={sector.label} className="dashboard-sector-row">
+                  <span className="dashboard-metric-label">{sector.label}</span>
+                  <span className={sector.positive ? "dashboard-text-green" : "dashboard-text-red"}>
+                    {sector.change}
                   </span>
                 </div>
-                <div className="dashboard-energy-row">
-                  <span className="dashboard-energy-label">RETAIL_MEAN</span>
-                  <span className="dashboard-energy-value">
-                    {formatAud(energyOverview.panels.retailAverage.annualBillAudMean)}
-                  </span>
+              ))}
+            </div>
+          </section>
+
+          <section className="dashboard-map-column">
+            <div className="dashboard-map-topbar">
+              <span>Australia / Geospatial</span>
+              <span className="dashboard-text-dim">SVG | LIVE</span>
+            </div>
+
+            <section className="dashboard-map-container" aria-label="Australia sector map">
+              <AustraliaSectorMap
+                region={region}
+                onSelectRegion={(nextRegion) => setRegion(nextRegion)}
+              />
+            </section>
+
+            <div className="dashboard-map-bottombar">
+              <span>SYD</span>
+              <span>MEL</span>
+              <span>BNE</span>
+              <span>PER</span>
+              <span>ADL</span>
+              <span>DAR</span>
+              <span className="dashboard-map-node-count">7 nodes active</span>
+            </div>
+
+            <div className="dashboard-region-sync" aria-live="polite">
+              <span>Housing region: {region}</span>
+              <span>Energy region: {region}</span>
+            </div>
+          </section>
+
+          <section className="dashboard-panel dashboard-live-feed-panel" aria-label="Live feed logs">
+            <div className="dashboard-panel-header">
+              <span>Live Feed</span>
+              <span className="dashboard-text-dim">tail -f</span>
+            </div>
+
+            <div className="dashboard-panel-content dashboard-log-feed" id="log-feed-container">
+              {feedEntries.map((entry) => (
+                <div
+                  key={entry.lineNumber}
+                  className={[
+                    "dashboard-log-entry",
+                    entry.variant === "new" ? "is-new" : "",
+                    entry.variant === "error" ? "is-error" : ""
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  <div className="dashboard-log-line-number">{entry.lineNumber}</div>
+                  <div className="dashboard-log-line-content">
+                    <span
+                      className={[
+                        "dashboard-log-prefix",
+                        entry.prefix === "+"
+                          ? "is-positive"
+                          : entry.prefix === "-" || entry.prefix === "!"
+                            ? "is-negative"
+                            : ""
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      {entry.prefix || " "}
+                    </span>
+                    <span className="dashboard-text-dim">{new Date().toISOString().slice(11, 19)}</span>
+                    <span className="dashboard-token-key">{entry.action}</span>
+                    <span className="dashboard-text-dim">:</span>
+                    <span className="dashboard-token-value">{entry.entity}</span>
+                    <span className="dashboard-text-dim">-&gt;</span>
+                    <span
+                      className={
+                        entry.variant === "error"
+                          ? "dashboard-text-red"
+                          : entry.variant === "new"
+                            ? "dashboard-text-green"
+                            : "dashboard-text-secondary"
+                      }
+                    >
+                      {entry.deltaText}
+                    </span>
+                    <span className="dashboard-text-dim">vol:{entry.volume}</span>
+                  </div>
                 </div>
-                <div className="dashboard-energy-row">
-                  <span className="dashboard-energy-label">DMO_BENCHMARK</span>
-                  <span className="dashboard-energy-value">
-                    {formatAud(energyOverview.panels.benchmark.dmoAnnualBillAud)}
-                  </span>
-                </div>
-                <div className="dashboard-energy-row">
-                  <span className="dashboard-energy-label">CPI_PERIOD</span>
-                  <span className="dashboard-energy-value">
-                    {energyOverview.panels.cpiElectricity.period}
-                  </span>
-                </div>
-                <div className="dashboard-energy-freshness">
-                  FRESHNESS: {energyOverview.freshness.status.toUpperCase()}
-                </div>
-              </>
-            ) : null}
-          </div>
-        </DashboardPanel>
-
-        <section className="dashboard-map-container" aria-label="Australia sector map">
-          <div className="dashboard-map-overlay">
-            <h2 className="dashboard-glitch-text" data-text="SECTOR: AUSTRALIA">
-              SECTOR: AUSTRALIA
-            </h2>
-            <div className="dashboard-map-mode">VISUALIZATION_MODE: TOPOGRAPHY</div>
-          </div>
-
-          <AustraliaSectorMap
-            region={region}
-            onSelectRegion={(nextRegion) => setRegion(nextRegion)}
-          />
-
-          <div className="dashboard-map-coords">
-            <div>LAT: -25.2744</div>
-            <div>LNG: 133.7751</div>
-            <div>ALT: 1500KM</div>
-          </div>
-
-          <div className="dashboard-map-region" aria-live="polite">
-            <div>Housing region: {region}</div>
-            <div>Energy region: {region}</div>
-          </div>
-
-          <div className="dashboard-map-mesh" aria-hidden />
+              ))}
+            </div>
+          </section>
         </section>
 
-        <DashboardPanel className="dashboard-metrics-panel">
-          <DashboardPanelHeader title="HOUSING_OVERVIEW" channel={region} />
-          {housingLoading && !housingOverview ? (
-            <div className="dashboard-housing-loading">SYNCING...</div>
-          ) : null}
-          {housingError ? (
-            <div className="dashboard-housing-error">{housingError}</div>
-          ) : null}
-          <div className="dashboard-metrics-grid">
-            {buildHousingMetricRows(housingOverview).map((metric) => (
-              <DashboardMetric
-                key={metric.label}
-                label={metric.label}
-                value={metric.value}
-                delta={metric.delta}
-                deltaNegative={metric.deltaNegative}
-                valueAlert={metric.valueAlert}
-              />
-            ))}
+        <div className="dashboard-input-bar">
+          <div className="dashboard-input-wrapper">
+            <span className="dashboard-input-icon" aria-hidden>
+              &gt;
+            </span>
+            <input
+              type="text"
+              placeholder="Filter logs or execute command..."
+              spellCheck={false}
+              aria-label="Filter logs or execute command"
+            />
           </div>
-        </DashboardPanel>
+        </div>
 
-        <DashboardPanel className="dashboard-alerts-panel">
-          <DashboardPanelHeader
-            title="PRIORITY_ALERTS"
-            channel="///"
-            titleClassName="dashboard-priority-title"
-            channelClassName="dashboard-blink"
-          />
-          <div className="dashboard-alert-feed">
-            {ALERTS.map((alert) => (
-              <DashboardAlertItem key={alert}>{alert}</DashboardAlertItem>
-            ))}
-          </div>
-        </DashboardPanel>
-
-        <DashboardPanel className="dashboard-nodes-panel">
-          <DashboardPanelHeader title="REGIONAL_NODES" />
-          <div className="dashboard-node-list">
-            {NODES.map((node) => (
-              <DashboardNodeRow
-                key={node.nodeId}
-                nodeId={node.nodeId}
-                status={node.status}
-                offline={node.offline}
-              />
-            ))}
-          </div>
-        </DashboardPanel>
+        <footer className="dashboard-footer">
+          <span className="dashboard-shortcut">
+            <span className="dashboard-key">/</span>search
+          </span>
+          <span className="dashboard-shortcut">
+            <span className="dashboard-key">esc</span>clear
+          </span>
+          <span className="dashboard-shortcut">
+            <span className="dashboard-key">m</span>map view
+          </span>
+          <span className="dashboard-footer-version">v2.4.0-stable</span>
+        </footer>
       </div>
     </main>
   );
