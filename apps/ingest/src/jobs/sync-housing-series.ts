@@ -1,5 +1,6 @@
 import {
   appendIngestionRun,
+  createSeedLiveStore,
   readLiveStoreSync,
   setSourceCursor,
   stageRawPayload,
@@ -10,6 +11,14 @@ import {
   fetchAbsHousingSnapshot,
   type SourceFetch
 } from "../sources/live-source-clients";
+import { resolveIngestBackend } from "../repositories/ingest-backend";
+import {
+  appendIngestionRunInPostgres,
+  ensureSourceCatalogInPostgres,
+  setSourceCursorInPostgres,
+  stageRawPayloadInPostgres,
+  upsertObservationsInPostgres
+} from "../repositories/postgres-ingest-repository";
 
 export type SyncResult = {
   job: "sync-housing-series";
@@ -24,6 +33,7 @@ type SyncHousingSeriesOptions = {
   sourceMode?: "fixture" | "live";
   absEndpoint?: string;
   fetchImpl?: SourceFetch;
+  ingestBackend?: "store" | "postgres";
 };
 
 const HOUSING_FIXTURE = [
@@ -89,6 +99,9 @@ export async function syncHousingSeries(
   options: SyncHousingSeriesOptions = {}
 ): Promise<SyncResult> {
   const startedAt = new Date().toISOString();
+  const ingestBackend = resolveIngestBackend(
+    options.ingestBackend ?? process.env.AUS_DASH_INGEST_BACKEND
+  );
   const useLiveSource =
     options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
   let sourceRows = [...HOUSING_FIXTURE];
@@ -108,13 +121,6 @@ export async function syncHousingSeries(
     rawPayload = liveSnapshot.rawPayload;
   }
 
-  const store = readLiveStoreSync(options.storePath);
-  stageRawPayload(store, {
-    sourceId: "abs_housing",
-    payload: rawPayload,
-    contentType: "application/json",
-    capturedAt: new Date().toISOString()
-  });
   const observations = sourceRows.map((observation) => ({
     ...observation,
     sourceName: "ABS",
@@ -126,17 +132,45 @@ export async function syncHousingSeries(
     isModeled: false,
     confidence: "official" as const
   }));
-  const upsertResult = upsertObservations(store, observations);
-  setSourceCursor(store, "abs_housing", "2025-12-31");
-  appendIngestionRun(store, {
-    job: "sync-housing-abs-daily",
-    status: "ok",
-    startedAt,
-    finishedAt: new Date().toISOString(),
-    rowsInserted: upsertResult.inserted,
-    rowsUpdated: upsertResult.updated
-  });
-  writeLiveStoreSync(store, options.storePath);
+  let upsertResult: { inserted: number; updated: number };
+  if (ingestBackend === "postgres") {
+    await ensureSourceCatalogInPostgres(createSeedLiveStore().sources);
+    await stageRawPayloadInPostgres({
+      sourceId: "abs_housing",
+      payload: rawPayload,
+      contentType: "application/json",
+      capturedAt: new Date().toISOString()
+    });
+    upsertResult = await upsertObservationsInPostgres(observations);
+    await setSourceCursorInPostgres("abs_housing", "2025-12-31");
+    await appendIngestionRunInPostgres({
+      job: "sync-housing-abs-daily",
+      status: "ok",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      rowsInserted: upsertResult.inserted,
+      rowsUpdated: upsertResult.updated
+    });
+  } else {
+    const store = readLiveStoreSync(options.storePath);
+    stageRawPayload(store, {
+      sourceId: "abs_housing",
+      payload: rawPayload,
+      contentType: "application/json",
+      capturedAt: new Date().toISOString()
+    });
+    upsertResult = upsertObservations(store, observations);
+    setSourceCursor(store, "abs_housing", "2025-12-31");
+    appendIngestionRun(store, {
+      job: "sync-housing-abs-daily",
+      status: "ok",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      rowsInserted: upsertResult.inserted,
+      rowsUpdated: upsertResult.updated
+    });
+    writeLiveStoreSync(store, options.storePath);
+  }
 
   return {
     job: "sync-housing-series",

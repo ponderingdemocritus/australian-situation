@@ -1,15 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import {
-  getEnergyLiveWholesaleFromStore,
-  getEnergyOverviewFromStore,
-  getEnergyRetailAverageFromStore,
-  getHousingOverviewFromStore,
-  getSeriesFromStore,
-  getMetadataFreshnessFromStore,
-  getMetadataSourcesFromStore,
-  SeriesStoreQueryError
-} from "./repositories/live-store-repository";
+import { createLiveDataRepository } from "./repositories/live-data-repository";
+import { SeriesRepositoryError } from "./repositories/series-repository-error";
 
 export const app = new Hono();
 
@@ -45,23 +37,25 @@ app.get("/api/health", (c) => {
   return c.json({ status: "ok", service: "aus-dash-api" });
 });
 
-app.get("/api/housing/overview", (c) => {
+app.get("/api/housing/overview", async (c) => {
   const region = c.req.query("region") ?? "AU";
-  const overview = getHousingOverviewFromStore(region);
+  const repository = createLiveDataRepository();
+  const overview = await repository.getHousingOverview(region);
   return c.json(overview);
 });
 
-app.get("/api/series/:id", (c) => {
+app.get("/api/series/:id", async (c) => {
   const seriesId = c.req.param("id");
   const region = c.req.query("region") ?? "AU";
   const from = c.req.query("from");
   const to = c.req.query("to");
+  const repository = createLiveDataRepository();
 
   try {
-    const result = getSeriesFromStore({ seriesId, region, from, to });
+    const result = await repository.getSeries({ seriesId, region, from, to });
     return c.json(result);
   } catch (error) {
-    if (error instanceof SeriesStoreQueryError) {
+    if (error instanceof SeriesRepositoryError) {
       return c.json(
         {
           error: {
@@ -77,9 +71,10 @@ app.get("/api/series/:id", (c) => {
   }
 });
 
-app.get("/api/energy/live-wholesale", (c) => {
+app.get("/api/energy/live-wholesale", async (c) => {
   const region = c.req.query("region") ?? "AU";
   const window = c.req.query("window") ?? "5m";
+  const repository = createLiveDataRepository();
 
   if (!ENERGY_WHOLESALE_SUPPORTED_REGIONS.has(region)) {
     return c.json(
@@ -106,13 +101,14 @@ app.get("/api/energy/live-wholesale", (c) => {
   }
 
   return c.json(
-    getEnergyLiveWholesaleFromStore(region, window as "5m" | "1h" | "24h")
+    await repository.getEnergyLiveWholesale(region, window as "5m" | "1h" | "24h")
   );
 });
 
-app.get("/api/energy/retail-average", (c) => {
+app.get("/api/energy/retail-average", async (c) => {
   const region = c.req.query("region") ?? "AU";
   const customerType = c.req.query("customer_type") ?? "residential";
+  const repository = createLiveDataRepository();
 
   if (!ENERGY_RETAIL_SUPPORTED_REGIONS.has(region)) {
     return c.json(
@@ -127,13 +123,14 @@ app.get("/api/energy/retail-average", (c) => {
   }
 
   return c.json({
-    ...getEnergyRetailAverageFromStore(region),
+    ...(await repository.getEnergyRetailAverage(region)),
     customerType
   });
 });
 
-app.get("/api/energy/overview", (c) => {
+app.get("/api/energy/overview", async (c) => {
   const region = c.req.query("region") ?? "AU";
+  const repository = createLiveDataRepository();
   if (!ENERGY_OVERVIEW_SUPPORTED_REGIONS.has(region)) {
     return c.json(
       {
@@ -146,18 +143,20 @@ app.get("/api/energy/overview", (c) => {
     );
   }
 
-  return c.json(getEnergyOverviewFromStore(region));
+  return c.json(await repository.getEnergyOverview(region));
 });
 
-app.get("/api/metadata/freshness", (c) => {
-  return c.json(getMetadataFreshnessFromStore());
+app.get("/api/metadata/freshness", async (c) => {
+  const repository = createLiveDataRepository();
+  return c.json(await repository.getMetadataFreshness());
 });
 
-app.get("/api/metadata/sources", (c) => {
-  return c.json(getMetadataSourcesFromStore());
+app.get("/api/metadata/sources", async (c) => {
+  const repository = createLiveDataRepository();
+  return c.json(await repository.getMetadataSources());
 });
 
-app.get("/api/energy/household-estimate", (c) => {
+app.get("/api/energy/household-estimate", async (c) => {
   const flagEnabled = process.env[ENERGY_HOUSEHOLD_ESTIMATE_ENV_KEY] === "true";
   if (!flagEnabled) {
     return c.json(
@@ -173,6 +172,7 @@ app.get("/api/energy/household-estimate", (c) => {
 
   const region = c.req.query("region") ?? "AU";
   const usageProfile = c.req.query("usage_profile") ?? "default";
+  const repository = createLiveDataRepository();
   if (!ENERGY_RETAIL_SUPPORTED_REGIONS.has(region)) {
     return c.json(
       {
@@ -185,7 +185,7 @@ app.get("/api/energy/household-estimate", (c) => {
     );
   }
 
-  const retail = getEnergyRetailAverageFromStore(region);
+  const retail = await repository.getEnergyRetailAverage(region);
 
   return c.json({
     region,

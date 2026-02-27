@@ -1,5 +1,6 @@
 import {
   appendIngestionRun,
+  createSeedLiveStore,
   readLiveStoreSync,
   setSourceCursor,
   stageRawPayload,
@@ -14,6 +15,14 @@ import {
   fetchAerRetailPlansSnapshot,
   type SourceFetch
 } from "../sources/live-source-clients";
+import { resolveIngestBackend } from "../repositories/ingest-backend";
+import {
+  appendIngestionRunInPostgres,
+  ensureSourceCatalogInPostgres,
+  setSourceCursorInPostgres,
+  stageRawPayloadInPostgres,
+  upsertObservationsInPostgres
+} from "../repositories/postgres-ingest-repository";
 
 export type SyncEnergyRetailPlansResult = {
   job: "sync-energy-retail-plans";
@@ -81,12 +90,16 @@ type SyncEnergyRetailPlansOptions = {
   sourceMode?: "fixture" | "live";
   aerEndpoint?: string;
   fetchImpl?: SourceFetch;
+  ingestBackend?: "store" | "postgres";
 };
 
 export async function syncEnergyRetailPlans(
   options: SyncEnergyRetailPlansOptions = {}
 ): Promise<SyncEnergyRetailPlansResult> {
   const startedAt = new Date().toISOString();
+  const ingestBackend = resolveIngestBackend(
+    options.ingestBackend ?? process.env.AUS_DASH_INGEST_BACKEND
+  );
   const useLiveSource =
     options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
   let plans = PLAN_FIXTURE;
@@ -105,13 +118,6 @@ export async function syncEnergyRetailPlans(
   const annualBillAudMean = mean(annualBills);
   const annualBillAudMedian = median(annualBills);
 
-  const store = readLiveStoreSync(options.storePath);
-  stageRawPayload(store, {
-    sourceId: "aer_prd",
-    payload: rawPayload,
-    contentType: "application/json",
-    capturedAt: new Date().toISOString()
-  });
   const observations = [
     {
       seriesId: "energy.retail.offer.annual_bill_aud.mean",
@@ -142,17 +148,45 @@ export async function syncEnergyRetailPlans(
       confidence: "official" as const
     }
   ];
-  const upsertResult = upsertObservations(store, observations);
-  setSourceCursor(store, "aer_prd", "2026-02-27");
-  appendIngestionRun(store, {
-    job: "sync-energy-retail-prd-hourly",
-    status: "ok",
-    startedAt,
-    finishedAt: new Date().toISOString(),
-    rowsInserted: upsertResult.inserted,
-    rowsUpdated: upsertResult.updated
-  });
-  writeLiveStoreSync(store, options.storePath);
+  let upsertResult: { inserted: number; updated: number };
+  if (ingestBackend === "postgres") {
+    await ensureSourceCatalogInPostgres(createSeedLiveStore().sources);
+    await stageRawPayloadInPostgres({
+      sourceId: "aer_prd",
+      payload: rawPayload,
+      contentType: "application/json",
+      capturedAt: new Date().toISOString()
+    });
+    upsertResult = await upsertObservationsInPostgres(observations);
+    await setSourceCursorInPostgres("aer_prd", "2026-02-27");
+    await appendIngestionRunInPostgres({
+      job: "sync-energy-retail-prd-hourly",
+      status: "ok",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      rowsInserted: upsertResult.inserted,
+      rowsUpdated: upsertResult.updated
+    });
+  } else {
+    const store = readLiveStoreSync(options.storePath);
+    stageRawPayload(store, {
+      sourceId: "aer_prd",
+      payload: rawPayload,
+      contentType: "application/json",
+      capturedAt: new Date().toISOString()
+    });
+    upsertResult = upsertObservations(store, observations);
+    setSourceCursor(store, "aer_prd", "2026-02-27");
+    appendIngestionRun(store, {
+      job: "sync-energy-retail-prd-hourly",
+      status: "ok",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      rowsInserted: upsertResult.inserted,
+      rowsUpdated: upsertResult.updated
+    });
+    writeLiveStoreSync(store, options.storePath);
+  }
 
   return {
     job: "sync-energy-retail-plans",

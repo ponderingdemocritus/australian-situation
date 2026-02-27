@@ -12,8 +12,10 @@
     "apps/api": {
       "name": "@aus-dash/api",
       "dependencies": {
+        "@aus-dash/db": "workspace:*",
         "@aus-dash/shared": "workspace:*",
         "@hono/node-server": "^1.13.7",
+        "drizzle-orm": "^0.36.4",
         "hono": "^4.6.12",
       },
       "devDependencies": {
@@ -23,7 +25,9 @@
     "apps/ingest": {
       "name": "@aus-dash/ingest",
       "dependencies": {
+        "@aus-dash/db": "workspace:*",
         "@aus-dash/shared": "workspace:*",
+        "drizzle-orm": "^0.36.4",
       },
       "devDependencies": {
         "vitest": "^2.1.9",

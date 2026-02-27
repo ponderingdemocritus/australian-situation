@@ -64,6 +64,21 @@ Start all apps:
 bun run dev:all
 ```
 
+One command to start infra + migrate + backfill + build + run all services:
+
+```bash
+bun run up:all
+```
+
+Useful infra commands:
+
+```bash
+bun run infra:status
+bun run infra:down
+```
+
+Default local Postgres host port for the one-command stack is `5433` (to avoid common `5432` conflicts). Override with `POSTGRES_PORT`.
+
 Or start individually:
 
 ```bash
@@ -125,3 +140,6 @@ Read these for roadmap and implementation detail:
 3. `docs/tdd-plan-housing-energy-v1.md`
 4. `docs/prd-live-ingestion-v1.md`
 5. `docs/tdd-plan-live-ingestion-v1.md`
+6. `docs/prd-postgres-drizzle-migration-v1.md`
+7. `docs/tdd-plan-postgres-drizzle-migration-v1.md`
+8. `docs/postgres-drizzle-implementation-checklist.md`

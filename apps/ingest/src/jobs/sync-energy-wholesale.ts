@@ -1,5 +1,6 @@
 import {
   appendIngestionRun,
+  createSeedLiveStore,
   readLiveStoreSync,
   setSourceCursor,
   stageRawPayload,
@@ -10,6 +11,14 @@ import {
   fetchAemoWholesaleSnapshot,
   type SourceFetch
 } from "../sources/live-source-clients";
+import { resolveIngestBackend } from "../repositories/ingest-backend";
+import {
+  appendIngestionRunInPostgres,
+  ensureSourceCatalogInPostgres,
+  setSourceCursorInPostgres,
+  stageRawPayloadInPostgres,
+  upsertObservationsInPostgres
+} from "../repositories/postgres-ingest-repository";
 
 type WholesalePoint = {
   regionCode: string;
@@ -62,12 +71,16 @@ type SyncEnergyWholesaleOptions = {
   sourceMode?: "fixture" | "live";
   aemoEndpoint?: string;
   fetchImpl?: SourceFetch;
+  ingestBackend?: "store" | "postgres";
 };
 
 export async function syncEnergyWholesale(
   options: SyncEnergyWholesaleOptions = {}
 ): Promise<SyncEnergyWholesaleResult> {
   const startedAt = new Date().toISOString();
+  const ingestBackend = resolveIngestBackend(
+    options.ingestBackend ?? process.env.AUS_DASH_INGEST_BACKEND
+  );
   const useLiveSource =
     options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
   const sourcePayload =
@@ -113,13 +126,6 @@ export async function syncEnergyWholesale(
     throw new Error("no wholesale points to ingest");
   }
 
-  const store = readLiveStoreSync(options.storePath);
-  stageRawPayload(store, {
-    sourceId: "aemo_wholesale",
-    payload: rawPayload,
-    contentType: "text/csv",
-    capturedAt: new Date().toISOString()
-  });
   const observations = aggregatedPoints.map((point) => ({
     seriesId: "energy.wholesale.rrp.au_weighted_aud_mwh",
     regionCode: "AU",
@@ -135,18 +141,46 @@ export async function syncEnergyWholesale(
     isModeled: false,
     confidence: "official" as const
   }));
+  let upsertResult: { inserted: number; updated: number };
 
-  const upsertResult = upsertObservations(store, observations);
-  setSourceCursor(store, "aemo_wholesale", latest.timestamp);
-  appendIngestionRun(store, {
-    job: "sync-energy-wholesale-5m",
-    status: "ok",
-    startedAt,
-    finishedAt: new Date().toISOString(),
-    rowsInserted: upsertResult.inserted,
-    rowsUpdated: upsertResult.updated
-  });
-  writeLiveStoreSync(store, options.storePath);
+  if (ingestBackend === "postgres") {
+    await ensureSourceCatalogInPostgres(createSeedLiveStore().sources);
+    await stageRawPayloadInPostgres({
+      sourceId: "aemo_wholesale",
+      payload: rawPayload,
+      contentType: "text/csv",
+      capturedAt: new Date().toISOString()
+    });
+    upsertResult = await upsertObservationsInPostgres(observations);
+    await setSourceCursorInPostgres("aemo_wholesale", latest.timestamp);
+    await appendIngestionRunInPostgres({
+      job: "sync-energy-wholesale-5m",
+      status: "ok",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      rowsInserted: upsertResult.inserted,
+      rowsUpdated: upsertResult.updated
+    });
+  } else {
+    const store = readLiveStoreSync(options.storePath);
+    stageRawPayload(store, {
+      sourceId: "aemo_wholesale",
+      payload: rawPayload,
+      contentType: "text/csv",
+      capturedAt: new Date().toISOString()
+    });
+    upsertResult = upsertObservations(store, observations);
+    setSourceCursor(store, "aemo_wholesale", latest.timestamp);
+    appendIngestionRun(store, {
+      job: "sync-energy-wholesale-5m",
+      status: "ok",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      rowsInserted: upsertResult.inserted,
+      rowsUpdated: upsertResult.updated
+    });
+    writeLiveStoreSync(store, options.storePath);
+  }
 
   return {
     job: "sync-energy-wholesale",

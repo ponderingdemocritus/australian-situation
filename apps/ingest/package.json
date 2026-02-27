@@ -5,10 +5,13 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
+    "backfill:store-to-postgres": "bun src/scripts/backfill-store-to-postgres.ts",
     "test": "vitest run"
   },
   "dependencies": {
-    "@aus-dash/shared": "workspace:*"
+    "@aus-dash/db": "workspace:*",
+    "@aus-dash/shared": "workspace:*",
+    "drizzle-orm": "^0.36.4"
   },
   "devDependencies": {
     "vitest": "^2.1.9"

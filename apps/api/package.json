@@ -8,7 +8,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aus-dash/db": "workspace:*",
     "@aus-dash/shared": "workspace:*",
+    "drizzle-orm": "^0.36.4",
     "@hono/node-server": "^1.13.7",
     "hono": "^4.6.12"
   },

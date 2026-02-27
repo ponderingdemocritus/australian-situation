@@ -1,4 +1,5 @@
 import { readLiveStoreSync, type LiveObservation } from "@aus-dash/shared";
+import { SeriesRepositoryError } from "./series-repository-error";
 
 const SUPPORTED_REGIONS = new Set([
   "AU",
@@ -49,19 +50,6 @@ type QuerySeriesInput = {
   to?: string;
   storePath?: string;
 };
-
-export type SeriesQueryErrorCode = "UNSUPPORTED_REGION" | "UNKNOWN_SERIES_ID";
-
-export class SeriesStoreQueryError extends Error {
-  readonly code: SeriesQueryErrorCode;
-  readonly status: number;
-
-  constructor(code: SeriesQueryErrorCode, message: string, status: number) {
-    super(message);
-    this.code = code;
-    this.status = status;
-  }
-}
 
 function sortByDateDesc<T extends { date: string }>(values: T[]): T[] {
   return [...values].sort((a, b) => b.date.localeCompare(a.date));
@@ -143,7 +131,7 @@ export function getSeriesFromStore(input: QuerySeriesInput): {
   points: SeriesPoint[];
 } {
   if (!SUPPORTED_REGIONS.has(input.region)) {
-    throw new SeriesStoreQueryError(
+    throw new SeriesRepositoryError(
       "UNSUPPORTED_REGION",
       `Unsupported region: ${input.region}`,
       400
@@ -155,7 +143,7 @@ export function getSeriesFromStore(input: QuerySeriesInput): {
     (observation) => observation.seriesId === input.seriesId
   );
   if (!seriesExists) {
-    throw new SeriesStoreQueryError(
+    throw new SeriesRepositoryError(
       "UNKNOWN_SERIES_ID",
       `Unknown series id: ${input.seriesId}`,
       404

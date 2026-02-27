@@ -330,6 +330,63 @@ body {
   line-height: 1.4;
 }
 
+.dashboard-map-svg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 42px 28px 28px;
+}
+
+.dashboard-map-svg {
+  width: min(94%, 620px);
+  height: auto;
+  max-height: 100%;
+}
+
+.dashboard-map-coastline {
+  fill: rgba(0, 255, 255, 0.05);
+  stroke: none;
+}
+
+.dashboard-map-state {
+  fill: rgba(0, 255, 255, 0.08);
+  stroke: rgba(224, 224, 224, 0.35);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  cursor: pointer;
+  transition: fill 0.2s ease, stroke 0.2s ease, filter 0.2s ease;
+  outline: none;
+}
+
+.dashboard-map-state:hover {
+  fill: rgba(0, 255, 255, 0.2);
+  stroke: rgba(0, 255, 255, 0.9);
+}
+
+.dashboard-map-state[data-active="true"] {
+  fill: rgba(0, 255, 255, 0.3);
+  stroke: var(--accent-cyan);
+  filter: drop-shadow(0 0 6px rgba(0, 255, 255, 0.65));
+}
+
+.dashboard-map-state:focus-visible {
+  stroke: #ffffff;
+  stroke-width: 3;
+  fill: rgba(0, 255, 255, 0.28);
+}
+
+.dashboard-map-state-label {
+  fill: var(--text-secondary);
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  pointer-events: none;
+  user-select: none;
+}
+
 .dashboard-map-mesh {
   position: absolute;
   inset: 0;
@@ -579,6 +636,10 @@ body {
     min-height: 360px;
   }
 
+  .dashboard-map-svg-layer {
+    padding: 50px 24px 30px;
+  }
+
   .dashboard-energy-panel {
     grid-column: 1 / 2;
     grid-row: 2 / 3;
@@ -619,6 +680,14 @@ body {
 
   .dashboard-map-container {
     min-height: 300px;
+  }
+
+  .dashboard-map-svg-layer {
+    padding: 56px 16px 58px;
+  }
+
+  .dashboard-map-state-label {
+    font-size: 8px;
   }
 
   .dashboard-system-status,

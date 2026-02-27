@@ -9,6 +9,7 @@ import {
   StatusIndicator
 } from "@aus-dash/ui";
 import { useEffect, useState } from "react";
+import { AustraliaSectorMap } from "./australia-sector-map";
 
 const REGIONS = ["AU", "NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"] as const;
 
@@ -319,6 +320,11 @@ export function DashboardShell() {
             </h2>
             <div className="dashboard-map-mode">VISUALIZATION_MODE: TOPOGRAPHY</div>
           </div>
+
+          <AustraliaSectorMap
+            region={region}
+            onSelectRegion={(nextRegion) => setRegion(nextRegion)}
+          />
 
           <div className="dashboard-map-coords">
             <div>LAT: -25.2744</div>
