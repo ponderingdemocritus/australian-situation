@@ -1,13 +1,27 @@
 import {
+  appendIngestionRun,
+  readLiveStoreSync,
+  setSourceCursor,
+  stageRawPayload,
+  upsertObservations,
+  writeLiveStoreSync
+} from "@aus-dash/shared";
+import {
   type AerRetailPlan,
   selectResidentialPlans
 } from "../mappers/aer-prd";
+import {
+  fetchAerRetailPlansSnapshot,
+  type SourceFetch
+} from "../sources/live-source-clients";
 
 export type SyncEnergyRetailPlansResult = {
   job: "sync-energy-retail-plans";
   status: "ok";
   totalPlansSeen: number;
   residentialPlansIngested: number;
+  rowsInserted: number;
+  rowsUpdated: number;
   aggregates: {
     annualBillAudMean: number;
     annualBillAudMedian: number;
@@ -62,18 +76,94 @@ function median(values: number[]): number {
   return sorted[middle];
 }
 
-export async function syncEnergyRetailPlans(): Promise<SyncEnergyRetailPlansResult> {
-  const residentialPlans = selectResidentialPlans(PLAN_FIXTURE);
+type SyncEnergyRetailPlansOptions = {
+  storePath?: string;
+  sourceMode?: "fixture" | "live";
+  aerEndpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+export async function syncEnergyRetailPlans(
+  options: SyncEnergyRetailPlansOptions = {}
+): Promise<SyncEnergyRetailPlansResult> {
+  const startedAt = new Date().toISOString();
+  const useLiveSource =
+    options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
+  let plans = PLAN_FIXTURE;
+  let rawPayload = JSON.stringify({ data: PLAN_FIXTURE });
+  if (useLiveSource) {
+    const liveSnapshot = await fetchAerRetailPlansSnapshot({
+      endpoint: options.aerEndpoint,
+      fetchImpl: options.fetchImpl
+    });
+    plans = liveSnapshot.plans;
+    rawPayload = liveSnapshot.rawPayload;
+  }
+
+  const residentialPlans = selectResidentialPlans(plans);
   const annualBills = residentialPlans.map((plan) => plan.annualBillAud);
+  const annualBillAudMean = mean(annualBills);
+  const annualBillAudMedian = median(annualBills);
+
+  const store = readLiveStoreSync(options.storePath);
+  stageRawPayload(store, {
+    sourceId: "aer_prd",
+    payload: rawPayload,
+    contentType: "application/json",
+    capturedAt: new Date().toISOString()
+  });
+  const observations = [
+    {
+      seriesId: "energy.retail.offer.annual_bill_aud.mean",
+      regionCode: "AU",
+      date: "2026-02-27",
+      value: annualBillAudMean,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
+      publishedAt: "2026-02-27T00:00:00Z",
+      ingestedAt: new Date().toISOString(),
+      vintage: "2026-02-27",
+      isModeled: false,
+      confidence: "official" as const
+    },
+    {
+      seriesId: "energy.retail.offer.annual_bill_aud.median",
+      regionCode: "AU",
+      date: "2026-02-27",
+      value: annualBillAudMedian,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
+      publishedAt: "2026-02-27T00:00:00Z",
+      ingestedAt: new Date().toISOString(),
+      vintage: "2026-02-27",
+      isModeled: false,
+      confidence: "official" as const
+    }
+  ];
+  const upsertResult = upsertObservations(store, observations);
+  setSourceCursor(store, "aer_prd", "2026-02-27");
+  appendIngestionRun(store, {
+    job: "sync-energy-retail-prd-hourly",
+    status: "ok",
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    rowsInserted: upsertResult.inserted,
+    rowsUpdated: upsertResult.updated
+  });
+  writeLiveStoreSync(store, options.storePath);
 
   return {
     job: "sync-energy-retail-plans",
     status: "ok",
-    totalPlansSeen: PLAN_FIXTURE.length,
+    totalPlansSeen: plans.length,
     residentialPlansIngested: residentialPlans.length,
+    rowsInserted: upsertResult.inserted,
+    rowsUpdated: upsertResult.updated,
     aggregates: {
-      annualBillAudMean: mean(annualBills),
-      annualBillAudMedian: median(annualBills)
+      annualBillAudMean,
+      annualBillAudMedian
     },
     syncedAt: new Date().toISOString()
   };

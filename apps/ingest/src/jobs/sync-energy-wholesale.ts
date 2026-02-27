@@ -1,3 +1,16 @@
+import {
+  appendIngestionRun,
+  readLiveStoreSync,
+  setSourceCursor,
+  stageRawPayload,
+  upsertObservations,
+  writeLiveStoreSync
+} from "@aus-dash/shared";
+import {
+  fetchAemoWholesaleSnapshot,
+  type SourceFetch
+} from "../sources/live-source-clients";
+
 type WholesalePoint = {
   regionCode: string;
   timestamp: string;
@@ -10,6 +23,8 @@ export type SyncEnergyWholesaleResult = {
   status: "ok";
   seriesId: "energy.wholesale.rrp.au_weighted_aud_mwh";
   pointsIngested: number;
+  rowsInserted: number;
+  rowsUpdated: number;
   latest: {
     timestamp: string;
     audMwh: number;
@@ -42,13 +57,47 @@ function computeDemandWeightedAudMwh(points: WholesalePoint[]): number {
   );
 }
 
-export async function syncEnergyWholesale(): Promise<SyncEnergyWholesaleResult> {
+type SyncEnergyWholesaleOptions = {
+  storePath?: string;
+  sourceMode?: "fixture" | "live";
+  aemoEndpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+export async function syncEnergyWholesale(
+  options: SyncEnergyWholesaleOptions = {}
+): Promise<SyncEnergyWholesaleResult> {
+  const startedAt = new Date().toISOString();
+  const useLiveSource =
+    options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
+  const sourcePayload =
+    "SETTLEMENTDATE,REGIONID,RRP,TOTALDEMAND\n" +
+    WHOLESALE_FIXTURE.map((point) =>
+      [point.timestamp, `${point.regionCode}1`, point.rrpAudMwh, point.demandMwh].join(",")
+    ).join("\n");
+
+  let sourcePoints = WHOLESALE_FIXTURE;
+  let rawPayload = sourcePayload;
+  if (useLiveSource) {
+    const liveSnapshot = await fetchAemoWholesaleSnapshot({
+      endpoint: options.aemoEndpoint,
+      fetchImpl: options.fetchImpl
+    });
+    sourcePoints = liveSnapshot.points.map((point) => ({
+      regionCode: point.regionCode,
+      timestamp: point.timestamp,
+      rrpAudMwh: point.rrpAudMwh,
+      demandMwh: point.demandMwh
+    }));
+    rawPayload = liveSnapshot.rawPayload;
+  }
+
   const timestamps = Array.from(
-    new Set(WHOLESALE_FIXTURE.map((point) => point.timestamp))
+    new Set(sourcePoints.map((point) => point.timestamp))
   ).sort((a, b) => a.localeCompare(b));
 
   const aggregatedPoints = timestamps.map((timestamp) => {
-    const pointsAtTimestamp = WHOLESALE_FIXTURE.filter(
+    const pointsAtTimestamp = sourcePoints.filter(
       (point) => point.timestamp === timestamp
     );
     const audMwh = computeDemandWeightedAudMwh(pointsAtTimestamp);
@@ -64,11 +113,48 @@ export async function syncEnergyWholesale(): Promise<SyncEnergyWholesaleResult> 
     throw new Error("no wholesale points to ingest");
   }
 
+  const store = readLiveStoreSync(options.storePath);
+  stageRawPayload(store, {
+    sourceId: "aemo_wholesale",
+    payload: rawPayload,
+    contentType: "text/csv",
+    capturedAt: new Date().toISOString()
+  });
+  const observations = aggregatedPoints.map((point) => ({
+    seriesId: "energy.wholesale.rrp.au_weighted_aud_mwh",
+    regionCode: "AU",
+    date: point.timestamp,
+    value: point.audMwh,
+    unit: "aud_mwh",
+    sourceName: "AEMO",
+    sourceUrl:
+      "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem",
+    publishedAt: point.timestamp,
+    ingestedAt: new Date().toISOString(),
+    vintage: "2026-02-27",
+    isModeled: false,
+    confidence: "official" as const
+  }));
+
+  const upsertResult = upsertObservations(store, observations);
+  setSourceCursor(store, "aemo_wholesale", latest.timestamp);
+  appendIngestionRun(store, {
+    job: "sync-energy-wholesale-5m",
+    status: "ok",
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    rowsInserted: upsertResult.inserted,
+    rowsUpdated: upsertResult.updated
+  });
+  writeLiveStoreSync(store, options.storePath);
+
   return {
     job: "sync-energy-wholesale",
     status: "ok",
     seriesId: "energy.wholesale.rrp.au_weighted_aud_mwh",
     pointsIngested: aggregatedPoints.length,
+    rowsInserted: upsertResult.inserted,
+    rowsUpdated: upsertResult.updated,
     latest,
     syncedAt: new Date().toISOString()
   };

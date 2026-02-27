@@ -7,6 +7,9 @@
     "start": "bun src/index.ts",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@aus-dash/shared": "workspace:*"
+  },
   "devDependencies": {
     "vitest": "^2.1.9"
   }
