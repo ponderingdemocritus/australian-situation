@@ -1,0 +1,24 @@
+{
+  "name": "aus-dash",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tests/*"
+  ],
+  "scripts": {
+    "dev:web": "bun --filter @aus-dash/web dev",
+    "dev:api": "bun --filter @aus-dash/api dev",
+    "dev:ingest": "bun --filter @aus-dash/ingest dev",
+    "dev:all": "./run-all.sh dev",
+    "test": "vitest --workspace vitest.workspace.ts --run",
+    "test:watch": "vitest --workspace vitest.workspace.ts",
+    "test:e2e": "bun --filter @aus-dash/e2e test",
+    "test:all": "./run-all.sh test",
+    "test:all:e2e": "./run-all.sh test --with-e2e"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
