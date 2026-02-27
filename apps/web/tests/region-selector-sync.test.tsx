@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import HomePage from "../app/page";
+import { renderHomePage } from "./render-home-page";
 
 const fetchMock = vi.fn();
 
@@ -47,8 +47,8 @@ describe("Region selector sync", () => {
     vi.unstubAllGlobals();
   });
 
-  test("one region selector updates housing and energy panels", () => {
-    render(<HomePage />);
+  test("one region selector updates housing and energy panels", async () => {
+    await renderHomePage();
 
     const selector = screen.getByLabelText("Region");
     expect(screen.getByText("Housing region: AU")).toBeDefined();
@@ -80,7 +80,7 @@ describe("Region selector sync", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    await renderHomePage();
 
     fireEvent.click(screen.getByRole("button", { name: "Select region VIC" }));
 
@@ -89,12 +89,12 @@ describe("Region selector sync", () => {
 
     await waitFor(() => {
       const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
-      expect(calledUrls).toContain(
-        "http://localhost:3001/api/housing/overview?region=VIC"
-      );
-      expect(calledUrls).toContain(
-        "http://localhost:3001/api/energy/overview?region=VIC"
-      );
+      expect(
+        calledUrls.some((url) => url.includes("/api/housing/overview?region=VIC"))
+      ).toBe(true);
+      expect(
+        calledUrls.some((url) => url.includes("/api/energy/overview?region=VIC"))
+      ).toBe(true);
     });
   });
 });

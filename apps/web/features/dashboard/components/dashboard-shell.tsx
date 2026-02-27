@@ -8,12 +8,17 @@ import {
   DashboardPanelHeader,
   StatusIndicator
 } from "@aus-dash/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  DEFAULT_REGION,
+  REGIONS,
+  type EnergyOverviewResponse,
+  type HousingOverviewResponse,
+  parseEnergyOverviewResponse,
+  parseHousingOverviewResponse,
+  type RegionCode
+} from "../lib/overview";
 import { AustraliaSectorMap } from "./australia-sector-map";
-
-const REGIONS = ["AU", "NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"] as const;
-
-type RegionCode = (typeof REGIONS)[number];
 
 type DashboardMetricRow = {
   label: string;
@@ -44,43 +49,7 @@ const NODES: readonly DashboardNode[] = [
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
-  "http://localhost:3001";
-
-type EnergyOverviewResponse = {
-  region: string;
-  panels: {
-    liveWholesale: {
-      valueAudMwh: number;
-      valueCKwh: number;
-    };
-    retailAverage: {
-      annualBillAudMean: number;
-      annualBillAudMedian: number;
-    };
-    benchmark: {
-      dmoAnnualBillAud: number;
-    };
-    cpiElectricity: {
-      indexValue: number;
-      period: string;
-    };
-  };
-  freshness: {
-    updatedAt: string;
-    status: "fresh" | "stale" | "degraded";
-  };
-};
-
-type HousingOverviewResponse = {
-  region: string;
-  metrics: Array<{
-    seriesId: string;
-    date: string;
-    value: number;
-  }>;
-  missingSeriesIds: string[];
-  updatedAt: string | null;
-};
+  "";
 
 function formatAud(value: number): string {
   return `${Math.round(value)} AUD`;
@@ -92,6 +61,11 @@ function formatAudMwh(value: number): string {
 
 function formatCurrency(value: number): string {
   return `$${Math.round(value).toLocaleString("en-AU")}`;
+}
+
+function buildOverviewUrl(path: string, region: RegionCode): string {
+  const params = new URLSearchParams({ region });
+  return `${API_BASE_URL}${path}?${params.toString()}`;
 }
 
 function getSeriesValue(
@@ -144,38 +118,56 @@ function buildHousingMetricRows(
   ];
 }
 
-export function DashboardShell() {
-  const [region, setRegion] = useState<RegionCode>("AU");
+type DashboardShellProps = {
+  initialRegion?: RegionCode;
+  initialEnergyOverview?: EnergyOverviewResponse | null;
+  initialHousingOverview?: HousingOverviewResponse | null;
+};
+
+export function DashboardShell({
+  initialRegion = DEFAULT_REGION,
+  initialEnergyOverview = null,
+  initialHousingOverview = null
+}: DashboardShellProps = {}) {
+  const [region, setRegion] = useState<RegionCode>(initialRegion);
   const [energyOverview, setEnergyOverview] =
-    useState<EnergyOverviewResponse | null>(null);
-  const [energyLoading, setEnergyLoading] = useState(true);
+    useState<EnergyOverviewResponse | null>(initialEnergyOverview);
+  const [energyLoading, setEnergyLoading] = useState(!initialEnergyOverview);
   const [energyError, setEnergyError] = useState<string | null>(null);
   const [housingOverview, setHousingOverview] =
-    useState<HousingOverviewResponse | null>(null);
-  const [housingLoading, setHousingLoading] = useState(true);
+    useState<HousingOverviewResponse | null>(initialHousingOverview);
+  const [housingLoading, setHousingLoading] = useState(!initialHousingOverview);
   const [housingError, setHousingError] = useState<string | null>(null);
+  const skipInitialEnergyFetch = useRef(initialEnergyOverview !== null);
+  const skipInitialHousingFetch = useRef(initialHousingOverview !== null);
 
   useEffect(() => {
+    if (skipInitialEnergyFetch.current) {
+      skipInitialEnergyFetch.current = false;
+      return;
+    }
+
     const abortController = new AbortController();
 
     async function loadEnergyOverview() {
       setEnergyLoading(true);
       setEnergyError(null);
+      setEnergyOverview(null);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/energy/overview?region=${region}`,
-          {
-            signal: abortController.signal,
-            cache: "no-store"
-          }
-        );
+        const response = await fetch(buildOverviewUrl("/api/energy/overview", region), {
+          signal: abortController.signal,
+          cache: "no-store"
+        });
 
         if (!response.ok) {
           throw new Error(`energy overview request failed with ${response.status}`);
         }
 
-        const payload = (await response.json()) as EnergyOverviewResponse;
+        const payload = parseEnergyOverviewResponse(await response.json());
+        if (!payload) {
+          throw new Error("invalid energy overview response");
+        }
         setEnergyOverview(payload);
       } catch (error) {
         if (abortController.signal.aborted) {
@@ -197,26 +189,32 @@ export function DashboardShell() {
   }, [region]);
 
   useEffect(() => {
+    if (skipInitialHousingFetch.current) {
+      skipInitialHousingFetch.current = false;
+      return;
+    }
+
     const abortController = new AbortController();
 
     async function loadHousingOverview() {
       setHousingLoading(true);
       setHousingError(null);
+      setHousingOverview(null);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/housing/overview?region=${region}`,
-          {
-            signal: abortController.signal,
-            cache: "no-store"
-          }
-        );
+        const response = await fetch(buildOverviewUrl("/api/housing/overview", region), {
+          signal: abortController.signal,
+          cache: "no-store"
+        });
 
         if (!response.ok) {
           throw new Error(`housing overview request failed with ${response.status}`);
         }
 
-        const payload = (await response.json()) as HousingOverviewResponse;
+        const payload = parseHousingOverviewResponse(await response.json());
+        if (!payload) {
+          throw new Error("invalid housing overview response");
+        }
         setHousingOverview(payload);
       } catch (error) {
         if (abortController.signal.aborted) {

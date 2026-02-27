@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import HomePage from "../app/page";
+import { renderHomePage } from "./render-home-page";
 
 const fetchMock = vi.fn();
 
@@ -77,7 +77,7 @@ describe("dashboard data error recovery", () => {
       };
     });
 
-    render(<HomePage />);
+    await renderHomePage();
 
     await waitFor(() => {
       expect(screen.getByText("DATA_UNAVAILABLE")).toBeDefined();
@@ -92,5 +92,89 @@ describe("dashboard data error recovery", () => {
     });
 
     expect(screen.queryByText("DATA_UNAVAILABLE")).toBeNull();
+  });
+
+  test("clears stale energy data when region refetch fails", async () => {
+    fetchMock.mockImplementation(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/api/energy/overview?region=AU")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => energyPayload("AU", 118)
+        };
+      }
+      if (url.includes("/api/energy/overview?region=VIC")) {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({})
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => housingPayload(url.includes("VIC") ? "VIC" : "AU")
+      };
+    });
+
+    await renderHomePage();
+
+    await waitFor(() => {
+      expect(screen.getByText("118.0 AUD/MWh")).toBeDefined();
+    });
+
+    fireEvent.change(screen.getByLabelText("Region"), {
+      target: { value: "VIC" }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("DATA_UNAVAILABLE")).toBeDefined();
+    });
+
+    expect(screen.queryByText("118.0 AUD/MWh")).toBeNull();
+  });
+
+  test("shows DATA_UNAVAILABLE when region energy payload shape is invalid", async () => {
+    fetchMock.mockImplementation(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/api/energy/overview?region=AU")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => energyPayload("AU", 118)
+        };
+      }
+      if (url.includes("/api/energy/overview?region=VIC")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ region: "VIC" })
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => housingPayload(url.includes("VIC") ? "VIC" : "AU")
+      };
+    });
+
+    await renderHomePage();
+
+    await waitFor(() => {
+      expect(screen.getByText("118.0 AUD/MWh")).toBeDefined();
+    });
+
+    fireEvent.change(screen.getByLabelText("Region"), {
+      target: { value: "VIC" }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("DATA_UNAVAILABLE")).toBeDefined();
+    });
+
+    expect(screen.queryByText("118.0 AUD/MWh")).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import HomePage from "../app/page";
+import { renderHomePage } from "./render-home-page";
 
 const fetchMock = vi.fn();
 
@@ -68,7 +68,7 @@ describe("Energy overview top-left panel", () => {
       };
     });
 
-    render(<HomePage />);
+    await renderHomePage();
 
     expect(screen.getByText("ENERGY_OVERVIEW")).toBeDefined();
     await waitFor(() => {
@@ -101,7 +101,7 @@ describe("Energy overview top-left panel", () => {
       };
     });
 
-    render(<HomePage />);
+    await renderHomePage();
 
     await waitFor(() => {
       expect(screen.getByText("118.0 AUD/MWh")).toBeDefined();
@@ -116,11 +116,11 @@ describe("Energy overview top-left panel", () => {
     });
 
     const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
-    expect(calledUrls).toContain(
-      "http://localhost:3001/api/energy/overview?region=AU"
-    );
-    expect(calledUrls).toContain(
-      "http://localhost:3001/api/energy/overview?region=VIC"
-    );
+    expect(
+      calledUrls.some((url) => url.includes("/api/energy/overview?region=AU"))
+    ).toBe(true);
+    expect(
+      calledUrls.some((url) => url.includes("/api/energy/overview?region=VIC"))
+    ).toBe(true);
   });
 });

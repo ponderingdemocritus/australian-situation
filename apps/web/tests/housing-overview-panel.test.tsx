@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import HomePage from "../app/page";
+import { renderHomePage } from "./render-home-page";
 
 const fetchMock = vi.fn();
 
@@ -74,7 +74,7 @@ describe("Housing overview right panel", () => {
       };
     });
 
-    render(<HomePage />);
+    await renderHomePage();
 
     expect(screen.getByText("HOUSING_OVERVIEW")).toBeDefined();
 
@@ -110,7 +110,7 @@ describe("Housing overview right panel", () => {
       };
     });
 
-    render(<HomePage />);
+    await renderHomePage();
 
     await waitFor(() => {
       expect(screen.getByText("169.4")).toBeDefined();
@@ -127,11 +127,11 @@ describe("Housing overview right panel", () => {
     });
 
     const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
-    expect(calledUrls).toContain(
-      "http://localhost:3001/api/housing/overview?region=AU"
-    );
-    expect(calledUrls).toContain(
-      "http://localhost:3001/api/housing/overview?region=VIC"
-    );
+    expect(
+      calledUrls.some((url) => url.includes("/api/housing/overview?region=AU"))
+    ).toBe(true);
+    expect(
+      calledUrls.some((url) => url.includes("/api/housing/overview?region=VIC"))
+    ).toBe(true);
   });
 });

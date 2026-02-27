@@ -229,6 +229,10 @@ body {
   font: inherit;
 }
 
+.dashboard-panel-title {
+  margin: 0;
+}
+
 .dashboard-energy-panel {
   grid-column: 1 / 2;
   grid-row: 2 / 3;

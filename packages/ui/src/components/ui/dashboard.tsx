@@ -7,7 +7,7 @@ function DashboardPanel({ className, ...props }: DashboardPanelProps) {
   return <section data-slot="dashboard-panel" className={cn("dashboard-panel", className)} {...props} />;
 }
 
-type DashboardPanelHeaderProps = React.ComponentProps<"div"> & {
+type DashboardPanelHeaderProps = React.ComponentProps<"header"> & {
   title: string;
   channel?: string;
   titleClassName?: string;
@@ -23,10 +23,10 @@ function DashboardPanelHeader({
   ...props
 }: DashboardPanelHeaderProps) {
   return (
-    <div data-slot="dashboard-panel-header" className={cn("dashboard-panel-header", className)} {...props}>
-      <span className={cn("dashboard-panel-title", titleClassName)}>{title}</span>
+    <header data-slot="dashboard-panel-header" className={cn("dashboard-panel-header", className)} {...props}>
+      <h2 className={cn("dashboard-panel-title", titleClassName)}>{title}</h2>
       {channel ? <span className={cn("dashboard-panel-channel", channelClassName)}>{channel}</span> : null}
-    </div>
+    </header>
   );
 }
 
@@ -37,7 +37,13 @@ type StatusIndicatorProps = React.ComponentProps<"div"> & {
 
 function StatusIndicator({ className, alert = false, label, ...props }: StatusIndicatorProps) {
   return (
-    <div data-slot="status-indicator" className={cn("status-indicator", className)} {...props}>
+    <div
+      data-slot="status-indicator"
+      role="status"
+      aria-live={alert ? "assertive" : "polite"}
+      className={cn("status-indicator", className)}
+      {...props}
+    >
       <span aria-hidden className={cn("status-dot", alert && "status-dot-alert")} />
       <span>{label}</span>
     </div>
