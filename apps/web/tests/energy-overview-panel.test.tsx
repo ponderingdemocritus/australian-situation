@@ -1,8 +1,16 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { renderHomePage } from "./render-home-page";
 
 const fetchMock = vi.fn();
+
+function getEconomicPanel() {
+  const panel = screen.getByText("Economic Feed").closest("section");
+  if (!panel) {
+    throw new Error("Economic panel not found");
+  }
+  return within(panel);
+}
 
 function createOverviewPayload(region: string, valueAudMwh: number) {
   return {
@@ -70,12 +78,13 @@ describe("Energy overview top-left panel", () => {
 
     await renderHomePage();
 
-    expect(screen.getByText("ENERGY_OVERVIEW")).toBeDefined();
+    expect(getEconomicPanel().getByText("ENERGY_OVERVIEW")).toBeDefined();
     await waitFor(() => {
-      expect(screen.getByText("LIVE_RRP")).toBeDefined();
-      expect(screen.getByText("118.0 AUD/MWh")).toBeDefined();
-      expect(screen.getByText("1985 AUD")).toBeDefined();
-      expect(screen.getByText("2025-Q4")).toBeDefined();
+      const panel = getEconomicPanel();
+      expect(panel.getByText("LIVE_RRP")).toBeDefined();
+      expect(panel.getByText("118.0 AUD/MWh")).toBeDefined();
+      expect(panel.getByText("1985 AUD")).toBeDefined();
+      expect(panel.getByText("2025-Q4")).toBeDefined();
     });
   });
 
@@ -104,7 +113,7 @@ describe("Energy overview top-left panel", () => {
     await renderHomePage();
 
     await waitFor(() => {
-      expect(screen.getByText("118.0 AUD/MWh")).toBeDefined();
+      expect(getEconomicPanel().getByText("118.0 AUD/MWh")).toBeDefined();
     });
 
     fireEvent.change(screen.getByLabelText("Region"), {
@@ -112,7 +121,7 @@ describe("Energy overview top-left panel", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("100.0 AUD/MWh")).toBeDefined();
+      expect(getEconomicPanel().getByText("100.0 AUD/MWh")).toBeDefined();
     });
 
     const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));

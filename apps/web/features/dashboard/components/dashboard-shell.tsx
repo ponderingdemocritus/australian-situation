@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_REGION,
   REGIONS,
@@ -30,43 +30,26 @@ type FeedMetricRow = {
   positive: boolean;
 };
 
+type DataHealthRow = {
+  label: string;
+  value: string;
+  positive: boolean;
+};
+
 type FeedEntry = {
   action: string;
   deltaText: string;
   entity: string;
   lineNumber: number;
   prefix: "" | "+" | "-" | "!";
-  variant: "neutral" | "new" | "delete" | "error";
+  timestamp: string;
+  variant: "neutral" | "new" | "error";
   volume: number;
 };
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
-  "";
-
-const LOG_ACTIONS = ["TICK", "ALERT", "TRADE", "SYNC", "PRICE", "UPDATE", "SIGNAL"] as const;
-const LOG_ENTITIES = [
-  "ASX_200",
-  "AUD/USD",
-  "RBA_RATE",
-  "IRON_ORE",
-  "BHP.AX",
-  "CBA.AX",
-  "WBC.AX",
-  "RIO.AX",
-  "FMG.AX",
-  "NAB.AX",
-  "CSL.AX",
-  "WES.AX"
-] as const;
-
-const SECTOR_PERFORMANCE = [
-  { label: "FINANCIALS", change: "+0.91%", positive: true },
-  { label: "MATERIALS", change: "+1.34%", positive: true },
-  { label: "ENERGY", change: "-0.22%", positive: false },
-  { label: "TECH", change: "-0.57%", positive: false },
-  { label: "CONSUMER", change: "+0.14%", positive: true }
-] as const;
+  "http://localhost:3001";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -84,9 +67,10 @@ function formatCurrency(value: number): string {
   return `$${Math.round(value).toLocaleString("en-AU")}`;
 }
 
-function formatPercentChange(current: number, baseline: number): string {
-  const delta = ((current - baseline) / baseline) * 100;
-  return `${delta >= 0 ? "+" : ""}${delta.toFixed(2)}%`;
+function formatCurrencyDelta(value: number): string {
+  const rounded = Math.round(value);
+  const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
+  return `${sign}$${Math.abs(rounded).toLocaleString("en-AU")}`;
 }
 
 function formatAestClock(now: Date): string {
@@ -166,7 +150,7 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
         id: "live-rrp",
         label: "LIVE_RRP",
         value: "--",
-        previous: "prev --",
+        previous: "updated --",
         change: "--",
         barWidth: 50,
         positive: true
@@ -175,7 +159,7 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
         id: "retail-mean",
         label: "RETAIL_MEAN",
         value: "--",
-        previous: "prev --",
+        previous: "median --",
         change: "--",
         barWidth: 50,
         positive: true
@@ -184,7 +168,7 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
         id: "dmo-benchmark",
         label: "DMO_BENCHMARK",
         value: "--",
-        previous: "prev --",
+        previous: "mean --",
         change: "--",
         barWidth: 50,
         positive: true
@@ -194,7 +178,7 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
         label: "CPI_PERIOD",
         value: "--",
         previous: "idx --",
-        change: "--",
+        change: "status --",
         barWidth: 50,
         positive: false
       }
@@ -203,25 +187,27 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
 
   const liveRrp = overview.panels.liveWholesale.valueAudMwh;
   const retailMean = overview.panels.retailAverage.annualBillAudMean;
+  const retailMedian = overview.panels.retailAverage.annualBillAudMedian;
   const benchmark = overview.panels.benchmark.dmoAnnualBillAud;
   const cpiIndex = overview.panels.cpiElectricity.indexValue;
+  const freshness = overview.freshness.status.toUpperCase();
 
   return [
     {
       id: "live-rrp",
       label: "LIVE_RRP",
       value: formatAudMwh(liveRrp),
-      previous: `prev ${formatAudMwh(liveRrp * 0.98)}`,
-      change: formatPercentChange(liveRrp, liveRrp * 0.98),
+      previous: `updated ${overview.freshness.updatedAt}`,
+      change: freshness,
       barWidth: clamp((liveRrp / 250) * 100, 18, 95),
-      positive: liveRrp >= 100
+      positive: overview.freshness.status === "fresh"
     },
     {
       id: "retail-mean",
       label: "RETAIL_MEAN",
       value: formatAud(retailMean),
-      previous: `prev ${formatAud(overview.panels.retailAverage.annualBillAudMedian)}`,
-      change: formatPercentChange(retailMean, overview.panels.retailAverage.annualBillAudMedian),
+      previous: `median ${formatAud(retailMedian)}`,
+      change: `spread ${formatCurrencyDelta(retailMean - retailMedian)}`,
       barWidth: clamp((retailMean / 2600) * 100, 18, 95),
       positive: retailMean <= benchmark
     },
@@ -229,43 +215,48 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
       id: "dmo-benchmark",
       label: "DMO_BENCHMARK",
       value: formatAud(benchmark),
-      previous: "target 2000 AUD",
-      change: formatPercentChange(benchmark, 2000),
+      previous: `mean ${formatAud(retailMean)}`,
+      change: `gap ${formatCurrencyDelta(benchmark - retailMean)}`,
       barWidth: clamp((benchmark / 2600) * 100, 18, 95),
-      positive: benchmark <= 2000
+      positive: benchmark > 0
     },
     {
       id: "cpi-period",
       label: "CPI_PERIOD",
       value: overview.panels.cpiElectricity.period,
       previous: `idx ${cpiIndex.toFixed(1)}`,
-      change: formatPercentChange(cpiIndex, 140),
+      change: `status ${freshness}`,
       barWidth: clamp((cpiIndex / 190) * 100, 18, 95),
-      positive: cpiIndex <= 145
+      positive: cpiIndex > 0
     }
   ];
 }
 
-function buildFeedEntry(lineNumber: number): FeedEntry {
-  const isError = Math.random() > 0.95;
-  const variantRoll = Math.random();
-  const isNew = !isError && variantRoll > 0.7;
-  const isDelete = !isError && !isNew && variantRoll > 0.45;
+function buildDataHealthRows(
+  energyOverview: EnergyOverviewResponse | null,
+  housingOverview: HousingOverviewResponse | null
+): DataHealthRow[] {
+  return [
+    {
+      label: "ENERGY_FRESHNESS",
+      value: energyOverview ? energyOverview.freshness.status.toUpperCase() : "WAITING",
+      positive: energyOverview?.freshness.status === "fresh"
+    },
+    {
+      label: "HOUSING_COVERAGE",
+      value: housingOverview ? `missing ${housingOverview.missingSeriesIds.length}` : "WAITING",
+      positive: !!housingOverview && housingOverview.missingSeriesIds.length === 0
+    }
+  ];
+}
 
-  const deltaValue = (Math.random() - 0.5) * 2;
-  const includePercent = Math.random() > 0.5;
-  const absDelta = Math.abs(deltaValue).toFixed(3);
-  const sign = deltaValue >= 0 ? "+" : "-";
+function formatLogTime(timestamp: string): string {
+  const parsed = Date.parse(timestamp);
+  if (Number.isNaN(parsed)) {
+    return "--:--:--";
+  }
 
-  return {
-    action: LOG_ACTIONS[Math.floor(Math.random() * LOG_ACTIONS.length)],
-    deltaText: `${sign}${absDelta}${includePercent ? "%" : ""}`,
-    entity: LOG_ENTITIES[Math.floor(Math.random() * LOG_ENTITIES.length)],
-    lineNumber,
-    prefix: isError ? "!" : isNew ? "+" : isDelete ? "-" : "",
-    variant: isError ? "error" : isNew ? "new" : isDelete ? "delete" : "neutral",
-    volume: Math.floor(Math.random() * 99000 + 1000)
-  };
+  return new Date(parsed).toISOString().slice(11, 19);
 }
 
 type DashboardShellProps = {
@@ -293,6 +284,17 @@ export function DashboardShell({
   const skipInitialEnergyFetch = useRef(initialEnergyOverview !== null);
   const skipInitialHousingFetch = useRef(initialHousingOverview !== null);
   const lineCounterRef = useRef(1000);
+  const latestEnergyFeedKeyRef = useRef<string | null>(null);
+  const latestHousingFeedKeyRef = useRef<string | null>(null);
+
+  const appendFeedEntry = useCallback((entry: Omit<FeedEntry, "lineNumber">) => {
+    const lineNumber = lineCounterRef.current + 1;
+    lineCounterRef.current = lineNumber;
+    setFeedEntries((currentEntries) => {
+      const nextEntries = [...currentEntries, { ...entry, lineNumber }];
+      return nextEntries.slice(-50);
+    });
+  }, []);
 
   useEffect(() => {
     if (skipInitialEnergyFetch.current) {
@@ -327,6 +329,15 @@ export function DashboardShell({
           return;
         }
         setEnergyError("DATA_UNAVAILABLE");
+        appendFeedEntry({
+          action: "ENERGY_OVERVIEW",
+          deltaText: "DATA_UNAVAILABLE",
+          entity: region,
+          prefix: "!",
+          timestamp: new Date().toISOString(),
+          variant: "error",
+          volume: 0
+        });
       } finally {
         if (!abortController.signal.aborted) {
           setEnergyLoading(false);
@@ -339,7 +350,7 @@ export function DashboardShell({
     return () => {
       abortController.abort();
     };
-  }, [region]);
+  }, [appendFeedEntry, region]);
 
   useEffect(() => {
     if (skipInitialHousingFetch.current) {
@@ -374,6 +385,15 @@ export function DashboardShell({
           return;
         }
         setHousingError("DATA_UNAVAILABLE");
+        appendFeedEntry({
+          action: "HOUSING_OVERVIEW",
+          deltaText: "DATA_UNAVAILABLE",
+          entity: region,
+          prefix: "!",
+          timestamp: new Date().toISOString(),
+          variant: "error",
+          volume: 0
+        });
       } finally {
         if (!abortController.signal.aborted) {
           setHousingLoading(false);
@@ -386,7 +406,7 @@ export function DashboardShell({
     return () => {
       abortController.abort();
     };
-  }, [region]);
+  }, [appendFeedEntry, region]);
 
   useEffect(() => {
     function syncClock() {
@@ -402,38 +422,64 @@ export function DashboardShell({
   }, []);
 
   useEffect(() => {
-    function pushFeedEntry() {
-      lineCounterRef.current += 1;
-      const nextEntry = buildFeedEntry(lineCounterRef.current);
-      setFeedEntries((currentEntries) => {
-        const nextEntries = [...currentEntries, nextEntry];
-        return nextEntries.slice(-50);
-      });
+    if (!energyOverview) {
+      return;
     }
 
-    const seedEntries: FeedEntry[] = [];
-    for (let index = 0; index < 15; index += 1) {
-      lineCounterRef.current += 1;
-      seedEntries.push(buildFeedEntry(lineCounterRef.current));
+    const feedKey = [
+      energyOverview.region,
+      energyOverview.freshness.updatedAt,
+      energyOverview.panels.liveWholesale.valueAudMwh
+    ].join("|");
+    if (latestEnergyFeedKeyRef.current === feedKey) {
+      return;
     }
-    setFeedEntries(seedEntries);
+    latestEnergyFeedKeyRef.current = feedKey;
 
-    const tickTimer = window.setInterval(pushFeedEntry, 1200);
-    const burstTimer = window.setInterval(() => {
-      if (Math.random() > 0.7) {
-        pushFeedEntry();
-      }
-    }, 400);
+    appendFeedEntry({
+      action: "ENERGY_OVERVIEW",
+      deltaText: formatAudMwh(energyOverview.panels.liveWholesale.valueAudMwh),
+      entity: energyOverview.region,
+      prefix: "+",
+      timestamp: energyOverview.freshness.updatedAt,
+      variant: "new",
+      volume: Math.max(1, Math.round(energyOverview.panels.liveWholesale.valueCKwh))
+    });
+  }, [appendFeedEntry, energyOverview]);
 
-    return () => {
-      window.clearInterval(tickTimer);
-      window.clearInterval(burstTimer);
-    };
-  }, []);
+  useEffect(() => {
+    if (!housingOverview) {
+      return;
+    }
+
+    const feedKey = [
+      housingOverview.region,
+      housingOverview.updatedAt ?? "none",
+      housingOverview.metrics.length,
+      housingOverview.missingSeriesIds.length
+    ].join("|");
+    if (latestHousingFeedKeyRef.current === feedKey) {
+      return;
+    }
+    latestHousingFeedKeyRef.current = feedKey;
+
+    appendFeedEntry({
+      action: "HOUSING_OVERVIEW",
+      deltaText: `metrics:${housingOverview.metrics.length}`,
+      entity: housingOverview.region,
+      prefix: "+",
+      timestamp: housingOverview.updatedAt ?? new Date().toISOString(),
+      variant: housingOverview.missingSeriesIds.length === 0 ? "new" : "neutral",
+      volume: housingOverview.metrics.length
+    });
+  }, [appendFeedEntry, housingOverview]);
 
   const energyRows = buildEnergyMetricRows(energyOverview);
   const housingRows = buildHousingMetricRows(housingOverview);
-  const streamCount = energyError || housingError ? 3 : 5;
+  const dataHealthRows = buildDataHealthRows(energyOverview, housingOverview);
+  const streamCount =
+    (energyOverview ? 4 : 0) +
+    (housingOverview ? housingOverview.metrics.length : 0);
 
   return (
     <main className="dashboard-root">
@@ -554,15 +600,15 @@ export function DashboardShell({
               ))}
 
               <div className="dashboard-subsection-header dashboard-subsection-push">
-                <span>Sector Performance</span>
-                <span className="dashboard-text-dim">1D</span>
+                <span>DATA_HEALTH</span>
+                <span className="dashboard-text-dim">LIVE</span>
               </div>
 
-              {SECTOR_PERFORMANCE.map((sector) => (
-                <div key={sector.label} className="dashboard-sector-row">
-                  <span className="dashboard-metric-label">{sector.label}</span>
-                  <span className={sector.positive ? "dashboard-text-green" : "dashboard-text-red"}>
-                    {sector.change}
+              {dataHealthRows.map((row) => (
+                <div key={row.label} className="dashboard-sector-row">
+                  <span className="dashboard-metric-label">{row.label}</span>
+                  <span className={row.positive ? "dashboard-text-green" : "dashboard-text-red"}>
+                    {row.value}
                   </span>
                 </div>
               ))}
@@ -583,13 +629,12 @@ export function DashboardShell({
             </section>
 
             <div className="dashboard-map-bottombar">
-              <span>SYD</span>
-              <span>MEL</span>
-              <span>BNE</span>
-              <span>PER</span>
-              <span>ADL</span>
-              <span>DAR</span>
-              <span className="dashboard-map-node-count">7 nodes active</span>
+              <span>Energy: {energyOverview?.freshness.status ?? "--"}</span>
+              <span>Energy as_of: {energyOverview?.freshness.updatedAt ?? "--"}</span>
+              <span>Housing as_of: {housingOverview?.updatedAt ?? "--"}</span>
+              <span className="dashboard-map-node-count">
+                Missing series: {housingOverview?.missingSeriesIds.length ?? "--"}
+              </span>
             </div>
 
             <div className="dashboard-region-sync" aria-live="polite">
@@ -632,7 +677,7 @@ export function DashboardShell({
                     >
                       {entry.prefix || " "}
                     </span>
-                    <span className="dashboard-text-dim">{new Date().toISOString().slice(11, 19)}</span>
+                    <span className="dashboard-text-dim">{formatLogTime(entry.timestamp)}</span>
                     <span className="dashboard-token-key">{entry.action}</span>
                     <span className="dashboard-text-dim">:</span>
                     <span className="dashboard-token-value">{entry.entity}</span>

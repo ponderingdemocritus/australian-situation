@@ -1,16 +1,8 @@
-import { cleanup, screen, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { renderHomePage } from "./render-home-page";
 
 const fetchMock = vi.fn();
-
-function getEconomicPanel() {
-  const panel = screen.getByText("Economic Feed").closest("section");
-  if (!panel) {
-    throw new Error("Economic panel not found");
-  }
-  return within(panel);
-}
 
 function createEnergyPayload(region: string) {
   return {
@@ -43,7 +35,7 @@ function createHousingPayload(region: string) {
   return {
     region,
     requiredSeriesIds: [],
-    missingSeriesIds: [],
+    missingSeriesIds: ["rates.oo.fixed_pct"],
     metrics: [
       { seriesId: "hvi.value.index", date: "2025-12-31", value: 169.4 },
       { seriesId: "lending.avg_loan_size_aud", date: "2025-12-31", value: 736000 },
@@ -54,7 +46,7 @@ function createHousingPayload(region: string) {
   };
 }
 
-describe("dashboard server prefetch", () => {
+describe("dashboard real data mapping", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     fetchMock.mockImplementation(async (input: string | URL | Request) => {
@@ -66,11 +58,18 @@ describe("dashboard server prefetch", () => {
           json: async () => createEnergyPayload("AU")
         };
       }
+      if (url.includes("/api/housing/overview?region=AU")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => createHousingPayload("AU")
+        };
+      }
 
       return {
-        ok: true,
-        status: 200,
-        json: async () => createHousingPayload("AU")
+        ok: false,
+        status: 404,
+        json: async () => ({})
       };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -81,12 +80,28 @@ describe("dashboard server prefetch", () => {
     vi.unstubAllGlobals();
   });
 
-  test("renders initial dashboard values without waiting for client effects", async () => {
+  test("replaces stub sector block with real data health rows", async () => {
     await renderHomePage();
 
-    const panel = getEconomicPanel();
-    expect(panel.getByText("118.0 AUD/MWh")).toBeDefined();
-    expect(panel.getByText("169.4")).toBeDefined();
-    expect(screen.queryByText("SYNCING...")).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText("DATA_HEALTH")).toBeDefined();
+      expect(screen.getByText("ENERGY_FRESHNESS")).toBeDefined();
+      expect(screen.getByText("HOUSING_COVERAGE")).toBeDefined();
+      expect(screen.getByText("missing 1")).toBeDefined();
+    });
+
+    expect(screen.queryByText("Sector Performance")).toBeNull();
+  });
+
+  test("builds live feed rows from energy and housing API payloads", async () => {
+    await renderHomePage();
+
+    await waitFor(() => {
+      const liveFeed = within(screen.getByLabelText("Live feed logs"));
+      expect(liveFeed.getByText("ENERGY_OVERVIEW")).toBeDefined();
+      expect(liveFeed.getByText("HOUSING_OVERVIEW")).toBeDefined();
+      expect(liveFeed.getByText("118.0 AUD/MWh")).toBeDefined();
+      expect(liveFeed.getByText("metrics:4")).toBeDefined();
+    });
   });
 });

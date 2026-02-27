@@ -1,8 +1,16 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { renderHomePage } from "./render-home-page";
 
 const fetchMock = vi.fn();
+
+function getEconomicPanel() {
+  const panel = screen.getByText("Economic Feed").closest("section");
+  if (!panel) {
+    throw new Error("Economic panel not found");
+  }
+  return within(panel);
+}
 
 function energyPayload(region: string, valueAudMwh: number) {
   return {
@@ -80,7 +88,7 @@ describe("dashboard data error recovery", () => {
     await renderHomePage();
 
     await waitFor(() => {
-      expect(screen.getByText("DATA_UNAVAILABLE")).toBeDefined();
+      expect(getEconomicPanel().getByText("DATA_UNAVAILABLE")).toBeDefined();
     });
 
     fireEvent.change(screen.getByLabelText("Region"), {
@@ -88,10 +96,10 @@ describe("dashboard data error recovery", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("100.0 AUD/MWh")).toBeDefined();
+      expect(getEconomicPanel().getByText("100.0 AUD/MWh")).toBeDefined();
     });
 
-    expect(screen.queryByText("DATA_UNAVAILABLE")).toBeNull();
+    expect(getEconomicPanel().queryByText("DATA_UNAVAILABLE")).toBeNull();
   });
 
   test("clears stale energy data when region refetch fails", async () => {
@@ -122,7 +130,7 @@ describe("dashboard data error recovery", () => {
     await renderHomePage();
 
     await waitFor(() => {
-      expect(screen.getByText("118.0 AUD/MWh")).toBeDefined();
+      expect(getEconomicPanel().getByText("118.0 AUD/MWh")).toBeDefined();
     });
 
     fireEvent.change(screen.getByLabelText("Region"), {
@@ -130,10 +138,10 @@ describe("dashboard data error recovery", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("DATA_UNAVAILABLE")).toBeDefined();
+      expect(getEconomicPanel().getByText("DATA_UNAVAILABLE")).toBeDefined();
     });
 
-    expect(screen.queryByText("118.0 AUD/MWh")).toBeNull();
+    expect(getEconomicPanel().queryByText("118.0 AUD/MWh")).toBeNull();
   });
 
   test("shows DATA_UNAVAILABLE when region energy payload shape is invalid", async () => {
@@ -164,7 +172,7 @@ describe("dashboard data error recovery", () => {
     await renderHomePage();
 
     await waitFor(() => {
-      expect(screen.getByText("118.0 AUD/MWh")).toBeDefined();
+      expect(getEconomicPanel().getByText("118.0 AUD/MWh")).toBeDefined();
     });
 
     fireEvent.change(screen.getByLabelText("Region"), {
@@ -172,9 +180,9 @@ describe("dashboard data error recovery", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("DATA_UNAVAILABLE")).toBeDefined();
+      expect(getEconomicPanel().getByText("DATA_UNAVAILABLE")).toBeDefined();
     });
 
-    expect(screen.queryByText("118.0 AUD/MWh")).toBeNull();
+    expect(getEconomicPanel().queryByText("118.0 AUD/MWh")).toBeNull();
   });
 });

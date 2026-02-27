@@ -1,8 +1,16 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { renderHomePage } from "./render-home-page";
 
 const fetchMock = vi.fn();
+
+function getEconomicPanel() {
+  const panel = screen.getByText("Economic Feed").closest("section");
+  if (!panel) {
+    throw new Error("Economic panel not found");
+  }
+  return within(panel);
+}
 
 function createEnergyPayload(region: string) {
   return {
@@ -76,15 +84,16 @@ describe("Housing overview right panel", () => {
 
     await renderHomePage();
 
-    expect(screen.getByText("HOUSING_OVERVIEW")).toBeDefined();
+    expect(getEconomicPanel().getByText("HOUSING_OVERVIEW")).toBeDefined();
 
     await waitFor(() => {
-      expect(screen.getByText("HVI_INDEX")).toBeDefined();
-      expect(screen.getByText("169.4")).toBeDefined();
-      expect(screen.getByText("AVG_LOAN")).toBeDefined();
-      expect(screen.getByText("$736,000")).toBeDefined();
-      expect(screen.getByText("OO_VARIABLE_RATE")).toBeDefined();
-      expect(screen.getByText("6.08%")).toBeDefined();
+      const panel = getEconomicPanel();
+      expect(panel.getByText("HVI_INDEX")).toBeDefined();
+      expect(panel.getByText("169.4")).toBeDefined();
+      expect(panel.getByText("AVG_LOAN")).toBeDefined();
+      expect(panel.getByText("$736,000")).toBeDefined();
+      expect(panel.getByText("OO_VARIABLE_RATE")).toBeDefined();
+      expect(panel.getByText("6.08%")).toBeDefined();
     });
   });
 
@@ -113,7 +122,7 @@ describe("Housing overview right panel", () => {
     await renderHomePage();
 
     await waitFor(() => {
-      expect(screen.getByText("169.4")).toBeDefined();
+      expect(getEconomicPanel().getByText("169.4")).toBeDefined();
     });
 
     fireEvent.change(screen.getByLabelText("Region"), {
@@ -121,9 +130,10 @@ describe("Housing overview right panel", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("172.4")).toBeDefined();
-      expect(screen.getByText("$756,000")).toBeDefined();
-      expect(screen.getByText("6.16%")).toBeDefined();
+      const panel = getEconomicPanel();
+      expect(panel.getByText("172.4")).toBeDefined();
+      expect(panel.getByText("$756,000")).toBeDefined();
+      expect(panel.getByText("6.16%")).toBeDefined();
     });
 
     const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
