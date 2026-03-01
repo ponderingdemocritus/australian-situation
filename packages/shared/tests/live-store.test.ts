@@ -98,6 +98,53 @@ describe("live store", () => {
     ).toBeTruthy();
   });
 
+  test("preserves optional comparison metadata on upsert", () => {
+    const storePath = createTempStorePath("comparison-metadata");
+    const store = readLiveStoreSync(storePath);
+
+    const result = upsertObservations(store, [
+      {
+        seriesId: "energy.retail.price.country.usd_kwh_ppp",
+        regionCode: "AU",
+        countryCode: "AU",
+        market: "NEM",
+        metricFamily: "retail",
+        date: "2026-02-28",
+        intervalStartUtc: "2026-02-28T00:00:00Z",
+        intervalEndUtc: "2026-02-28T23:59:59Z",
+        value: 0.22,
+        unit: "usd_kwh",
+        currency: "USD",
+        taxStatus: "incl_tax",
+        consumptionBand: "household_mid",
+        sourceName: "AER",
+        sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
+        publishedAt: "2026-02-28T00:00:00Z",
+        ingestedAt: "2026-02-28T03:00:00Z",
+        vintage: "2026-02-28",
+        isModeled: false,
+        confidence: "official",
+        methodologyVersion: "energy-comparison-v1"
+      }
+    ]);
+
+    expect(result).toEqual({ inserted: 1, updated: 0 });
+
+    const inserted = store.observations.find(
+      (item) => item.seriesId === "energy.retail.price.country.usd_kwh_ppp"
+    );
+    expect(inserted).toBeTruthy();
+    expect(inserted?.countryCode).toBe("AU");
+    expect(inserted?.market).toBe("NEM");
+    expect(inserted?.metricFamily).toBe("retail");
+    expect(inserted?.intervalStartUtc).toBe("2026-02-28T00:00:00Z");
+    expect(inserted?.intervalEndUtc).toBe("2026-02-28T23:59:59Z");
+    expect(inserted?.currency).toBe("USD");
+    expect(inserted?.taxStatus).toBe("incl_tax");
+    expect(inserted?.consumptionBand).toBe("household_mid");
+    expect(inserted?.methodologyVersion).toBe("energy-comparison-v1");
+  });
+
   test("updates source cursors and records ingestion runs", () => {
     const storePath = createTempStorePath("ops");
     const store = readLiveStoreSync(storePath);

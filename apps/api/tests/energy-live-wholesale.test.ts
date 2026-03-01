@@ -37,4 +37,34 @@ describe("GET /api/energy/live-wholesale", () => {
       })
     });
   });
+
+  test("rejects unsupported region with structured error", async () => {
+    const response = await app.request(
+      "/api/energy/live-wholesale?region=WA&window=5m"
+    );
+    expect(response.status).toBe(400);
+
+    const body = await response.json();
+    expect(body).toEqual({
+      error: {
+        code: "UNSUPPORTED_REGION",
+        message: "Unsupported region: WA"
+      }
+    });
+  });
+
+  test("rejects unsupported window with structured error", async () => {
+    const response = await app.request(
+      "/api/energy/live-wholesale?region=AU&window=7d"
+    );
+    expect(response.status).toBe(400);
+
+    const body = await response.json();
+    expect(body).toEqual({
+      error: {
+        code: "UNSUPPORTED_WINDOW",
+        message: "Unsupported window: 7d"
+      }
+    });
+  });
 });

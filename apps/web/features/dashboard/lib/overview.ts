@@ -40,6 +40,47 @@ export type HousingOverviewResponse = {
   updatedAt: string | null;
 };
 
+export type ComparisonBasis = "nominal" | "ppp";
+
+export type RetailComparisonRow = {
+  countryCode: string;
+  value: number;
+  rank: number;
+};
+
+export type RetailComparisonResponse = {
+  country: string;
+  peers: string[];
+  basis: ComparisonBasis;
+  taxStatus: string;
+  consumptionBand: string;
+  auRank: number | null;
+  methodologyVersion: string;
+  rows: RetailComparisonRow[];
+};
+
+export type WholesaleComparisonRow = {
+  countryCode: string;
+  value: number;
+  rank: number;
+};
+
+export type WholesaleComparisonResponse = {
+  country: string;
+  peers: string[];
+  auRank: number | null;
+  auPercentile: number | null;
+  methodologyVersion: string;
+  rows: WholesaleComparisonRow[];
+};
+
+export type MethodologyMetadataResponse = {
+  metric: string;
+  methodologyVersion: string;
+  description: string;
+  requiredDimensions: string[];
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -50,6 +91,43 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function parseComparisonRows(value: unknown): Array<{
+  countryCode: string;
+  value: number;
+  rank: number;
+}> | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const rows: Array<{
+    countryCode: string;
+    value: number;
+    rank: number;
+  }> = [];
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      return null;
+    }
+    if (
+      typeof item.countryCode !== "string" ||
+      !isFiniteNumber(item.value) ||
+      !isFiniteNumber(item.rank)
+    ) {
+      return null;
+    }
+
+    rows.push({
+      countryCode: item.countryCode,
+      value: item.value,
+      rank: item.rank
+    });
+  }
+
+  return rows;
 }
 
 export function parseEnergyOverviewResponse(payload: unknown): EnergyOverviewResponse | null {
@@ -164,5 +242,97 @@ export function parseHousingOverviewResponse(payload: unknown): HousingOverviewR
     metrics: parsedMetrics,
     missingSeriesIds,
     updatedAt
+  };
+}
+
+export function parseRetailComparisonResponse(
+  payload: unknown
+): RetailComparisonResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  if (
+    typeof payload.country !== "string" ||
+    !isStringArray(payload.peers) ||
+    (payload.basis !== "nominal" && payload.basis !== "ppp") ||
+    typeof payload.taxStatus !== "string" ||
+    typeof payload.consumptionBand !== "string" ||
+    (payload.auRank !== null && !isFiniteNumber(payload.auRank)) ||
+    typeof payload.methodologyVersion !== "string"
+  ) {
+    return null;
+  }
+
+  const rows = parseComparisonRows(payload.rows);
+  if (!rows) {
+    return null;
+  }
+
+  return {
+    country: payload.country,
+    peers: payload.peers,
+    basis: payload.basis,
+    taxStatus: payload.taxStatus,
+    consumptionBand: payload.consumptionBand,
+    auRank: payload.auRank,
+    methodologyVersion: payload.methodologyVersion,
+    rows
+  };
+}
+
+export function parseWholesaleComparisonResponse(
+  payload: unknown
+): WholesaleComparisonResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  if (
+    typeof payload.country !== "string" ||
+    !isStringArray(payload.peers) ||
+    (payload.auRank !== null && !isFiniteNumber(payload.auRank)) ||
+    (payload.auPercentile !== null && !isFiniteNumber(payload.auPercentile)) ||
+    typeof payload.methodologyVersion !== "string"
+  ) {
+    return null;
+  }
+
+  const rows = parseComparisonRows(payload.rows);
+  if (!rows) {
+    return null;
+  }
+
+  return {
+    country: payload.country,
+    peers: payload.peers,
+    auRank: payload.auRank,
+    auPercentile: payload.auPercentile,
+    methodologyVersion: payload.methodologyVersion,
+    rows
+  };
+}
+
+export function parseMethodologyMetadataResponse(
+  payload: unknown
+): MethodologyMetadataResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  if (
+    typeof payload.metric !== "string" ||
+    typeof payload.methodologyVersion !== "string" ||
+    typeof payload.description !== "string" ||
+    !isStringArray(payload.requiredDimensions)
+  ) {
+    return null;
+  }
+
+  return {
+    metric: payload.metric,
+    methodologyVersion: payload.methodologyVersion,
+    description: payload.description,
+    requiredDimensions: payload.requiredDimensions
   };
 }

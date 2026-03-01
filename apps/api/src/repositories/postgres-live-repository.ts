@@ -1,5 +1,6 @@
 import { getDb, observations, sources } from "@aus-dash/db";
 import { and, eq, gte, lte } from "drizzle-orm";
+import type { ComparableObservation } from "../domain/energy-comparison";
 import { SeriesRepositoryError } from "./series-repository-error";
 
 const SUPPORTED_REGIONS = new Set([
@@ -40,12 +41,21 @@ type FreshnessStatus = "fresh" | "stale" | "degraded";
 type ObservationRow = {
   seriesId: string;
   regionCode: string;
+  countryCode: string | null;
+  market: string | null;
+  metricFamily: string | null;
   date: string;
+  intervalStartUtc: string | null;
+  intervalEndUtc: string | null;
   value: number;
   unit: string;
+  currency: string | null;
+  taxStatus: string | null;
+  consumptionBand: string | null;
   sourceName: string;
   sourceUrl: string;
   publishedAt: string;
+  methodologyVersion: string | null;
 };
 
 function parseNumeric(value: unknown): number {
@@ -105,12 +115,21 @@ async function listObservations(
     .select({
       seriesId: observations.seriesId,
       regionCode: observations.regionCode,
+      countryCode: observations.countryCode,
+      market: observations.market,
+      metricFamily: observations.metricFamily,
       date: observations.date,
+      intervalStartUtc: observations.intervalStartUtc,
+      intervalEndUtc: observations.intervalEndUtc,
       value: observations.value,
       unit: observations.unit,
+      currency: observations.currency,
+      taxStatus: observations.taxStatus,
+      consumptionBand: observations.consumptionBand,
       sourceName: observations.sourceName,
       sourceUrl: observations.sourceUrl,
-      publishedAt: observations.publishedAt
+      publishedAt: observations.publishedAt,
+      methodologyVersion: observations.methodologyVersion
     })
     .from(observations)
     .where(
@@ -126,12 +145,21 @@ async function listObservations(
   return rows.map((row) => ({
     seriesId: row.seriesId,
     regionCode: row.regionCode,
+    countryCode: row.countryCode,
+    market: row.market,
+    metricFamily: row.metricFamily,
     date: row.date,
+    intervalStartUtc: row.intervalStartUtc ? row.intervalStartUtc.toISOString() : null,
+    intervalEndUtc: row.intervalEndUtc ? row.intervalEndUtc.toISOString() : null,
     value: parseNumeric(row.value),
     unit: row.unit,
+    currency: row.currency,
+    taxStatus: row.taxStatus,
+    consumptionBand: row.consumptionBand,
     sourceName: row.sourceName,
     sourceUrl: row.sourceUrl,
-    publishedAt: row.publishedAt.toISOString()
+    publishedAt: row.publishedAt.toISOString(),
+    methodologyVersion: row.methodologyVersion
   }));
 }
 
@@ -144,6 +172,64 @@ async function latestObservation(
     return null;
   }
   return points[points.length - 1] ?? null;
+}
+
+async function listLatestCountryObservations(input: {
+  seriesId: string;
+  countries: string[];
+  taxStatus?: string;
+  consumptionBand?: string;
+}): Promise<ComparableObservation[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      countryCode: observations.countryCode,
+      date: observations.date,
+      value: observations.value,
+      methodologyVersion: observations.methodologyVersion
+    })
+    .from(observations)
+    .where(
+      and(
+        eq(observations.seriesId, input.seriesId),
+        input.taxStatus ? eq(observations.taxStatus, input.taxStatus) : undefined,
+        input.consumptionBand
+          ? eq(observations.consumptionBand, input.consumptionBand)
+          : undefined
+      )
+    );
+
+  const countries = new Set(input.countries);
+  const latestByCountry = new Map<
+    string,
+    {
+      date: string;
+      value: number;
+      methodologyVersion: string | null;
+    }
+  >();
+
+  for (const row of rows) {
+    if (!row.countryCode || !countries.has(row.countryCode)) {
+      continue;
+    }
+
+    const existing = latestByCountry.get(row.countryCode);
+    if (!existing || row.date > existing.date) {
+      latestByCountry.set(row.countryCode, {
+        date: row.date,
+        value: parseNumeric(row.value),
+        methodologyVersion: row.methodologyVersion
+      });
+    }
+  }
+
+  return [...latestByCountry.entries()].map(([countryCode, value]) => ({
+    countryCode,
+    date: value.date,
+    value: value.value,
+    methodologyVersion: value.methodologyVersion
+  }));
 }
 
 export function createPostgresLiveDataRepository() {
@@ -309,6 +395,39 @@ export function createPostgresLiveDataRepository() {
           updatedAt,
           status: freshnessStatus("daily", lagMinutes(Date.now(), updatedAt))
         }
+      };
+    },
+
+    async getEnergyRetailComparison(input: {
+      country: string;
+      peers: string[];
+      basis: "nominal" | "ppp";
+      taxStatus?: string;
+      consumptionBand?: string;
+    }) {
+      const seriesId =
+        input.basis === "ppp"
+          ? "energy.retail.price.country.usd_kwh_ppp"
+          : "energy.retail.price.country.usd_kwh_nominal";
+      const countries = [input.country, ...input.peers];
+
+      return {
+        rows: await listLatestCountryObservations({
+          seriesId,
+          countries,
+          taxStatus: input.taxStatus,
+          consumptionBand: input.consumptionBand
+        })
+      };
+    },
+
+    async getEnergyWholesaleComparison(input: { country: string; peers: string[] }) {
+      const countries = [input.country, ...input.peers];
+      return {
+        rows: await listLatestCountryObservations({
+          seriesId: "energy.wholesale.spot.country.usd_mwh",
+          countries
+        })
       };
     },
 

@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:existing": "E2E_USE_EXISTING_SERVER=true playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1"

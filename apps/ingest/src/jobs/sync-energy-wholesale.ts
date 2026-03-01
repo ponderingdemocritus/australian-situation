@@ -129,9 +129,15 @@ export async function syncEnergyWholesale(
   const observations = aggregatedPoints.map((point) => ({
     seriesId: "energy.wholesale.rrp.au_weighted_aud_mwh",
     regionCode: "AU",
+    countryCode: "AU",
+    market: "NEM",
+    metricFamily: "wholesale",
     date: point.timestamp,
+    intervalStartUtc: point.timestamp,
+    intervalEndUtc: point.timestamp,
     value: point.audMwh,
     unit: "aud_mwh",
+    currency: "AUD",
     sourceName: "AEMO",
     sourceUrl:
       "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem",
@@ -139,7 +145,8 @@ export async function syncEnergyWholesale(
     ingestedAt: new Date().toISOString(),
     vintage: "2026-02-27",
     isModeled: false,
-    confidence: "official" as const
+    confidence: "official" as const,
+    methodologyVersion: "energy-wholesale-v1"
   }));
   let upsertResult: { inserted: number; updated: number };
 

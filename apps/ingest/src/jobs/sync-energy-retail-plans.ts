@@ -122,30 +122,48 @@ export async function syncEnergyRetailPlans(
     {
       seriesId: "energy.retail.offer.annual_bill_aud.mean",
       regionCode: "AU",
+      countryCode: "AU",
+      market: "NEM",
+      metricFamily: "retail",
       date: "2026-02-27",
+      intervalStartUtc: "2026-02-27T00:00:00Z",
+      intervalEndUtc: "2026-02-27T23:59:59Z",
       value: annualBillAudMean,
       unit: "aud",
+      currency: "AUD",
+      taxStatus: "incl_tax",
+      consumptionBand: "household_mid",
       sourceName: "AER",
       sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
       publishedAt: "2026-02-27T00:00:00Z",
       ingestedAt: new Date().toISOString(),
       vintage: "2026-02-27",
       isModeled: false,
-      confidence: "official" as const
+      confidence: "official" as const,
+      methodologyVersion: "energy-retail-prd-v1"
     },
     {
       seriesId: "energy.retail.offer.annual_bill_aud.median",
       regionCode: "AU",
+      countryCode: "AU",
+      market: "NEM",
+      metricFamily: "retail",
       date: "2026-02-27",
+      intervalStartUtc: "2026-02-27T00:00:00Z",
+      intervalEndUtc: "2026-02-27T23:59:59Z",
       value: annualBillAudMedian,
       unit: "aud",
+      currency: "AUD",
+      taxStatus: "incl_tax",
+      consumptionBand: "household_mid",
       sourceName: "AER",
       sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
       publishedAt: "2026-02-27T00:00:00Z",
       ingestedAt: new Date().toISOString(),
       vintage: "2026-02-27",
       isModeled: false,
-      confidence: "official" as const
+      confidence: "official" as const,
+      methodologyVersion: "energy-retail-prd-v1"
     }
   ];
   let upsertResult: { inserted: number; updated: number };

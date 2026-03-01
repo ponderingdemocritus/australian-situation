@@ -54,4 +54,20 @@ describe("GET /api/energy/household-estimate", () => {
       updatedAt: expect.any(String)
     });
   });
+
+  test("rejects unsupported region even when feature flag is enabled", async () => {
+    process.env[ENV_KEY] = "true";
+    const response = await app.request(
+      "/api/energy/household-estimate?region=XYZ&usage_profile=default"
+    );
+    expect(response.status).toBe(400);
+
+    const body = await response.json();
+    expect(body).toEqual({
+      error: {
+        code: "UNSUPPORTED_REGION",
+        message: "Unsupported region: XYZ"
+      }
+    });
+  });
 });

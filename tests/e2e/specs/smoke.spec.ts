@@ -5,5 +5,5 @@ test("overview loads", async ({ request }) => {
   const html = await response.text();
 
   expect(response.ok()).toBeTruthy();
-  expect(html).toContain("Housing Control Center");
+  expect(html).toContain("australia_live / econ");
 });

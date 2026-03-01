@@ -22,6 +22,43 @@ function parseDate(value: string): Date {
   return parsed;
 }
 
+function parseOptionalDate(value: string | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+}
+
+export function mapObservationForPostgres(observation: LiveObservation) {
+  return {
+    seriesId: observation.seriesId,
+    regionCode: observation.regionCode,
+    countryCode: observation.countryCode ?? null,
+    market: observation.market ?? null,
+    metricFamily: observation.metricFamily ?? null,
+    date: observation.date,
+    intervalStartUtc: parseOptionalDate(observation.intervalStartUtc),
+    intervalEndUtc: parseOptionalDate(observation.intervalEndUtc),
+    value: String(observation.value),
+    unit: observation.unit,
+    currency: observation.currency ?? null,
+    taxStatus: observation.taxStatus ?? null,
+    consumptionBand: observation.consumptionBand ?? null,
+    sourceName: observation.sourceName,
+    sourceUrl: observation.sourceUrl,
+    publishedAt: parseDate(observation.publishedAt),
+    ingestedAt: parseDate(observation.ingestedAt),
+    vintage: observation.vintage,
+    isModeled: observation.isModeled,
+    confidence: observation.confidence,
+    methodologyVersion: observation.methodologyVersion ?? null
+  };
+}
+
 export async function ensureSourceCatalogInPostgres(
   sourceCatalog: SourceCatalogItem[]
 ): Promise<void> {
@@ -120,6 +157,8 @@ export async function upsertObservationsInPostgres(
   let updated = 0;
 
   for (const observation of incoming) {
+    const mapped = mapObservationForPostgres(observation);
+
     const existing = await db
       .select({
         id: observations.id
@@ -136,20 +175,7 @@ export async function upsertObservationsInPostgres(
       .limit(1);
 
     if (existing.length === 0) {
-      await db.insert(observations).values({
-        seriesId: observation.seriesId,
-        regionCode: observation.regionCode,
-        date: observation.date,
-        value: String(observation.value),
-        unit: observation.unit,
-        sourceName: observation.sourceName,
-        sourceUrl: observation.sourceUrl,
-        publishedAt: parseDate(observation.publishedAt),
-        ingestedAt: parseDate(observation.ingestedAt),
-        vintage: observation.vintage,
-        isModeled: observation.isModeled,
-        confidence: observation.confidence
-      });
+      await db.insert(observations).values(mapped);
       inserted += 1;
       continue;
     }
@@ -157,14 +183,23 @@ export async function upsertObservationsInPostgres(
     await db
       .update(observations)
       .set({
-        value: String(observation.value),
-        unit: observation.unit,
-        sourceName: observation.sourceName,
-        sourceUrl: observation.sourceUrl,
-        publishedAt: parseDate(observation.publishedAt),
-        ingestedAt: parseDate(observation.ingestedAt),
-        isModeled: observation.isModeled,
-        confidence: observation.confidence
+        countryCode: mapped.countryCode,
+        market: mapped.market,
+        metricFamily: mapped.metricFamily,
+        intervalStartUtc: mapped.intervalStartUtc,
+        intervalEndUtc: mapped.intervalEndUtc,
+        value: mapped.value,
+        unit: mapped.unit,
+        currency: mapped.currency,
+        taxStatus: mapped.taxStatus,
+        consumptionBand: mapped.consumptionBand,
+        sourceName: mapped.sourceName,
+        sourceUrl: mapped.sourceUrl,
+        publishedAt: mapped.publishedAt,
+        ingestedAt: mapped.ingestedAt,
+        isModeled: mapped.isModeled,
+        confidence: mapped.confidence,
+        methodologyVersion: mapped.methodologyVersion
       })
       .where(eq(observations.id, existing[0]!.id));
     updated += 1;

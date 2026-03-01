@@ -1,10 +1,17 @@
 import { describe, expect, test } from "vitest";
 import {
+  type EntsoeWholesalePoint,
+  type EurostatRetailPricePoint,
+  type WorldBankNormalizationPoint,
   SourceClientError,
   fetchAbsHousingSnapshot,
   fetchAerRetailPlansSnapshot,
   fetchAemoWholesaleSnapshot,
-  fetchRbaRatesSnapshot
+  fetchEiaElectricitySnapshot,
+  fetchEntsoeWholesaleSnapshot,
+  fetchEurostatRetailSnapshot,
+  fetchRbaRatesSnapshot,
+  fetchWorldBankNormalizationSnapshot
 } from "../src/sources/live-source-clients";
 
 type MockResponse = {
@@ -179,5 +186,174 @@ describe("live source clients", () => {
         unit: "%"
       }
     ]);
+  });
+
+  test("maps EIA payload into canonical wholesale and retail points", async () => {
+    const snapshot = await fetchEiaElectricitySnapshot({
+      endpoint: "https://example.test/eia",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            retail: [
+              {
+                period: "2026-01",
+                region_code: "US",
+                customer_type: "residential",
+                price_usd_kwh: 0.182
+              }
+            ],
+            wholesale: [
+              {
+                interval_start_utc: "2026-02-27T00:00:00Z",
+                interval_end_utc: "2026-02-27T01:00:00Z",
+                region_code: "ERCOT",
+                lmp_usd_mwh: 67.3
+              }
+            ]
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("eia_electricity");
+    expect(snapshot.retailPoints).toEqual([
+      {
+        countryCode: "US",
+        regionCode: "US",
+        period: "2026-01",
+        customerType: "residential",
+        priceUsdKwh: 0.182
+      }
+    ]);
+    expect(snapshot.wholesalePoints).toEqual([
+      {
+        countryCode: "US",
+        regionCode: "ERCOT",
+        intervalStartUtc: "2026-02-27T00:00:00Z",
+        intervalEndUtc: "2026-02-27T01:00:00Z",
+        priceUsdMwh: 67.3
+      }
+    ]);
+  });
+
+  test("maps ENTSO-E payload and preserves bidding zone metadata", async () => {
+    const snapshot = await fetchEntsoeWholesaleSnapshot({
+      endpoint: "https://example.test/entsoe",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            data: [
+              {
+                country_code: "DE",
+                bidding_zone: "DE_LU",
+                interval_start_utc: "2026-02-27T00:00:00Z",
+                interval_end_utc: "2026-02-27T01:00:00Z",
+                day_ahead_price_eur_mwh: 95.4
+              }
+            ]
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("entsoe_wholesale");
+    expect(snapshot.points).toEqual([
+      {
+        countryCode: "DE",
+        biddingZone: "DE_LU",
+        intervalStartUtc: "2026-02-27T00:00:00Z",
+        intervalEndUtc: "2026-02-27T01:00:00Z",
+        priceEurMwh: 95.4
+      } satisfies EntsoeWholesalePoint
+    ]);
+  });
+
+  test("maps Eurostat nrg_pc_204 payload with tax and consumption-band fields", async () => {
+    const snapshot = await fetchEurostatRetailSnapshot({
+      endpoint: "https://example.test/eurostat",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            dataset: "nrg_pc_204",
+            data: [
+              {
+                country_code: "DE",
+                period: "2025-S2",
+                customer_type: "household",
+                consumption_band: "household_mid",
+                tax_status: "incl_tax",
+                currency: "EUR",
+                price_local_kwh: 0.319
+              }
+            ]
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("eurostat_retail");
+    expect(snapshot.dataset).toBe("nrg_pc_204");
+    expect(snapshot.points).toEqual([
+      {
+        countryCode: "DE",
+        period: "2025-S2",
+        customerType: "household",
+        consumptionBand: "household_mid",
+        taxStatus: "incl_tax",
+        currency: "EUR",
+        priceLocalKwh: 0.319
+      } satisfies EurostatRetailPricePoint
+    ]);
+  });
+
+  test("maps World Bank normalization payload for FX and PPP indicators", async () => {
+    const snapshot = await fetchWorldBankNormalizationSnapshot({
+      endpoint: "https://example.test/worldbank",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            data: [
+              {
+                country_code: "AUS",
+                year: "2025",
+                indicator_code: "PA.NUS.FCRF",
+                value: 1.53
+              },
+              {
+                country_code: "AUS",
+                year: "2025",
+                indicator_code: "PA.NUS.PPP",
+                value: 1.44
+              }
+            ]
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("world_bank_normalization");
+    expect(snapshot.points).toEqual([
+      {
+        countryCode: "AUS",
+        year: "2025",
+        indicatorCode: "PA.NUS.FCRF",
+        value: 1.53
+      } satisfies WorldBankNormalizationPoint,
+      {
+        countryCode: "AUS",
+        year: "2025",
+        indicatorCode: "PA.NUS.PPP",
+        value: 1.44
+      } satisfies WorldBankNormalizationPoint
+    ]);
+  });
+
+  test("raises permanent source error on Eurostat schema drift", async () => {
+    await expect(
+      fetchEurostatRetailSnapshot({
+        endpoint: "https://example.test/eurostat",
+        fetchImpl: async () => buildResponse({ json: { dataset: "nrg_pc_204" } })
+      })
+    ).rejects.toMatchObject({
+      name: "SourceClientError",
+      sourceId: "eurostat_retail",
+      transient: false
+    } satisfies Partial<SourceClientError>);
   });
 });

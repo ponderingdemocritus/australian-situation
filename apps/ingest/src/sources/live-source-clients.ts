@@ -430,3 +430,412 @@ export async function fetchRbaRatesSnapshot(
     observations
   };
 }
+
+export type EiaRetailPricePoint = {
+  countryCode: "US";
+  regionCode: string;
+  period: string;
+  customerType: string;
+  priceUsdKwh: number;
+};
+
+export type EiaWholesalePricePoint = {
+  countryCode: "US";
+  regionCode: string;
+  intervalStartUtc: string;
+  intervalEndUtc: string;
+  priceUsdMwh: number;
+};
+
+export type EiaElectricitySnapshot = {
+  sourceId: "eia_electricity";
+  endpoint: string;
+  rawPayload: string;
+  retailPoints: EiaRetailPricePoint[];
+  wholesalePoints: EiaWholesalePricePoint[];
+};
+
+export type FetchEiaElectricityOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+export async function fetchEiaElectricitySnapshot(
+  options: FetchEiaElectricityOptions = {}
+): Promise<EiaElectricitySnapshot> {
+  const sourceId = "eia_electricity";
+  const endpoint = options.endpoint ?? "https://api.eia.gov/v2/electricity";
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "application/json"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const parsed = await readJsonResponse(sourceId, response);
+  const payload = parsed as {
+    retail?: Array<{
+      period?: unknown;
+      region_code?: unknown;
+      customer_type?: unknown;
+      price_usd_kwh?: unknown;
+    }>;
+    wholesale?: Array<{
+      interval_start_utc?: unknown;
+      interval_end_utc?: unknown;
+      region_code?: unknown;
+      lmp_usd_mwh?: unknown;
+    }>;
+  };
+  if (!Array.isArray(payload.retail) || !Array.isArray(payload.wholesale)) {
+    throw new SourceClientError(sourceId, "schema drift in EIA payload", {
+      transient: false
+    });
+  }
+
+  const retailPoints = payload.retail.map((row) => {
+    const period = String(row.period ?? "");
+    const regionCode = String(row.region_code ?? "");
+    const customerType = String(row.customer_type ?? "");
+    const priceUsdKwh = Number(row.price_usd_kwh);
+
+    if (!period || !regionCode || !customerType || Number.isNaN(priceUsdKwh)) {
+      throw new SourceClientError(sourceId, "schema drift in EIA retail row", {
+        transient: false
+      });
+    }
+
+    return {
+      countryCode: "US" as const,
+      regionCode,
+      period,
+      customerType,
+      priceUsdKwh
+    };
+  });
+
+  const wholesalePoints = payload.wholesale.map((row) => {
+    const intervalStartUtc = String(row.interval_start_utc ?? "");
+    const intervalEndUtc = String(row.interval_end_utc ?? "");
+    const regionCode = String(row.region_code ?? "");
+    const priceUsdMwh = Number(row.lmp_usd_mwh);
+
+    if (
+      !intervalStartUtc ||
+      !intervalEndUtc ||
+      !regionCode ||
+      Number.isNaN(priceUsdMwh)
+    ) {
+      throw new SourceClientError(sourceId, "schema drift in EIA wholesale row", {
+        transient: false
+      });
+    }
+
+    return {
+      countryCode: "US" as const,
+      regionCode,
+      intervalStartUtc,
+      intervalEndUtc,
+      priceUsdMwh
+    };
+  });
+
+  return {
+    sourceId,
+    endpoint,
+    rawPayload: JSON.stringify(parsed),
+    retailPoints,
+    wholesalePoints
+  };
+}
+
+export type EntsoeWholesalePoint = {
+  countryCode: string;
+  biddingZone: string;
+  intervalStartUtc: string;
+  intervalEndUtc: string;
+  priceEurMwh: number;
+};
+
+export type EntsoeWholesaleSnapshot = {
+  sourceId: "entsoe_wholesale";
+  endpoint: string;
+  rawPayload: string;
+  points: EntsoeWholesalePoint[];
+};
+
+export type FetchEntsoeWholesaleOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+export async function fetchEntsoeWholesaleSnapshot(
+  options: FetchEntsoeWholesaleOptions = {}
+): Promise<EntsoeWholesaleSnapshot> {
+  const sourceId = "entsoe_wholesale";
+  const endpoint = options.endpoint ?? "https://transparency.entsoe.eu/api";
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "application/json"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const parsed = await readJsonResponse(sourceId, response);
+  const payload = parsed as {
+    data?: Array<{
+      country_code?: unknown;
+      bidding_zone?: unknown;
+      interval_start_utc?: unknown;
+      interval_end_utc?: unknown;
+      day_ahead_price_eur_mwh?: unknown;
+    }>;
+  };
+  if (!Array.isArray(payload.data)) {
+    throw new SourceClientError(sourceId, "schema drift in ENTSO-E payload", {
+      transient: false
+    });
+  }
+
+  const points = payload.data.map((row) => {
+    const countryCode = String(row.country_code ?? "");
+    const biddingZone = String(row.bidding_zone ?? "");
+    const intervalStartUtc = String(row.interval_start_utc ?? "");
+    const intervalEndUtc = String(row.interval_end_utc ?? "");
+    const priceEurMwh = Number(row.day_ahead_price_eur_mwh);
+
+    if (
+      !countryCode ||
+      !biddingZone ||
+      !intervalStartUtc ||
+      !intervalEndUtc ||
+      Number.isNaN(priceEurMwh)
+    ) {
+      throw new SourceClientError(sourceId, "schema drift in ENTSO-E row", {
+        transient: false
+      });
+    }
+
+    return {
+      countryCode,
+      biddingZone,
+      intervalStartUtc,
+      intervalEndUtc,
+      priceEurMwh
+    };
+  });
+
+  return {
+    sourceId,
+    endpoint,
+    rawPayload: JSON.stringify(parsed),
+    points
+  };
+}
+
+export type EurostatRetailPricePoint = {
+  countryCode: string;
+  period: string;
+  customerType: string;
+  consumptionBand: string;
+  taxStatus: string;
+  currency: string;
+  priceLocalKwh: number;
+};
+
+export type EurostatRetailSnapshot = {
+  sourceId: "eurostat_retail";
+  endpoint: string;
+  dataset: string;
+  rawPayload: string;
+  points: EurostatRetailPricePoint[];
+};
+
+export type FetchEurostatRetailOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+export async function fetchEurostatRetailSnapshot(
+  options: FetchEurostatRetailOptions = {}
+): Promise<EurostatRetailSnapshot> {
+  const sourceId = "eurostat_retail";
+  const endpoint = options.endpoint ?? "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/nrg_pc_204";
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "application/json"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const parsed = await readJsonResponse(sourceId, response);
+  const payload = parsed as {
+    dataset?: unknown;
+    data?: Array<{
+      country_code?: unknown;
+      period?: unknown;
+      customer_type?: unknown;
+      consumption_band?: unknown;
+      tax_status?: unknown;
+      currency?: unknown;
+      price_local_kwh?: unknown;
+    }>;
+  };
+  if (!Array.isArray(payload.data) || typeof payload.dataset !== "string") {
+    throw new SourceClientError(sourceId, "schema drift in Eurostat payload", {
+      transient: false
+    });
+  }
+
+  const points = payload.data.map((row) => {
+    const countryCode = String(row.country_code ?? "");
+    const period = String(row.period ?? "");
+    const customerType = String(row.customer_type ?? "");
+    const consumptionBand = String(row.consumption_band ?? "");
+    const taxStatus = String(row.tax_status ?? "");
+    const currency = String(row.currency ?? "");
+    const priceLocalKwh = Number(row.price_local_kwh);
+
+    if (
+      !countryCode ||
+      !period ||
+      !customerType ||
+      !consumptionBand ||
+      !taxStatus ||
+      !currency ||
+      Number.isNaN(priceLocalKwh)
+    ) {
+      throw new SourceClientError(sourceId, "schema drift in Eurostat row", {
+        transient: false
+      });
+    }
+
+    return {
+      countryCode,
+      period,
+      customerType,
+      consumptionBand,
+      taxStatus,
+      currency,
+      priceLocalKwh
+    };
+  });
+
+  return {
+    sourceId,
+    endpoint,
+    dataset: payload.dataset,
+    rawPayload: JSON.stringify(parsed),
+    points
+  };
+}
+
+export type WorldBankNormalizationPoint = {
+  countryCode: string;
+  year: string;
+  indicatorCode: string;
+  value: number;
+};
+
+export type WorldBankNormalizationSnapshot = {
+  sourceId: "world_bank_normalization";
+  endpoint: string;
+  rawPayload: string;
+  points: WorldBankNormalizationPoint[];
+};
+
+export type FetchWorldBankNormalizationOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+export async function fetchWorldBankNormalizationSnapshot(
+  options: FetchWorldBankNormalizationOptions = {}
+): Promise<WorldBankNormalizationSnapshot> {
+  const sourceId = "world_bank_normalization";
+  const endpoint = options.endpoint ?? "https://api.worldbank.org/v2/country/all/indicator";
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "application/json"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const parsed = await readJsonResponse(sourceId, response);
+  const payload = parsed as {
+    data?: Array<{
+      country_code?: unknown;
+      year?: unknown;
+      indicator_code?: unknown;
+      value?: unknown;
+    }>;
+  };
+  if (!Array.isArray(payload.data)) {
+    throw new SourceClientError(sourceId, "schema drift in World Bank payload", {
+      transient: false
+    });
+  }
+
+  const points = payload.data.map((row) => {
+    const countryCode = String(row.country_code ?? "");
+    const year = String(row.year ?? "");
+    const indicatorCode = String(row.indicator_code ?? "");
+    const value = Number(row.value);
+
+    if (!countryCode || !year || !indicatorCode || Number.isNaN(value)) {
+      throw new SourceClientError(sourceId, "schema drift in World Bank row", {
+        transient: false
+      });
+    }
+
+    return {
+      countryCode,
+      year,
+      indicatorCode,
+      value
+    };
+  });
+
+  return {
+    sourceId,
+    endpoint,
+    rawPayload: JSON.stringify(parsed),
+    points
+  };
+}

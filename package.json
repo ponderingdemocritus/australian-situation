@@ -8,8 +8,8 @@
   ],
   "scripts": {
     "dev:web": "bun --filter @aus-dash/web dev",
-    "dev:api": "bun --filter @aus-dash/api dev",
-    "dev:ingest": "bun --filter @aus-dash/ingest dev",
+    "dev:api": "AUS_DASH_STORE_PATH=$PWD/apps/ingest/data/live-store.json bun --filter @aus-dash/api dev",
+    "dev:ingest": "AUS_DASH_STORE_PATH=$PWD/apps/ingest/data/live-store.json bun --filter @aus-dash/ingest dev",
     "dev:all": "./run-all.sh dev",
     "up:all": "./run-all.sh up",
     "infra:up": "./run-all.sh infra up",
@@ -17,11 +17,16 @@
     "infra:status": "./run-all.sh infra status",
     "test": "vitest --workspace vitest.workspace.ts --run",
     "test:watch": "vitest --workspace vitest.workspace.ts",
+    "test:client": "bun --filter @aus-dash/web test && bun --filter @aus-dash/web build && bun --filter @aus-dash/e2e test",
+    "test:client:e2e": "bun --filter @aus-dash/e2e test",
+    "test:client:e2e:existing": "E2E_USE_EXISTING_SERVER=true bun --filter @aus-dash/e2e test",
     "test:e2e": "bun --filter @aus-dash/e2e test",
     "test:all": "./run-all.sh test",
     "test:all:e2e": "./run-all.sh test --with-e2e"
   },
   "devDependencies": {
+    "@types/node": "^25.3.3",
+    "@types/pg": "^8.18.0",
     "typescript": "^5.9.3",
     "vitest": "^2.1.9"
   }

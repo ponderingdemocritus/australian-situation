@@ -94,6 +94,18 @@ bun run test:all
 bun run test:all:e2e
 ```
 
+Client validation flow (web unit/integration + build + Playwright):
+
+```bash
+bun run test:client
+```
+
+If a web server is already running, reuse it for Playwright:
+
+```bash
+bun run test:client:e2e:existing
+```
+
 ## API Surface (Current)
 
 - `GET /api/health`
@@ -105,6 +117,11 @@ bun run test:all:e2e
 - `GET /api/energy/household-estimate?region=&usage_profile=default` (feature-flagged)
 - `GET /api/metadata/sources`
 - `GET /api/metadata/freshness`
+- `GET /api/openapi.json`
+- `GET /api/docs`
+- `GET /api/v1/energy/compare/retail?country=AU&peers=US,DE&basis=nominal|ppp&tax_status=incl_tax&consumption_band=household_mid`
+- `GET /api/v1/energy/compare/wholesale?country=AU&peers=US,DE`
+- `GET /api/v1/metadata/methodology?metric=energy.compare.retail|energy.compare.wholesale`
 
 ## How To Add More Data
 
@@ -130,16 +147,15 @@ bun --filter @aus-dash/web build
 
 - Web API base URL: `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:3001`)
 - Optional modeled energy estimate flag: `ENABLE_ENERGY_HOUSEHOLD_ESTIMATE=true` (API)
+- Shared JSON store override: `AUS_DASH_STORE_PATH=/abs/path/to/live-store.json` (useful when running API and ingest separately; `dev:all` already sets a shared path)
 
 ## Planning Docs
 
-Read these for roadmap and implementation detail:
+Read these for current electricity-price comparison scope and implementation detail:
 
-1. `docs/roadmap-housing-energy.md`
-2. `docs/prd-housing-energy-v1.md`
-3. `docs/tdd-plan-housing-energy-v1.md`
-4. `docs/prd-live-ingestion-v1.md`
-5. `docs/tdd-plan-live-ingestion-v1.md`
-6. `docs/prd-postgres-drizzle-migration-v1.md`
-7. `docs/tdd-plan-postgres-drizzle-migration-v1.md`
-8. `docs/postgres-drizzle-implementation-checklist.md`
+1. `docs/prd-electricity-prices-aus-vs-global-v1.md`
+2. `docs/implementation-roadmap-electricity-prices-aus-global.md`
+3. `docs/tdd-plan-electricity-prices-aus-global-v1.md`
+4. `docs/kpi-definitions-electricity-prices-aus-global-v1.md`
+5. `docs/api-energy-comparison-v1.md`
+6. `research_electricity_prices_api_scope/research_report.md`

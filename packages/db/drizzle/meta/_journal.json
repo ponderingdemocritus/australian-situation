@@ -8,6 +8,13 @@
       "when": 1772173765844,
       "tag": "0000_pale_lady_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772243381109,
+      "tag": "0001_nice_vulcan",
+      "breakpoints": true
     }
   ]
 }

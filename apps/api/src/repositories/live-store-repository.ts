@@ -1,4 +1,5 @@
 import { readLiveStoreSync, type LiveObservation } from "@aus-dash/shared";
+import type { ComparableObservation } from "../domain/energy-comparison";
 import { SeriesRepositoryError } from "./series-repository-error";
 
 const SUPPORTED_REGIONS = new Set([
@@ -51,6 +52,23 @@ type QuerySeriesInput = {
   storePath?: string;
 };
 
+export type RetailComparisonBasis = "nominal" | "ppp";
+
+export type GetEnergyRetailComparisonInput = {
+  country: string;
+  peers: string[];
+  basis: RetailComparisonBasis;
+  taxStatus?: string;
+  consumptionBand?: string;
+  storePath?: string;
+};
+
+export type GetEnergyWholesaleComparisonInput = {
+  country: string;
+  peers: string[];
+  storePath?: string;
+};
+
 function sortByDateDesc<T extends { date: string }>(values: T[]): T[] {
   return [...values].sort((a, b) => b.date.localeCompare(a.date));
 }
@@ -82,6 +100,47 @@ function listObservations(
         observation.seriesId === seriesId && observation.regionCode === regionCode
     )
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function listLatestCountryObservations(
+  input: {
+    seriesId: string;
+    countries: string[];
+    taxStatus?: string;
+    consumptionBand?: string;
+  },
+  storePath?: string
+): ComparableObservation[] {
+  const countries = new Set(input.countries);
+  const store = readLiveStoreSync(storePath);
+  const latestByCountry = new Map<string, LiveObservation>();
+
+  for (const observation of store.observations) {
+    if (observation.seriesId !== input.seriesId) {
+      continue;
+    }
+    if (!observation.countryCode || !countries.has(observation.countryCode)) {
+      continue;
+    }
+    if (input.taxStatus && observation.taxStatus !== input.taxStatus) {
+      continue;
+    }
+    if (input.consumptionBand && observation.consumptionBand !== input.consumptionBand) {
+      continue;
+    }
+
+    const existing = latestByCountry.get(observation.countryCode);
+    if (!existing || observation.date > existing.date) {
+      latestByCountry.set(observation.countryCode, observation);
+    }
+  }
+
+  return [...latestByCountry.values()].map((observation) => ({
+    countryCode: observation.countryCode as string,
+    date: observation.date,
+    value: observation.value,
+    methodologyVersion: observation.methodologyVersion ?? null
+  }));
 }
 
 function toTimestamp(date: string): number | null {
@@ -302,6 +361,44 @@ export function getEnergyRetailAverageFromStore(region: string, storePath?: stri
       updatedAt: mean?.date ?? new Date().toISOString(),
       status: freshnessStatus("daily", lagMinutes(Date.now(), mean?.date ?? "1970-01-01"))
     }
+  };
+}
+
+export function getEnergyRetailComparisonFromStore(input: GetEnergyRetailComparisonInput): {
+  rows: ComparableObservation[];
+} {
+  const seriesId =
+    input.basis === "ppp"
+      ? "energy.retail.price.country.usd_kwh_ppp"
+      : "energy.retail.price.country.usd_kwh_nominal";
+
+  const countries = [input.country, ...input.peers];
+
+  return {
+    rows: listLatestCountryObservations(
+      {
+        seriesId,
+        countries,
+        taxStatus: input.taxStatus,
+        consumptionBand: input.consumptionBand
+      },
+      input.storePath
+    )
+  };
+}
+
+export function getEnergyWholesaleComparisonFromStore(
+  input: GetEnergyWholesaleComparisonInput
+): { rows: ComparableObservation[] } {
+  const countries = [input.country, ...input.peers];
+  return {
+    rows: listLatestCountryObservations(
+      {
+        seriesId: "energy.wholesale.spot.country.usd_mwh",
+        countries
+      },
+      input.storePath
+    )
   };
 }
 

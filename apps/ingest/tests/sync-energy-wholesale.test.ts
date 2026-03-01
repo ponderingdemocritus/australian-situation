@@ -51,6 +51,23 @@ describe("syncEnergyWholesale", () => {
     expect(
       after.rawSnapshots.find((snapshot) => snapshot.sourceId === "aemo_wholesale")
     ).toBeTruthy();
+
+    const latestWholesaleObservation = after.observations
+      .filter(
+        (observation) =>
+          observation.seriesId === "energy.wholesale.rrp.au_weighted_aud_mwh" &&
+          observation.regionCode === "AU"
+      )
+      .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+    expect(latestWholesaleObservation).toBeTruthy();
+    expect(latestWholesaleObservation?.countryCode).toBe("AU");
+    expect(latestWholesaleObservation?.market).toBe("NEM");
+    expect(latestWholesaleObservation?.metricFamily).toBe("wholesale");
+    expect(latestWholesaleObservation?.currency).toBe("AUD");
+    expect(latestWholesaleObservation?.methodologyVersion).toBe(
+      "energy-wholesale-v1"
+    );
   });
 
   test("supports live mode with injected AEMO fetch source", async () => {

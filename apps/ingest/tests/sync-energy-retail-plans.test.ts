@@ -50,5 +50,20 @@ describe("syncEnergyRetailPlans", () => {
     expect(
       after.rawSnapshots.find((snapshot) => snapshot.sourceId === "aer_prd")
     ).toBeTruthy();
+
+    const retailMeanObservation = after.observations.find(
+      (observation) =>
+        observation.seriesId === "energy.retail.offer.annual_bill_aud.mean" &&
+        observation.regionCode === "AU"
+    );
+
+    expect(retailMeanObservation).toBeTruthy();
+    expect(retailMeanObservation?.countryCode).toBe("AU");
+    expect(retailMeanObservation?.market).toBe("NEM");
+    expect(retailMeanObservation?.metricFamily).toBe("retail");
+    expect(retailMeanObservation?.currency).toBe("AUD");
+    expect(retailMeanObservation?.taxStatus).toBe("incl_tax");
+    expect(retailMeanObservation?.consumptionBand).toBe("household_mid");
+    expect(retailMeanObservation?.methodologyVersion).toBe("energy-retail-prd-v1");
   });
 });

@@ -1,5 +1,8 @@
 import { syncEnergyRetailPlans } from "./jobs/sync-energy-retail-plans";
+import { syncEnergyRetailGlobal } from "./jobs/sync-energy-retail-global";
 import { syncEnergyWholesale } from "./jobs/sync-energy-wholesale";
+import { syncEnergyWholesaleGlobal } from "./jobs/sync-energy-wholesale-global";
+import { syncEnergyNormalization } from "./jobs/sync-energy-normalization";
 import { syncHousingSeries } from "./jobs/sync-housing-series";
 import { DEFAULT_JOB_SCHEDULES, runJobWithRetry } from "./scheduler";
 
@@ -14,8 +17,20 @@ async function main() {
       run: () => syncEnergyWholesale()
     },
     {
+      jobId: "sync-energy-wholesale-global-hourly",
+      run: () => syncEnergyWholesaleGlobal()
+    },
+    {
       jobId: "sync-energy-retail-prd-hourly",
       run: () => syncEnergyRetailPlans()
+    },
+    {
+      jobId: "sync-energy-retail-global-daily",
+      run: () => syncEnergyRetailGlobal()
+    },
+    {
+      jobId: "sync-energy-normalization-daily",
+      run: () => syncEnergyNormalization()
     }
   ] as const;
 

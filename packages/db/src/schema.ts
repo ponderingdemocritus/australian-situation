@@ -40,16 +40,25 @@ export const observations = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     seriesId: text("series_id").notNull(),
     regionCode: text("region_code").notNull(),
+    countryCode: text("country_code"),
+    market: text("market"),
+    metricFamily: text("metric_family"),
     date: text("date").notNull(),
+    intervalStartUtc: timestamp("interval_start_utc", { withTimezone: true }),
+    intervalEndUtc: timestamp("interval_end_utc", { withTimezone: true }),
     value: numeric("value", { precision: 20, scale: 6 }).notNull(),
     unit: text("unit").notNull(),
+    currency: text("currency"),
+    taxStatus: text("tax_status"),
+    consumptionBand: text("consumption_band"),
     sourceName: text("source_name").notNull(),
     sourceUrl: text("source_url").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
     ingestedAt: timestamp("ingested_at", { withTimezone: true }).notNull(),
     vintage: text("vintage").notNull(),
     isModeled: boolean("is_modeled").notNull().default(false),
-    confidence: text("confidence").notNull()
+    confidence: text("confidence").notNull(),
+    methodologyVersion: text("methodology_version")
   },
   (table) => ({
     observationsUnique: unique("observations_series_region_date_vintage_unique").on(
@@ -61,6 +70,11 @@ export const observations = pgTable(
     observationsSeriesRegionDateIdx: index("observations_series_region_date_idx").on(
       table.seriesId,
       table.regionCode,
+      table.date
+    ),
+    observationsCountryMetricDateIdx: index("observations_country_metric_date_idx").on(
+      table.countryCode,
+      table.metricFamily,
       table.date
     )
   })

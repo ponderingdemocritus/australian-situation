@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+# Keep API and ingest on the same JSON store path in local/store mode.
+export AUS_DASH_STORE_PATH="${AUS_DASH_STORE_PATH:-$ROOT_DIR/apps/ingest/data/live-store.json}"
+
 usage() {
   cat <<'EOF'
 Usage:

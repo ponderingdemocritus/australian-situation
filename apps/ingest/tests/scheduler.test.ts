@@ -7,7 +7,19 @@ describe("ingest scheduler", () => {
     expect(DEFAULT_JOB_SCHEDULES).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ jobId: "sync-energy-wholesale-5m", cadence: "*/5 * * * *" }),
+        expect.objectContaining({
+          jobId: "sync-energy-wholesale-global-hourly",
+          cadence: "5 * * * *"
+        }),
         expect.objectContaining({ jobId: "sync-energy-retail-prd-hourly", cadence: "0 * * * *" }),
+        expect.objectContaining({
+          jobId: "sync-energy-retail-global-daily",
+          cadence: "30 3 * * *"
+        }),
+        expect.objectContaining({
+          jobId: "sync-energy-normalization-daily",
+          cadence: "45 3 * * *"
+        }),
         expect.objectContaining({ jobId: "sync-energy-benchmark-dmo-daily", cadence: "15 1 * * *" }),
         expect.objectContaining({ jobId: "sync-housing-abs-daily", cadence: "0 2 * * *" }),
         expect.objectContaining({ jobId: "sync-housing-rba-daily", cadence: "30 2 * * *" }),

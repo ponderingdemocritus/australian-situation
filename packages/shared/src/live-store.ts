@@ -7,9 +7,17 @@ export type ObservationConfidence = "official" | "derived" | "qualitative";
 export type LiveObservation = {
   seriesId: string;
   regionCode: string;
+  countryCode?: string;
+  market?: string;
+  metricFamily?: string;
   date: string;
+  intervalStartUtc?: string;
+  intervalEndUtc?: string;
   value: number;
   unit: string;
+  currency?: string;
+  taxStatus?: string;
+  consumptionBand?: string;
   sourceName: string;
   sourceUrl: string;
   publishedAt: string;
@@ -17,6 +25,7 @@ export type LiveObservation = {
   vintage: string;
   isModeled: boolean;
   confidence: ObservationConfidence;
+  methodologyVersion?: string;
 };
 
 export type SourceCatalogItem = {

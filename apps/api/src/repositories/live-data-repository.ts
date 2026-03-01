@@ -1,11 +1,15 @@
 import {
   getEnergyLiveWholesaleFromStore,
   getEnergyOverviewFromStore,
+  getEnergyRetailComparisonFromStore,
   getEnergyRetailAverageFromStore,
+  getEnergyWholesaleComparisonFromStore,
   getHousingOverviewFromStore,
   getMetadataFreshnessFromStore,
   getMetadataSourcesFromStore,
-  getSeriesFromStore
+  getSeriesFromStore,
+  type GetEnergyRetailComparisonInput,
+  type GetEnergyWholesaleComparisonInput
 } from "./live-store-repository";
 import { createPostgresLiveDataRepository } from "./postgres-live-repository";
 
@@ -36,6 +40,12 @@ export type LiveDataRepository = {
   getEnergyRetailAverage(
     region: string
   ): Promise<ReturnType<typeof getEnergyRetailAverageFromStore>>;
+  getEnergyRetailComparison(
+    input: GetEnergyRetailComparisonInput
+  ): Promise<ReturnType<typeof getEnergyRetailComparisonFromStore>>;
+  getEnergyWholesaleComparison(
+    input: GetEnergyWholesaleComparisonInput
+  ): Promise<ReturnType<typeof getEnergyWholesaleComparisonFromStore>>;
   getEnergyOverview(region: string): Promise<ReturnType<typeof getEnergyOverviewFromStore>>;
   getMetadataFreshness(): Promise<ReturnType<typeof getMetadataFreshnessFromStore>>;
   getMetadataSources(): Promise<ReturnType<typeof getMetadataSourcesFromStore>>;
@@ -54,6 +64,10 @@ function createStoreLiveDataRepository(): LiveDataRepository {
     getEnergyLiveWholesale: async (region, window) =>
       getEnergyLiveWholesaleFromStore(region, window),
     getEnergyRetailAverage: async (region) => getEnergyRetailAverageFromStore(region),
+    getEnergyRetailComparison: async (input) =>
+      getEnergyRetailComparisonFromStore(input),
+    getEnergyWholesaleComparison: async (input) =>
+      getEnergyWholesaleComparisonFromStore(input),
     getEnergyOverview: async (region) => getEnergyOverviewFromStore(region),
     getMetadataFreshness: async () => getMetadataFreshnessFromStore(),
     getMetadataSources: async () => getMetadataSourcesFromStore()
@@ -64,7 +78,7 @@ export function createLiveDataRepository(
   backend: ApiDataBackend = resolveApiDataBackend(process.env.AUS_DASH_DATA_BACKEND)
 ): LiveDataRepository {
   if (backend === "postgres") {
-    return createPostgresLiveDataRepository();
+    return createPostgresLiveDataRepository() as LiveDataRepository;
   }
 
   return createStoreLiveDataRepository();
