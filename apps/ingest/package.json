@@ -11,9 +11,9 @@
   "dependencies": {
     "@aus-dash/db": "workspace:*",
     "@aus-dash/shared": "workspace:*",
-    "drizzle-orm": "^0.36.4"
+    "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
-    "vitest": "^2.1.9"
+    "vitest": "2.1.9"
   }
 }
