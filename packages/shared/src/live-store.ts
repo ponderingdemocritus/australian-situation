@@ -114,6 +114,8 @@ export function createSeedLiveStore(): LiveStore {
     "https://www.aer.gov.au/energy-product-reference-data";
   const sourceRbaUrl =
     "https://www.rba.gov.au/statistics/interest-rates/";
+  const sourceAbsCpiUrl =
+    "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release";
 
   const observations: LiveObservation[] = [
     makeObservation({
@@ -441,6 +443,13 @@ export function createSeedLiveStore(): LiveStore {
         name: "RBA Interest Rates",
         url: sourceRbaUrl,
         expectedCadence: "monthly"
+      },
+      {
+        sourceId: "abs_cpi",
+        domain: "macro",
+        name: "ABS CPI Electricity",
+        url: sourceAbsCpiUrl,
+        expectedCadence: "quarterly"
       }
     ],
     sourceCursors: [],

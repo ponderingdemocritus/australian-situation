@@ -353,6 +353,88 @@ export async function fetchAbsHousingSnapshot(
   };
 }
 
+export type AbsCpiObservation = {
+  regionCode: string;
+  date: string;
+  value: number;
+  unit: string;
+};
+
+export type AbsCpiSnapshot = {
+  sourceId: "abs_cpi";
+  endpoint: string;
+  rawPayload: string;
+  observations: AbsCpiObservation[];
+};
+
+export type FetchAbsCpiOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+export async function fetchAbsCpiSnapshot(
+  options: FetchAbsCpiOptions = {}
+): Promise<AbsCpiSnapshot> {
+  const sourceId = "abs_cpi";
+  const endpoint = options.endpoint ?? "https://data.api.abs.gov.au/rest/data/ABS,CPI";
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "application/json"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const parsed = await readJsonResponse(sourceId, response);
+  const payload = parsed as {
+    observations?: Array<{
+      region_code?: unknown;
+      date?: unknown;
+      value?: unknown;
+      unit?: unknown;
+    }>;
+  };
+  if (!Array.isArray(payload.observations)) {
+    throw new SourceClientError(sourceId, "schema drift in ABS CPI payload", {
+      transient: false
+    });
+  }
+
+  const observations = payload.observations.map((row) => {
+    const regionCode = String(row.region_code ?? "");
+    const date = String(row.date ?? "");
+    const value = Number(row.value);
+    const unit = String(row.unit ?? "");
+    if (!regionCode || !date || !unit || Number.isNaN(value)) {
+      throw new SourceClientError(sourceId, "schema drift in ABS CPI row", {
+        transient: false
+      });
+    }
+
+    return {
+      regionCode,
+      date,
+      value,
+      unit
+    };
+  });
+
+  return {
+    sourceId,
+    endpoint,
+    rawPayload: JSON.stringify(parsed),
+    observations
+  };
+}
+
 export type RbaRatesSnapshot = {
   sourceId: "rba_rates";
   endpoint: string;

@@ -5,6 +5,7 @@ import {
   type WorldBankNormalizationPoint,
   SourceClientError,
   fetchAbsHousingSnapshot,
+  fetchAbsCpiSnapshot,
   fetchAerRetailPlansSnapshot,
   fetchAemoWholesaleSnapshot,
   fetchEiaElectricitySnapshot,
@@ -155,6 +156,35 @@ describe("live source clients", () => {
       sourceId: "abs_housing",
       transient: false
     } satisfies Partial<SourceClientError>);
+  });
+
+  test("maps ABS CPI payload into canonical observations", async () => {
+    const snapshot = await fetchAbsCpiSnapshot({
+      endpoint: "https://example.test/abs-cpi",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            observations: [
+              {
+                region_code: "AU",
+                date: "2025-Q4",
+                value: 151.2,
+                unit: "index"
+              }
+            ]
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("abs_cpi");
+    expect(snapshot.observations).toEqual([
+      {
+        regionCode: "AU",
+        date: "2025-Q4",
+        value: 151.2,
+        unit: "index"
+      }
+    ]);
   });
 
   test("maps RBA rates CSV into variable and fixed observations", async () => {

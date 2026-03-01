@@ -3,7 +3,10 @@ import { syncEnergyRetailGlobal } from "./jobs/sync-energy-retail-global";
 import { syncEnergyWholesale } from "./jobs/sync-energy-wholesale";
 import { syncEnergyWholesaleGlobal } from "./jobs/sync-energy-wholesale-global";
 import { syncEnergyNormalization } from "./jobs/sync-energy-normalization";
+import { syncEnergyBenchmarkDmo } from "./jobs/sync-energy-benchmark-dmo";
 import { syncHousingSeries } from "./jobs/sync-housing-series";
+import { syncHousingRba } from "./jobs/sync-housing-rba";
+import { syncMacroAbsCpi } from "./jobs/sync-macro-abs-cpi";
 import { DEFAULT_JOB_SCHEDULES, runJobWithRetry } from "./scheduler";
 
 async function main() {
@@ -31,6 +34,18 @@ async function main() {
     {
       jobId: "sync-energy-normalization-daily",
       run: () => syncEnergyNormalization()
+    },
+    {
+      jobId: "sync-energy-benchmark-dmo-daily",
+      run: () => syncEnergyBenchmarkDmo()
+    },
+    {
+      jobId: "sync-housing-rba-daily",
+      run: () => syncHousingRba()
+    },
+    {
+      jobId: "sync-macro-abs-cpi-daily",
+      run: () => syncMacroAbsCpi()
     }
   ] as const;
 
