@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { renderHomePage } from "./render-home-page";
 
@@ -54,6 +54,49 @@ function createHousingPayload(region: string) {
   };
 }
 
+function createRetailComparisonPayload(basis: "nominal" | "ppp") {
+  return {
+    country: "AU",
+    peers: ["US", "DE"],
+    basis,
+    taxStatus: "incl_tax",
+    consumptionBand: "household_mid",
+    auRank: 1,
+    methodologyVersion: "energy-comparison-v1",
+    rows: [
+      { countryCode: "AU", value: basis === "nominal" ? 0.32 : 0.29, rank: 1 },
+      { countryCode: "DE", value: basis === "nominal" ? 0.3 : 0.27, rank: 2 },
+      { countryCode: "US", value: basis === "nominal" ? 0.18 : 0.21, rank: 3 }
+    ],
+    comparisons: []
+  };
+}
+
+function createWholesaleComparisonPayload() {
+  return {
+    country: "AU",
+    peers: ["US", "DE"],
+    auRank: 1,
+    auPercentile: 100,
+    methodologyVersion: "energy-comparison-v1",
+    rows: [
+      { countryCode: "AU", value: 120, rank: 1 },
+      { countryCode: "DE", value: 95, rank: 2 },
+      { countryCode: "US", value: 70, rank: 3 }
+    ],
+    comparisons: []
+  };
+}
+
+function createMethodologyPayload() {
+  return {
+    metric: "energy.compare.retail",
+    methodologyVersion: "energy-comparison-v1",
+    description: "Retail comparison methodology.",
+    requiredDimensions: ["country", "peers", "tax_status", "consumption_band"]
+  };
+}
+
 describe("dashboard server prefetch", () => {
   beforeEach(() => {
     fetchMock.mockReset();
@@ -64,6 +107,37 @@ describe("dashboard server prefetch", () => {
           ok: true,
           status: 200,
           json: async () => createEnergyPayload("AU")
+        };
+      }
+      if (
+        url.includes("/api/v1/energy/compare/retail") &&
+        url.includes("basis=nominal")
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => createRetailComparisonPayload("nominal")
+        };
+      }
+      if (url.includes("/api/v1/energy/compare/retail") && url.includes("basis=ppp")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => createRetailComparisonPayload("ppp")
+        };
+      }
+      if (url.includes("/api/v1/energy/compare/wholesale")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => createWholesaleComparisonPayload()
+        };
+      }
+      if (url.includes("/api/v1/metadata/methodology?metric=energy.compare.retail")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => createMethodologyPayload()
         };
       }
 
@@ -86,7 +160,14 @@ describe("dashboard server prefetch", () => {
 
     const panel = getEconomicPanel();
     expect(panel.getByText("118.0 AUD/MWh")).toBeDefined();
-    expect(panel.getByText("169.4")).toBeDefined();
+    expect(panel.getByText("0.320 USD/kWh")).toBeDefined();
+
+    screen.getByRole("tab", { name: "Housing" }).click();
+    await waitFor(() => {
+      expect(panel.getByText("169.4")).toBeDefined();
+    });
+
     expect(screen.queryByText("SYNCING...")).toBeNull();
+    expect(screen.queryByText("COMPARISON_SYNCING...")).toBeNull();
   });
 });

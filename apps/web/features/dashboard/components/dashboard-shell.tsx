@@ -4,16 +4,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_REGION,
   REGIONS,
+  type ComparisonBasis,
   type EnergyOverviewResponse,
   type HousingOverviewResponse,
+  type MethodologyMetadataResponse,
   parseEnergyOverviewResponse,
   parseHousingOverviewResponse,
-  type RegionCode
+  parseMethodologyMetadataResponse,
+  parseRetailComparisonResponse,
+  parseWholesaleComparisonResponse,
+  type RetailComparisonResponse,
+  type RegionCode,
+  type WholesaleComparisonResponse
 } from "../lib/overview";
 import { AustraliaSectorMap } from "./australia-sector-map";
 
 type DashboardMetricRow = {
   label: string;
+  title: string;
+  hint: string;
   value: string;
   delta: string;
   deltaNegative?: boolean;
@@ -23,6 +32,8 @@ type DashboardMetricRow = {
 type FeedMetricRow = {
   id: string;
   label: string;
+  title: string;
+  hint: string;
   value: string;
   previous: string;
   change: string;
@@ -51,8 +62,71 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "http://localhost:3001";
 
+const COMPARISON_COUNTRY = "AU";
+const COMPARISON_PEERS = ["US", "DE"] as const;
+const SUBJECT_TABS = ["energy", "housing"] as const;
+type SubjectTab = (typeof SUBJECT_TABS)[number];
+
+const ENERGY_METRIC_COPY = {
+  "live-rrp": {
+    title: "Live wholesale price",
+    hint: "National spot market, AUD per MWh"
+  },
+  "retail-mean": {
+    title: "Average annual household bill",
+    hint: "Market mean from current retail offers"
+  },
+  "dmo-benchmark": {
+    title: "Default market offer benchmark",
+    hint: "Reference annual bill benchmark"
+  },
+  "cpi-period": {
+    title: "Electricity CPI period",
+    hint: "Latest CPI release and index context"
+  }
+} as const;
+
+const HOUSING_METRIC_COPY = {
+  HVI_INDEX: {
+    title: "Housing value index",
+    hint: "National housing price index level"
+  },
+  AVG_LOAN: {
+    title: "Average owner-occupier loan",
+    hint: "Average approved loan size"
+  },
+  OO_VARIABLE_RATE: {
+    title: "Owner-occupier variable rate",
+    hint: "Average variable mortgage rate"
+  },
+  INVESTOR_LOANS: {
+    title: "Investor loan count",
+    hint: "Number of investor housing loans"
+  }
+} as const;
+
+type RetailComparisonByBasis = {
+  nominal: RetailComparisonResponse | null;
+  ppp: RetailComparisonResponse | null;
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function parseSubject(raw: string | null | undefined): SubjectTab {
+  if (raw === "housing") {
+    return "housing";
+  }
+  return "energy";
+}
+
+function resolveInitialSubject(): SubjectTab {
+  if (typeof window === "undefined") {
+    return "energy";
+  }
+
+  return parseSubject(new URLSearchParams(window.location.search).get("subject"));
 }
 
 function formatAud(value: number): string {
@@ -93,6 +167,35 @@ function buildOverviewUrl(path: string, region: RegionCode): string {
   return `${API_BASE_URL}${path}?${params.toString()}`;
 }
 
+function buildRetailComparisonUrl(basis: ComparisonBasis): string {
+  const params = new URLSearchParams({
+    country: COMPARISON_COUNTRY,
+    peers: COMPARISON_PEERS.join(","),
+    basis,
+    tax_status: "incl_tax",
+    consumption_band: "household_mid"
+  });
+  return `${API_BASE_URL}/api/v1/energy/compare/retail?${params.toString()}`;
+}
+
+function buildWholesaleComparisonUrl(): string {
+  const params = new URLSearchParams({
+    country: COMPARISON_COUNTRY,
+    peers: COMPARISON_PEERS.join(",")
+  });
+  return `${API_BASE_URL}/api/v1/energy/compare/wholesale?${params.toString()}`;
+}
+
+function buildMethodologyUrl(metric: string): string {
+  const params = new URLSearchParams({ metric });
+  return `${API_BASE_URL}/api/v1/metadata/methodology?${params.toString()}`;
+}
+
+function formatComparisonValue(value: number, basis: ComparisonBasis): string {
+  const unit = basis === "ppp" ? "USD/kWh PPP" : "USD/kWh";
+  return `${value.toFixed(3)} ${unit}`;
+}
+
 function getSeriesValue(
   overview: HousingOverviewResponse,
   seriesId: string
@@ -106,10 +209,34 @@ function buildHousingMetricRows(
 ): DashboardMetricRow[] {
   if (!overview) {
     return [
-      { label: "HVI_INDEX", value: "--", delta: "WAITING" },
-      { label: "AVG_LOAN", value: "--", delta: "WAITING" },
-      { label: "OO_VARIABLE_RATE", value: "--", delta: "WAITING" },
-      { label: "INVESTOR_LOANS", value: "--", delta: "WAITING" }
+      {
+        label: "HVI_INDEX",
+        title: HOUSING_METRIC_COPY.HVI_INDEX.title,
+        hint: HOUSING_METRIC_COPY.HVI_INDEX.hint,
+        value: "--",
+        delta: "WAITING"
+      },
+      {
+        label: "AVG_LOAN",
+        title: HOUSING_METRIC_COPY.AVG_LOAN.title,
+        hint: HOUSING_METRIC_COPY.AVG_LOAN.hint,
+        value: "--",
+        delta: "WAITING"
+      },
+      {
+        label: "OO_VARIABLE_RATE",
+        title: HOUSING_METRIC_COPY.OO_VARIABLE_RATE.title,
+        hint: HOUSING_METRIC_COPY.OO_VARIABLE_RATE.hint,
+        value: "--",
+        delta: "WAITING"
+      },
+      {
+        label: "INVESTOR_LOANS",
+        title: HOUSING_METRIC_COPY.INVESTOR_LOANS.title,
+        hint: HOUSING_METRIC_COPY.INVESTOR_LOANS.hint,
+        value: "--",
+        delta: "WAITING"
+      }
     ];
   }
 
@@ -122,21 +249,29 @@ function buildHousingMetricRows(
   return [
     {
       label: "HVI_INDEX",
+      title: HOUSING_METRIC_COPY.HVI_INDEX.title,
+      hint: HOUSING_METRIC_COPY.HVI_INDEX.hint,
       value: hvi !== null ? hvi.toFixed(1) : "--",
       delta: asOf
     },
     {
       label: "AVG_LOAN",
+      title: HOUSING_METRIC_COPY.AVG_LOAN.title,
+      hint: HOUSING_METRIC_COPY.AVG_LOAN.hint,
       value: avgLoan !== null ? formatCurrency(avgLoan) : "--",
       delta: asOf
     },
     {
       label: "OO_VARIABLE_RATE",
+      title: HOUSING_METRIC_COPY.OO_VARIABLE_RATE.title,
+      hint: HOUSING_METRIC_COPY.OO_VARIABLE_RATE.hint,
       value: ooVarRate !== null ? `${ooVarRate.toFixed(2)}%` : "--",
       delta: asOf
     },
     {
       label: "INVESTOR_LOANS",
+      title: HOUSING_METRIC_COPY.INVESTOR_LOANS.title,
+      hint: HOUSING_METRIC_COPY.INVESTOR_LOANS.hint,
       value: investorCount !== null ? Math.round(investorCount).toLocaleString("en-AU") : "--",
       delta: asOf
     }
@@ -149,6 +284,8 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
       {
         id: "live-rrp",
         label: "LIVE_RRP",
+        title: ENERGY_METRIC_COPY["live-rrp"].title,
+        hint: ENERGY_METRIC_COPY["live-rrp"].hint,
         value: "--",
         previous: "updated --",
         change: "--",
@@ -158,6 +295,8 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
       {
         id: "retail-mean",
         label: "RETAIL_MEAN",
+        title: ENERGY_METRIC_COPY["retail-mean"].title,
+        hint: ENERGY_METRIC_COPY["retail-mean"].hint,
         value: "--",
         previous: "median --",
         change: "--",
@@ -167,6 +306,8 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
       {
         id: "dmo-benchmark",
         label: "DMO_BENCHMARK",
+        title: ENERGY_METRIC_COPY["dmo-benchmark"].title,
+        hint: ENERGY_METRIC_COPY["dmo-benchmark"].hint,
         value: "--",
         previous: "mean --",
         change: "--",
@@ -176,6 +317,8 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
       {
         id: "cpi-period",
         label: "CPI_PERIOD",
+        title: ENERGY_METRIC_COPY["cpi-period"].title,
+        hint: ENERGY_METRIC_COPY["cpi-period"].hint,
         value: "--",
         previous: "idx --",
         change: "status --",
@@ -196,6 +339,8 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
     {
       id: "live-rrp",
       label: "LIVE_RRP",
+      title: ENERGY_METRIC_COPY["live-rrp"].title,
+      hint: ENERGY_METRIC_COPY["live-rrp"].hint,
       value: formatAudMwh(liveRrp),
       previous: `updated ${overview.freshness.updatedAt}`,
       change: freshness,
@@ -205,6 +350,8 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
     {
       id: "retail-mean",
       label: "RETAIL_MEAN",
+      title: ENERGY_METRIC_COPY["retail-mean"].title,
+      hint: ENERGY_METRIC_COPY["retail-mean"].hint,
       value: formatAud(retailMean),
       previous: `median ${formatAud(retailMedian)}`,
       change: `spread ${formatCurrencyDelta(retailMean - retailMedian)}`,
@@ -214,6 +361,8 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
     {
       id: "dmo-benchmark",
       label: "DMO_BENCHMARK",
+      title: ENERGY_METRIC_COPY["dmo-benchmark"].title,
+      hint: ENERGY_METRIC_COPY["dmo-benchmark"].hint,
       value: formatAud(benchmark),
       previous: `mean ${formatAud(retailMean)}`,
       change: `gap ${formatCurrencyDelta(benchmark - retailMean)}`,
@@ -223,6 +372,8 @@ function buildEnergyMetricRows(overview: EnergyOverviewResponse | null): FeedMet
     {
       id: "cpi-period",
       label: "CPI_PERIOD",
+      title: ENERGY_METRIC_COPY["cpi-period"].title,
+      hint: ENERGY_METRIC_COPY["cpi-period"].hint,
       value: overview.panels.cpiElectricity.period,
       previous: `idx ${cpiIndex.toFixed(1)}`,
       change: `status ${freshness}`,
@@ -263,14 +414,23 @@ type DashboardShellProps = {
   initialRegion?: RegionCode;
   initialEnergyOverview?: EnergyOverviewResponse | null;
   initialHousingOverview?: HousingOverviewResponse | null;
+  initialRetailComparisonNominal?: RetailComparisonResponse | null;
+  initialRetailComparisonPpp?: RetailComparisonResponse | null;
+  initialWholesaleComparison?: WholesaleComparisonResponse | null;
+  initialRetailMethodology?: MethodologyMetadataResponse | null;
 };
 
 export function DashboardShell({
   initialRegion = DEFAULT_REGION,
   initialEnergyOverview = null,
-  initialHousingOverview = null
+  initialHousingOverview = null,
+  initialRetailComparisonNominal = null,
+  initialRetailComparisonPpp = null,
+  initialWholesaleComparison = null,
+  initialRetailMethodology = null
 }: DashboardShellProps = {}) {
   const [region, setRegion] = useState<RegionCode>(initialRegion);
+  const [subject, setSubject] = useState<SubjectTab>(() => resolveInitialSubject());
   const [energyOverview, setEnergyOverview] =
     useState<EnergyOverviewResponse | null>(initialEnergyOverview);
   const [energyLoading, setEnergyLoading] = useState(!initialEnergyOverview);
@@ -279,10 +439,34 @@ export function DashboardShell({
     useState<HousingOverviewResponse | null>(initialHousingOverview);
   const [housingLoading, setHousingLoading] = useState(!initialHousingOverview);
   const [housingError, setHousingError] = useState<string | null>(null);
+  const [comparisonBasis, setComparisonBasis] = useState<ComparisonBasis>("nominal");
+  const [retailComparisons, setRetailComparisons] = useState<RetailComparisonByBasis>({
+    nominal: initialRetailComparisonNominal,
+    ppp: initialRetailComparisonPpp
+  });
+  const [wholesaleComparison, setWholesaleComparison] =
+    useState<WholesaleComparisonResponse | null>(initialWholesaleComparison);
+  const [retailMethodology, setRetailMethodology] =
+    useState<MethodologyMetadataResponse | null>(initialRetailMethodology);
+  const [comparisonLoading, setComparisonLoading] = useState(
+    !(
+      initialRetailComparisonNominal &&
+      initialRetailComparisonPpp &&
+      initialWholesaleComparison &&
+      initialRetailMethodology
+    )
+  );
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [clockLabel, setClockLabel] = useState("AEST --:--:--");
   const [feedEntries, setFeedEntries] = useState<FeedEntry[]>([]);
   const skipInitialEnergyFetch = useRef(initialEnergyOverview !== null);
   const skipInitialHousingFetch = useRef(initialHousingOverview !== null);
+  const skipInitialComparisonFetch = useRef(
+    initialRetailComparisonNominal !== null &&
+      initialRetailComparisonPpp !== null &&
+      initialWholesaleComparison !== null &&
+      initialRetailMethodology !== null
+  );
   const lineCounterRef = useRef(1000);
   const latestEnergyFeedKeyRef = useRef<string | null>(null);
   const latestHousingFeedKeyRef = useRef<string | null>(null);
@@ -409,6 +593,109 @@ export function DashboardShell({
   }, [appendFeedEntry, region]);
 
   useEffect(() => {
+    if (skipInitialComparisonFetch.current) {
+      skipInitialComparisonFetch.current = false;
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    async function loadComparisons() {
+      setComparisonLoading(true);
+      setComparisonError(null);
+
+      const [nominalResult, pppResult, wholesaleResult, methodologyResult] =
+        await Promise.allSettled([
+          fetch(buildRetailComparisonUrl("nominal"), {
+            signal: abortController.signal,
+            cache: "no-store"
+          }),
+          fetch(buildRetailComparisonUrl("ppp"), {
+            signal: abortController.signal,
+            cache: "no-store"
+          }),
+          fetch(buildWholesaleComparisonUrl(), {
+            signal: abortController.signal,
+            cache: "no-store"
+          }),
+          fetch(buildMethodologyUrl("energy.compare.retail"), {
+            signal: abortController.signal,
+            cache: "no-store"
+          })
+        ]);
+
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      let hasPartialFailure = false;
+
+      const nominal =
+        nominalResult.status === "fulfilled" && nominalResult.value.ok
+          ? parseRetailComparisonResponse(await nominalResult.value.json())
+          : null;
+      if (!nominal) {
+        hasPartialFailure = true;
+      }
+
+      const ppp =
+        pppResult.status === "fulfilled" && pppResult.value.ok
+          ? parseRetailComparisonResponse(await pppResult.value.json())
+          : null;
+      if (!ppp) {
+        hasPartialFailure = true;
+      }
+
+      const wholesale =
+        wholesaleResult.status === "fulfilled" && wholesaleResult.value.ok
+          ? parseWholesaleComparisonResponse(await wholesaleResult.value.json())
+          : null;
+      if (!wholesale) {
+        hasPartialFailure = true;
+      }
+
+      const methodology =
+        methodologyResult.status === "fulfilled" && methodologyResult.value.ok
+          ? parseMethodologyMetadataResponse(await methodologyResult.value.json())
+          : null;
+      if (!methodology) {
+        hasPartialFailure = true;
+      }
+
+      setRetailComparisons({
+        nominal,
+        ppp
+      });
+      setWholesaleComparison(wholesale);
+      setRetailMethodology(methodology);
+      setComparisonError(hasPartialFailure ? "PARTIAL_COMPARISON_DATA" : null);
+      setComparisonLoading(false);
+    }
+
+    void loadComparisons();
+
+    return () => {
+      abortController.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("subject") === subject) {
+      return;
+    }
+
+    params.set("subject", subject);
+    const search = params.toString();
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", nextUrl);
+  }, [subject]);
+
+  useEffect(() => {
     function syncClock() {
       setClockLabel(formatAestClock(new Date()));
     }
@@ -477,9 +764,16 @@ export function DashboardShell({
   const energyRows = buildEnergyMetricRows(energyOverview);
   const housingRows = buildHousingMetricRows(housingOverview);
   const dataHealthRows = buildDataHealthRows(energyOverview, housingOverview);
+  const activeRetailComparison = retailComparisons[comparisonBasis];
+  const comparisonMethodologyVersion =
+    activeRetailComparison?.methodologyVersion ??
+    retailMethodology?.methodologyVersion ??
+    "--";
+  const comparisonFreshness = energyOverview?.freshness.status.toUpperCase() ?? "UNKNOWN";
   const streamCount =
     (energyOverview ? 4 : 0) +
-    (housingOverview ? housingOverview.metrics.length : 0);
+    (housingOverview ? housingOverview.metrics.length : 0) +
+    (activeRetailComparison ? activeRetailComparison.rows.length : 0);
 
   return (
     <main className="dashboard-root">
@@ -524,80 +818,223 @@ export function DashboardShell({
             </div>
 
             <div className="dashboard-panel-content" aria-live="polite">
-              {energyLoading && !energyOverview ? (
-                <div className="dashboard-loading-state">SYNCING...</div>
-              ) : null}
-              {energyError ? <div className="dashboard-error-state">{energyError}</div> : null}
-
-              <div className="dashboard-subsection-header">
-                <span>ENERGY_OVERVIEW</span>
-                <span className="dashboard-text-dim">{region}</span>
+              <div className="dashboard-subject-tabs" role="tablist" aria-label="Subject">
+                {SUBJECT_TABS.map((tab) => {
+                  const isActive = subject === tab;
+                  const label = tab === "energy" ? "Energy" : "Housing";
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      className={[
+                        "dashboard-subject-tab",
+                        isActive ? "is-active" : ""
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onClick={() => setSubject(tab)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSubject(tab);
+                        }
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
 
-              {energyRows.map((row) => (
-                <article key={row.id} className="dashboard-metric-row">
-                  <div className="dashboard-metric-row-main">
-                    <span className="dashboard-metric-label">{row.label}</span>
-                    <span
+              {subject === "energy" ? (
+                <>
+                  {energyLoading && !energyOverview ? (
+                    <div className="dashboard-loading-state">SYNCING...</div>
+                  ) : null}
+                  {energyError ? <div className="dashboard-error-state">{energyError}</div> : null}
+
+                  <div className="dashboard-subsection-header">
+                    <span>ENERGY_OVERVIEW</span>
+                    <span className="dashboard-text-dim">{region}</span>
+                  </div>
+
+                  {energyRows.map((row) => (
+                    <article key={row.id} className="dashboard-metric-row">
+                      <div className="dashboard-metric-row-main">
+                        <div className="dashboard-metric-copy">
+                          <span className="dashboard-metric-title">{row.title}</span>
+                          <span className="dashboard-metric-hint">{row.hint}</span>
+                          <span className="dashboard-metric-label">{row.label}</span>
+                        </div>
+                        <span
+                          className={[
+                            "dashboard-metric-value",
+                            row.positive ? "dashboard-text-green" : "dashboard-text-red"
+                          ].join(" ")}
+                        >
+                          {row.value}
+                        </span>
+                      </div>
+                      <div className="dashboard-metric-bar" aria-hidden>
+                        <div
+                          className={[
+                            "dashboard-metric-fill",
+                            row.positive ? "is-positive" : "is-negative"
+                          ].join(" ")}
+                          style={{ width: `${row.barWidth}%` }}
+                        />
+                      </div>
+                      <div className="dashboard-metric-footer">
+                        <span className="dashboard-text-dim">{row.previous}</span>
+                        <span
+                          className={[
+                            "dashboard-metric-change",
+                            row.positive ? "dashboard-text-green" : "dashboard-text-red"
+                          ].join(" ")}
+                        >
+                          {row.change}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+
+                  <div className="dashboard-subsection-header">
+                    <span>AU_VS_GLOBAL_COMPARISON</span>
+                    <span className="dashboard-text-dim">{COMPARISON_COUNTRY}</span>
+                  </div>
+
+                  <div className="dashboard-comparison-controls">
+                    <button
+                      type="button"
                       className={[
-                        "dashboard-metric-value",
-                        row.positive ? "dashboard-text-green" : "dashboard-text-red"
-                      ].join(" ")}
+                        "dashboard-comparison-basis-button",
+                        comparisonBasis === "nominal" ? "is-active" : ""
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onClick={() => setComparisonBasis("nominal")}
                     >
-                      {row.value}
+                      Nominal
+                    </button>
+                    <button
+                      type="button"
+                      className={[
+                        "dashboard-comparison-basis-button",
+                        comparisonBasis === "ppp" ? "is-active" : ""
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onClick={() => setComparisonBasis("ppp")}
+                    >
+                      PPP
+                    </button>
+                  </div>
+
+                  {comparisonLoading ? (
+                    <div className="dashboard-loading-state">COMPARISON_SYNCING...</div>
+                  ) : null}
+                  {comparisonError ? (
+                    <div className="dashboard-warning-state">{comparisonError}</div>
+                  ) : null}
+                  {comparisonError ? (
+                    <div className="dashboard-warning-detail">
+                      Some peer data is unavailable for the selected basis. Values shown below
+                      are the peers currently available.
+                    </div>
+                  ) : null}
+
+                  <div className="dashboard-comparison-badges">
+                    <span className="dashboard-comparison-badge">
+                      {activeRetailComparison?.taxStatus ?? "--"}
+                    </span>
+                    <span className="dashboard-comparison-badge">
+                      {activeRetailComparison?.consumptionBand ?? "--"}
+                    </span>
+                    <span className="dashboard-comparison-badge">
+                      {comparisonMethodologyVersion}
+                    </span>
+                    <span className="dashboard-comparison-badge">{comparisonFreshness}</span>
+                  </div>
+
+                  <div className="dashboard-comparison-summary">
+                    <span>
+                      AU retail rank: {activeRetailComparison?.auRank ?? "--"} /{" "}
+                      {activeRetailComparison?.rows.length ?? "--"}
+                    </span>
+                    <span>Lower USD/kWh is better</span>
+                  </div>
+
+                  {activeRetailComparison?.rows.map((row) => (
+                    <article
+                      key={`retail-compare-${row.countryCode}`}
+                      className="dashboard-metric-row"
+                    >
+                      <div className="dashboard-metric-row-main">
+                        <div className="dashboard-metric-copy">
+                          <span className="dashboard-metric-title">{row.countryCode}</span>
+                          <span className="dashboard-metric-hint">Peer market</span>
+                          <span className="dashboard-metric-label">PEER_MARKET</span>
+                        </div>
+                        <span className="dashboard-metric-value">
+                          {formatComparisonValue(row.value, comparisonBasis)}
+                        </span>
+                      </div>
+                      <div className="dashboard-metric-footer">
+                        <span className="dashboard-text-dim">rank #{row.rank}</span>
+                        <span className="dashboard-text-dim">
+                          au rank {activeRetailComparison.auRank ?? "--"}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+
+                  <div className="dashboard-sector-row">
+                    <span className="dashboard-metric-label">AU_WHOLESALE_PERCENTILE</span>
+                    <span className="dashboard-text-primary">
+                      {wholesaleComparison?.auPercentile ?? "--"}
                     </span>
                   </div>
-                  <div className="dashboard-metric-bar" aria-hidden>
-                    <div
-                      className={[
-                        "dashboard-metric-fill",
-                        row.positive ? "is-positive" : "is-negative"
-                      ].join(" ")}
-                      style={{ width: `${row.barWidth}%` }}
-                    />
-                  </div>
-                  <div className="dashboard-metric-footer">
-                    <span className="dashboard-text-dim">{row.previous}</span>
-                    <span
-                      className={[
-                        "dashboard-metric-change",
-                        row.positive ? "dashboard-text-green" : "dashboard-text-red"
-                      ].join(" ")}
-                    >
-                      {row.change}
-                    </span>
-                  </div>
-                </article>
-              ))}
-
-              <div className="dashboard-subsection-header">
-                <span>HOUSING_OVERVIEW</span>
-                <span className="dashboard-text-dim">{region}</span>
-              </div>
-
-              {housingLoading && !housingOverview ? (
-                <div className="dashboard-loading-state">SYNCING...</div>
+                </>
               ) : null}
-              {housingError ? <div className="dashboard-error-state">{housingError}</div> : null}
 
-              {housingRows.map((row) => (
-                <article key={row.label} className="dashboard-housing-row">
-                  <div className="dashboard-metric-row-main">
-                    <span className="dashboard-metric-label">{row.label}</span>
-                    <span
-                      className={[
-                        "dashboard-metric-value",
-                        row.valueAlert ? "dashboard-text-red" : "dashboard-text-primary"
-                      ].join(" ")}
-                    >
-                      {row.value}
-                    </span>
+              {subject === "housing" ? (
+                <>
+                  <div className="dashboard-subsection-header">
+                    <span>HOUSING_OVERVIEW</span>
+                    <span className="dashboard-text-dim">{region}</span>
                   </div>
-                  <div className="dashboard-housing-meta">
-                    <span className="dashboard-text-dim">{row.delta}</span>
-                  </div>
-                </article>
-              ))}
+
+                  {housingLoading && !housingOverview ? (
+                    <div className="dashboard-loading-state">SYNCING...</div>
+                  ) : null}
+                  {housingError ? <div className="dashboard-error-state">{housingError}</div> : null}
+
+                  {housingRows.map((row) => (
+                    <article key={row.label} className="dashboard-housing-row">
+                      <div className="dashboard-metric-row-main">
+                        <div className="dashboard-metric-copy">
+                          <span className="dashboard-metric-title">{row.title}</span>
+                          <span className="dashboard-metric-hint">{row.hint}</span>
+                          <span className="dashboard-metric-label">{row.label}</span>
+                        </div>
+                        <span
+                          className={[
+                            "dashboard-metric-value",
+                            row.valueAlert ? "dashboard-text-red" : "dashboard-text-primary"
+                          ].join(" ")}
+                        >
+                          {row.value}
+                        </span>
+                      </div>
+                      <div className="dashboard-housing-meta">
+                        <span className="dashboard-text-dim">{row.delta}</span>
+                      </div>
+                    </article>
+                  ))}
+                </>
+              ) : null}
 
               <div className="dashboard-subsection-header dashboard-subsection-push">
                 <span>DATA_HEALTH</span>

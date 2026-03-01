@@ -84,6 +84,7 @@ describe("Housing overview right panel", () => {
 
     await renderHomePage();
 
+    fireEvent.click(screen.getByRole("tab", { name: "Housing" }));
     expect(getEconomicPanel().getByText("HOUSING_OVERVIEW")).toBeDefined();
 
     await waitFor(() => {
@@ -121,6 +122,7 @@ describe("Housing overview right panel", () => {
 
     await renderHomePage();
 
+    fireEvent.click(screen.getByRole("tab", { name: "Housing" }));
     await waitFor(() => {
       expect(getEconomicPanel().getByText("169.4")).toBeDefined();
     });
