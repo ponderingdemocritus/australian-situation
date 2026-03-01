@@ -1,90 +1,29 @@
 # Australian Situation Dashboard
 
-Australian Situation Dashboard is a situational awareness platform for Australia focused on economic, housing, and industry data.
+Monorepo for AUS Dash ingestion, API, and dashboard apps.
 
-Current V1 implementation is housing + energy (as the first industry domain), delivered as:
+## Scope
 
-- a shared data contract layer,
-- ingestion jobs,
-- read APIs,
-- and a single dashboard UI.
+- Housing + energy metrics
+- Source metadata + freshness metadata
+- Internal API-first architecture (`apps/api`) used by the dashboard (`apps/web`)
 
-## Vision
-
-Build one trusted operational view for Australia that answers:
-
-1. What is happening now across housing and industry cost pressure?
-2. Which regions are improving or deteriorating?
-3. How fresh and reliable is each metric?
-
-The product is API-first: dashboards consume internal APIs so the same data can later power partner integrations.
-
-## Current Scope (Implemented)
-
-- Geography: `AU`, states, and selected capital city support in contracts
-- Housing: index, lending, and mortgage rate series
-- Energy: live wholesale signal, retail average, benchmark, and CPI context
-- Platform metadata: source registry and freshness endpoints
-
-## How It Works
-
-- Ingestion (`apps/ingest`): pulls source data (currently scaffolded with fixture-backed jobs), maps payloads into canonical shapes, and produces normalized outputs.
-- Data contracts (`packages/data-contract`): defines canonical region/series identifiers shared by ingestion, API, and UI.
-- Data model (`packages/db`): defines Drizzle/Postgres tables for `regions`, `series`, `observations`, and enforces idempotent uniqueness on observation writes.
-- API layer (`apps/api`): serves `/api/*` routes with validation, region filtering, response shaping, and metadata endpoints.
-- Dashboard UI (`apps/web`): fetches API data by region and updates housing + energy panels from a single selector.
-- Shared UI primitives (`packages/ui`): reusable components consumed from `@aus-dash/ui`.
-
-## Repo Layout
-
-```text
-apps/
-  web/       Next.js dashboard
-  api/       Hono API
-  ingest/    ingestion jobs + mappers
-packages/
-  ui/            shared UI components
-  data-contract/ canonical series + region contracts
-  db/            Drizzle schema/config
-  shared/        shared helpers/types
-tests/
-  e2e/       Playwright end-to-end tests
-docs/        PRDs, roadmap, and TDD plans
-```
-
-## Run Locally
+## Quickstart
 
 ```bash
 bun install
 ```
 
-Start all apps:
+Run everything:
 
 ```bash
 bun run dev:all
 ```
 
-One command to start infra + migrate + backfill + build + run all services:
+Bring up infra + migrate + backfill + build + run:
 
 ```bash
 bun run up:all
-```
-
-Useful infra commands:
-
-```bash
-bun run infra:status
-bun run infra:down
-```
-
-Default local Postgres host port for the one-command stack is `5433` (to avoid common `5432` conflicts). Override with `POSTGRES_PORT`.
-
-Or start individually:
-
-```bash
-bun run dev:web
-bun run dev:api
-bun run dev:ingest
 ```
 
 Run tests:
@@ -94,68 +33,80 @@ bun run test:all
 bun run test:all:e2e
 ```
 
-Client validation flow (web unit/integration + build + Playwright):
+Client validation (web tests + build + Playwright):
 
 ```bash
 bun run test:client
 ```
 
-If a web server is already running, reuse it for Playwright:
+Reuse an existing web server for Playwright:
 
 ```bash
 bun run test:client:e2e:existing
 ```
 
-## API Surface (Current)
+## API Endpoints (Current)
 
-- `GET /api/health`
-- `GET /api/housing/overview?region=AU|STATE`
-- `GET /api/series/:id?region=&from=&to=`
-- `GET /api/energy/live-wholesale?region=&window=5m|1h|24h`
-- `GET /api/energy/retail-average?region=&customer_type=residential`
-- `GET /api/energy/overview?region=AU|STATE`
-- `GET /api/energy/household-estimate?region=&usage_profile=default` (feature-flagged)
-- `GET /api/metadata/sources`
-- `GET /api/metadata/freshness`
-- `GET /api/openapi.json`
-- `GET /api/docs`
-- `GET /api/v1/energy/compare/retail?country=AU&peers=US,DE&basis=nominal|ppp&tax_status=incl_tax&consumption_band=household_mid`
-- `GET /api/v1/energy/compare/wholesale?country=AU&peers=US,DE`
-- `GET /api/v1/metadata/methodology?metric=energy.compare.retail|energy.compare.wholesale`
+All routes are `GET` and mounted under `/api`.
 
-## How To Add More Data
+| Endpoint | Query / Params | Data Read | Notes |
+| --- | --- | --- | --- |
+| `/api/docs` | None | Generated ReDoc HTML | Points to `/api/openapi.json` |
+| `/api/openapi.json` | None | Generated OpenAPI document | Excludes `/api/docs` from spec |
+| `/api/health` | None | Static payload | `{ status, service }` |
+| `/api/housing/overview` | `region` (default `AU`) | Latest values for `hvi.value.index`, `lending.oo.count`, `lending.oo.value_aud`, `lending.investor.count`, `lending.investor.value_aud`, `lending.avg_loan_size_aud`, `rates.oo.variable_pct`, `rates.oo.fixed_pct` | Returns `requiredSeriesIds`, `missingSeriesIds`, `metrics`, `updatedAt` |
+| `/api/series/:id` | `id` path param; `region` (default `AU`), `from`, `to` | Time-series points (`date`, `value`) for requested `seriesId` | Returns 400 for unsupported region, 404 for unknown `seriesId` |
+| `/api/energy/live-wholesale` | `region` (default `AU`), `window` (`5m`/`1h`/`24h`) | `energy.wholesale.rrp.au_weighted_aud_mwh` (AU) or `energy.wholesale.rrp.region_aud_mwh` (state, with AU fallback) | Returns latest + rollups + freshness |
+| `/api/energy/retail-average` | `region` (default `AU`), `customer_type` | `energy.retail.offer.annual_bill_aud.mean` + `.median` (region, then AU fallback) | `customer_type` is passed through as `customerType` |
+| `/api/energy/overview` | `region` (default `AU`) | Combines wholesale + retail + `energy.benchmark.dmo.annual_bill_aud` + `energy.cpi.electricity.index` | Panel payload for dashboard cards |
+| `/api/energy/household-estimate` | `region` (default `AU`), `usage_profile` | Derived from retail average (`annualBillAudMean / 12`) | Requires `ENABLE_ENERGY_HOUSEHOLD_ESTIMATE=true` |
+| `/api/metadata/freshness` | None | Freshness for `energy.wholesale.rrp.au_weighted_aud_mwh`, `energy.retail.offer.annual_bill_aud.mean`, `energy.cpi.electricity.index` | Returns lag + freshness status per series |
+| `/api/metadata/sources` | None | Source catalog (`sourceId`, `domain`, `name`, `url`, `expectedCadence`) | Backend-dependent source table/list |
+| `/api/v1/energy/compare/retail` | `country` (default `AU`), `peers`, `basis` (`nominal`/`ppp`), `tax_status`, `consumption_band` | Latest country rows from `energy.retail.price.country.usd_kwh_nominal` or `.usd_kwh_ppp` | Returns ranked rows + peer comparisons |
+| `/api/v1/energy/compare/wholesale` | `country` (default `AU`), `peers` | Latest country rows from `energy.wholesale.spot.country.usd_mwh` | Returns ranked rows + AU percentile |
+| `/api/v1/metadata/methodology` | `metric` | Static in-memory methodology metadata | Supported metrics: `energy.compare.retail`, `energy.compare.wholesale` |
 
-Use this workflow whenever you add a new economic/housing/industry metric.
+## Data Backends
 
-1. **Add/extend canonical contract IDs:** Update series/region definitions in `packages/data-contract/src/*`; keep names stable and domain-scoped (for example `energy.wholesale.*`, `housing.*`, `macro.*`).
-2. **Add ingestion logic:** Create a job in `apps/ingest/src/jobs`, add mappers/parsers in `apps/ingest/src/mappers`, and write ingestion tests in `apps/ingest/tests`.
-3. **Persist with schema support:** If new storage fields are required, update `packages/db/src/schema.ts` and run `@aus-dash/db` schema generation/migration scripts.
-4. **Expose through API:** Add or extend handlers in `apps/api/src/app.ts` (or `apps/api/src/domain`), validate inputs, and add/adjust tests in `apps/api/tests`.
-5. **Render in dashboard:** Wire new fields into `apps/web/features/...`, keep app composition in `apps/web`, and use shared primitives from `@aus-dash/ui`.
-6. **Update metadata + freshness:** Add source attribution in `/api/metadata/sources` and freshness expectations in `/api/metadata/freshness`.
+API backend is selected via `AUS_DASH_DATA_BACKEND`:
 
-7. **Verify end-to-end:**
+- `store` (default): reads local JSON live store (`AUS_DASH_STORE_PATH` or `data/live-store.json` from process cwd).
+- `postgres`: reads `observations` and `sources` tables from Postgres (`DATABASE_URL` required).
 
-```bash
-bun --filter @aus-dash/ingest test
-bun --filter @aus-dash/api test
-bun --filter @aus-dash/web test
-bun --filter @aus-dash/web build
+Ingest backend is selected via `AUS_DASH_INGEST_BACKEND` with the same values (`store` or `postgres`).
+
+## Repo Layout
+
+```text
+apps/
+  web/       Next.js dashboard
+  api/       Hono API
+  ingest/    ingestion jobs + source clients
+packages/
+  ui/            shared UI components
+  data-contract/ canonical series + region contracts
+  db/            Drizzle schema/config
+  shared/        shared helpers/types + live-store utilities
+tests/
+  e2e/       Playwright tests
 ```
+
+## Contributing
+
+- Source-of-truth contributor workflow is in `AGENTS.md`.
+- If you add/modify endpoints, update the API table in this `README.md` in the same PR.
 
 ## Environment Notes
 
-- Web API base URL: `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:3001`)
-- Optional modeled energy estimate flag: `ENABLE_ENERGY_HOUSEHOLD_ESTIMATE=true` (API)
-- Shared JSON store override: `AUS_DASH_STORE_PATH=/abs/path/to/live-store.json` (useful when running API and ingest separately; `dev:all` already sets a shared path)
+- `NEXT_PUBLIC_API_BASE_URL` (web): defaults to `http://localhost:3001`
+- `ENABLE_ENERGY_HOUSEHOLD_ESTIMATE=true` (api): enables `/api/energy/household-estimate`
+- `AUS_DASH_STORE_PATH=/abs/path/to/live-store.json`: shared JSON store override
 
 ## Planning Docs
 
-Read these for current electricity-price comparison scope and implementation detail:
-
-1. `docs/prd-electricity-prices-aus-vs-global-v1.md`
-2. `docs/implementation-roadmap-electricity-prices-aus-global.md`
-3. `docs/tdd-plan-electricity-prices-aus-global-v1.md`
-4. `docs/kpi-definitions-electricity-prices-aus-global-v1.md`
-5. `docs/api-energy-comparison-v1.md`
-6. `research_electricity_prices_api_scope/research_report.md`
+- `docs/prd-electricity-prices-aus-vs-global-v1.md`
+- `docs/implementation-roadmap-electricity-prices-aus-global.md`
+- `docs/tdd-plan-electricity-prices-aus-global-v1.md`
+- `docs/kpi-definitions-electricity-prices-aus-global-v1.md`
+- `docs/api-energy-comparison-v1.md`
+- `research_electricity_prices_api_scope/research_report.md`
