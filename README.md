@@ -57,7 +57,7 @@ All routes are `GET` and mounted under `/api`.
 | `/api/housing/overview` | `region` (default `AU`) | Latest values for `hvi.value.index`, `lending.oo.count`, `lending.oo.value_aud`, `lending.investor.count`, `lending.investor.value_aud`, `lending.avg_loan_size_aud`, `rates.oo.variable_pct`, `rates.oo.fixed_pct` | Returns `requiredSeriesIds`, `missingSeriesIds`, `metrics`, `updatedAt` |
 | `/api/series/:id` | `id` path param; `region` (default `AU`), `from`, `to` | Time-series points (`date`, `value`) for requested `seriesId` | Returns 400 for unsupported region, 404 for unknown `seriesId` |
 | `/api/energy/live-wholesale` | `region` (default `AU`), `window` (`5m`/`1h`/`24h`) | `energy.wholesale.rrp.au_weighted_aud_mwh` (AU) or `energy.wholesale.rrp.region_aud_mwh` (state, with AU fallback) | Returns latest + rollups + freshness |
-| `/api/energy/retail-average` | `region` (default `AU`), `customer_type` | `energy.retail.offer.annual_bill_aud.mean` + `.median` (region, then AU fallback) | `customer_type` is passed through as `customerType` |
+| `/api/energy/retail-average` | `region` (default `AU`), `customer_type` | `energy.retail.offer.annual_bill_aud.mean` + `.median` (region, then AU fallback) | `customer_type` is passed through as `customerType`; when no retail observations exist, `freshness.updatedAt` falls back to `1970-01-01` and status is `stale` |
 | `/api/energy/overview` | `region` (default `AU`) | Combines wholesale + retail + `energy.benchmark.dmo.annual_bill_aud` + `energy.cpi.electricity.index` | Panel payload for dashboard cards |
 | `/api/energy/household-estimate` | `region` (default `AU`), `usage_profile` | Derived from retail average (`annualBillAudMean / 12`) | Requires `ENABLE_ENERGY_HOUSEHOLD_ESTIMATE=true` |
 | `/api/metadata/freshness` | None | Freshness for `energy.wholesale.rrp.au_weighted_aud_mwh`, `energy.retail.offer.annual_bill_aud.mean`, `energy.cpi.electricity.index` | Returns lag + freshness status per series |
@@ -109,4 +109,5 @@ tests/
 - `docs/tdd-plan-electricity-prices-aus-global-v1.md`
 - `docs/kpi-definitions-electricity-prices-aus-global-v1.md`
 - `docs/api-energy-comparison-v1.md`
+- `docs/postgres-api-abstraction-prd-tdd.md`
 - `research_electricity_prices_api_scope/research_report.md`

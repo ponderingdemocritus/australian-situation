@@ -1,71 +1,37 @@
 import { readLiveStoreSync, type LiveObservation } from "@aus-dash/shared";
 import type { ComparableObservation } from "../domain/energy-comparison";
+import {
+  API_SUPPORTED_REGIONS,
+  REQUIRED_HOUSING_OVERVIEW_SERIES_IDS
+} from "../routes/api-domain-constants";
+import { freshnessStatus, lagMinutes } from "./freshness";
 import { SeriesRepositoryError } from "./series-repository-error";
+import type {
+  ComparisonResponse,
+  EnergyLiveWholesaleResponse,
+  EnergyOverviewResponse,
+  EnergyRetailAverageResponse,
+  EnergyWindow,
+  GetEnergyRetailComparisonInput,
+  GetEnergyWholesaleComparisonInput,
+  GetSeriesInput,
+  HousingOverviewResponse,
+  MetadataFreshnessResponse,
+  MetadataSourcesResponse,
+  SeriesResponse
+} from "./live-data-contract";
 
-const SUPPORTED_REGIONS = new Set([
-  "AU",
-  "NSW",
-  "VIC",
-  "QLD",
-  "SA",
-  "WA",
-  "TAS",
-  "NT",
-  "ACT",
-  "SYD",
-  "MEL",
-  "BNE",
-  "ADL",
-  "PER",
-  "HBA",
-  "DRW",
-  "CBR"
-]);
+type RequiredHousingSeriesId = (typeof REQUIRED_HOUSING_OVERVIEW_SERIES_IDS)[number];
 
-const REQUIRED_HOUSING_SERIES_IDS = [
-  "hvi.value.index",
-  "lending.oo.count",
-  "lending.oo.value_aud",
-  "lending.investor.count",
-  "lending.investor.value_aud",
-  "lending.avg_loan_size_aud",
-  "rates.oo.variable_pct",
-  "rates.oo.fixed_pct"
-] as const;
-
-type RequiredHousingSeriesId = (typeof REQUIRED_HOUSING_SERIES_IDS)[number];
-
-type Cadence = "5m" | "daily" | "monthly" | "quarterly";
-
-type FreshnessStatus = "fresh" | "stale" | "degraded";
-
-type SeriesPoint = {
-  date: string;
-  value: number;
-};
-
-type QuerySeriesInput = {
-  seriesId: string;
-  region: string;
-  from?: string;
-  to?: string;
+type QuerySeriesInput = GetSeriesInput & {
   storePath?: string;
 };
 
-export type RetailComparisonBasis = "nominal" | "ppp";
-
-export type GetEnergyRetailComparisonInput = {
-  country: string;
-  peers: string[];
-  basis: RetailComparisonBasis;
-  taxStatus?: string;
-  consumptionBand?: string;
+type StoreRetailComparisonInput = GetEnergyRetailComparisonInput & {
   storePath?: string;
 };
 
-export type GetEnergyWholesaleComparisonInput = {
-  country: string;
-  peers: string[];
+type StoreWholesaleComparisonInput = GetEnergyWholesaleComparisonInput & {
   storePath?: string;
 };
 
@@ -143,53 +109,8 @@ function listLatestCountryObservations(
   }));
 }
 
-function toTimestamp(date: string): number | null {
-  const parsedDirect = Date.parse(date);
-  if (!Number.isNaN(parsedDirect)) {
-    return parsedDirect;
-  }
-
-  const quarterMatch = /^(\d{4})-Q([1-4])$/.exec(date);
-  if (!quarterMatch) {
-    return null;
-  }
-
-  const year = Number(quarterMatch[1]);
-  const quarter = Number(quarterMatch[2]);
-  const monthEnd = quarter * 3;
-  return Date.parse(`${year}-${String(monthEnd).padStart(2, "0")}-01T00:00:00Z`);
-}
-
-function lagMinutes(nowMs: number, date: string): number {
-  const ts = toTimestamp(date);
-  if (ts === null) {
-    return Number.POSITIVE_INFINITY;
-  }
-  return Math.max(0, Math.floor((nowMs - ts) / 60000));
-}
-
-function freshnessStatus(
-  cadence: Cadence,
-  lagMins: number
-): FreshnessStatus {
-  const thresholdMinutes =
-    cadence === "5m"
-      ? 20
-      : cadence === "daily"
-        ? 48 * 60
-        : cadence === "monthly"
-          ? 72 * 60
-          : 7 * 24 * 60;
-
-  return lagMins > thresholdMinutes ? "stale" : "fresh";
-}
-
-export function getSeriesFromStore(input: QuerySeriesInput): {
-  seriesId: string;
-  region: string;
-  points: SeriesPoint[];
-} {
-  if (!SUPPORTED_REGIONS.has(input.region)) {
+export function getSeriesFromStore(input: QuerySeriesInput): SeriesResponse {
+  if (!API_SUPPORTED_REGIONS.has(input.region)) {
     throw new SeriesRepositoryError(
       "UNSUPPORTED_REGION",
       `Unsupported region: ${input.region}`,
@@ -230,7 +151,10 @@ export function getSeriesFromStore(input: QuerySeriesInput): {
   };
 }
 
-export function getHousingOverviewFromStore(region: string, storePath?: string) {
+export function getHousingOverviewFromStore(
+  region: string,
+  storePath?: string
+): HousingOverviewResponse {
   const metrics: Array<{
     seriesId: string;
     date: string;
@@ -238,7 +162,7 @@ export function getHousingOverviewFromStore(region: string, storePath?: string) 
   }> = [];
   const missingSeriesIds: RequiredHousingSeriesId[] = [];
 
-  for (const seriesId of REQUIRED_HOUSING_SERIES_IDS) {
+  for (const seriesId of REQUIRED_HOUSING_OVERVIEW_SERIES_IDS) {
     const latest = latestObservation(seriesId, region, storePath);
     if (!latest) {
       missingSeriesIds.push(seriesId);
@@ -259,7 +183,7 @@ export function getHousingOverviewFromStore(region: string, storePath?: string) 
 
   return {
     region,
-    requiredSeriesIds: REQUIRED_HOUSING_SERIES_IDS,
+    requiredSeriesIds: REQUIRED_HOUSING_OVERVIEW_SERIES_IDS,
     missingSeriesIds,
     metrics,
     updatedAt
@@ -268,9 +192,9 @@ export function getHousingOverviewFromStore(region: string, storePath?: string) 
 
 export function getEnergyLiveWholesaleFromStore(
   region: string,
-  window: "5m" | "1h" | "24h",
+  window: EnergyWindow,
   storePath?: string
-) {
+): EnergyLiveWholesaleResponse {
   const seriesId =
     region === "AU"
       ? "energy.wholesale.rrp.au_weighted_aud_mwh"
@@ -333,7 +257,10 @@ export function getEnergyLiveWholesaleFromStore(
   };
 }
 
-export function getEnergyRetailAverageFromStore(region: string, storePath?: string) {
+export function getEnergyRetailAverageFromStore(
+  region: string,
+  storePath?: string
+): EnergyRetailAverageResponse {
   const regionCode = region;
   const mean =
     latestObservation("energy.retail.offer.annual_bill_aud.mean", regionCode, storePath) ??
@@ -341,6 +268,7 @@ export function getEnergyRetailAverageFromStore(region: string, storePath?: stri
   const median =
     latestObservation("energy.retail.offer.annual_bill_aud.median", regionCode, storePath) ??
     latestObservation("energy.retail.offer.annual_bill_aud.median", "AU", storePath);
+  const updatedAt = mean?.date ?? "1970-01-01";
 
   return {
     region,
@@ -358,15 +286,15 @@ export function getEnergyRetailAverageFromStore(region: string, storePath?: stri
     usageRateCKwhMean: 31.2,
     dailyChargeAudDayMean: 1.08,
     freshness: {
-      updatedAt: mean?.date ?? new Date().toISOString(),
-      status: freshnessStatus("daily", lagMinutes(Date.now(), mean?.date ?? "1970-01-01"))
+      updatedAt,
+      status: freshnessStatus("daily", lagMinutes(Date.now(), updatedAt))
     }
   };
 }
 
-export function getEnergyRetailComparisonFromStore(input: GetEnergyRetailComparisonInput): {
-  rows: ComparableObservation[];
-} {
+export function getEnergyRetailComparisonFromStore(
+  input: StoreRetailComparisonInput
+): ComparisonResponse {
   const seriesId =
     input.basis === "ppp"
       ? "energy.retail.price.country.usd_kwh_ppp"
@@ -388,8 +316,8 @@ export function getEnergyRetailComparisonFromStore(input: GetEnergyRetailCompari
 }
 
 export function getEnergyWholesaleComparisonFromStore(
-  input: GetEnergyWholesaleComparisonInput
-): { rows: ComparableObservation[] } {
+  input: StoreWholesaleComparisonInput
+): ComparisonResponse {
   const countries = [input.country, ...input.peers];
   return {
     rows: listLatestCountryObservations(
@@ -402,7 +330,10 @@ export function getEnergyWholesaleComparisonFromStore(
   };
 }
 
-export function getEnergyOverviewFromStore(region: string, storePath?: string) {
+export function getEnergyOverviewFromStore(
+  region: string,
+  storePath?: string
+): EnergyOverviewResponse {
   const wholesale = getEnergyLiveWholesaleFromStore(region, "5m", storePath);
   const retail = getEnergyRetailAverageFromStore(region, storePath);
   const benchmark =
@@ -451,7 +382,9 @@ export function getEnergyOverviewFromStore(region: string, storePath?: string) {
   };
 }
 
-export function getMetadataFreshnessFromStore(storePath?: string) {
+export function getMetadataFreshnessFromStore(
+  storePath?: string
+): MetadataFreshnessResponse {
   const nowMs = Date.now();
   const keySeries = [
     {
@@ -500,7 +433,7 @@ export function getMetadataFreshnessFromStore(storePath?: string) {
   };
 }
 
-export function getMetadataSourcesFromStore(storePath?: string) {
+export function getMetadataSourcesFromStore(storePath?: string): MetadataSourcesResponse {
   const store = readLiveStoreSync(storePath);
   return {
     generatedAt: new Date().toISOString(),

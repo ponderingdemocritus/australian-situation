@@ -1,3 +1,5 @@
+// Legacy prototype fixture retained for regression/reference use in tests only.
+
 const REQUIRED_SERIES_IDS = [
   "hvi.value.index",
   "lending.oo.count",
@@ -24,7 +26,7 @@ type OverviewMetric = {
   value: number;
 };
 
-export type HousingOverview = {
+export type LegacyHousingOverviewFixture = {
   region: string;
   requiredSeriesIds: readonly RequiredSeriesId[];
   missingSeriesIds: RequiredSeriesId[];
@@ -63,7 +65,9 @@ function getLatestObservation(
   return matches[0] ?? null;
 }
 
-export function getHousingOverview(region: string): HousingOverview {
+export function getLegacyHousingOverviewFixture(
+  region: string
+): LegacyHousingOverviewFixture {
   const metrics: OverviewMetric[] = [];
   const missingSeriesIds: RequiredSeriesId[] = [];
 

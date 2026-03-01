@@ -51,8 +51,7 @@ export function calculateServiceability(
   const monthlyRate = input.rate / 12;
   const totalMonths = input.termYears * 12;
   const factor = Math.pow(1 + monthlyRate, totalMonths);
-  const monthlyRepayment =
-    (input.loan * monthlyRate * factor) / (factor - 1);
+  const monthlyRepayment = (input.loan * monthlyRate * factor) / (factor - 1);
   const monthlyIncome = input.income / 12;
   const burdenRatio = monthlyRepayment / monthlyIncome;
 

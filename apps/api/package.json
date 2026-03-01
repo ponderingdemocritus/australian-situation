@@ -9,6 +9,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@aus-dash/data-contract": "workspace:*",
     "@aus-dash/db": "workspace:*",
     "@aus-dash/shared": "workspace:*",
     "@hono/node-server": "^1.13.7",

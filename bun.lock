@@ -14,6 +14,7 @@
     "apps/api": {
       "name": "@aus-dash/api",
       "dependencies": {
+        "@aus-dash/data-contract": "workspace:*",
         "@aus-dash/db": "workspace:*",
         "@aus-dash/shared": "workspace:*",
         "@hono/node-server": "^1.13.7",

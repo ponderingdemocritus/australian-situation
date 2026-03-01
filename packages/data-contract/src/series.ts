@@ -14,6 +14,20 @@ export const HOUSING_SERIES_IDS = [
 
 export type HousingSeriesId = (typeof HOUSING_SERIES_IDS)[number];
 
+export const HOUSING_OVERVIEW_REQUIRED_SERIES_IDS = [
+  "hvi.value.index",
+  "lending.oo.count",
+  "lending.oo.value_aud",
+  "lending.investor.count",
+  "lending.investor.value_aud",
+  "lending.avg_loan_size_aud",
+  "rates.oo.variable_pct",
+  "rates.oo.fixed_pct"
+] as const;
+
+export type HousingOverviewRequiredSeriesId =
+  (typeof HOUSING_OVERVIEW_REQUIRED_SERIES_IDS)[number];
+
 export const ENERGY_WHOLESALE_SERIES_IDS = [
   "energy.wholesale.spot.au.aud_mwh",
   "energy.wholesale.spot.country.usd_mwh",
@@ -55,3 +69,12 @@ export type ConsumptionBand = (typeof CONSUMPTION_BAND_VALUES)[number];
 export function isConsumptionBand(value: string): value is ConsumptionBand {
   return CONSUMPTION_BAND_VALUES.includes(value as ConsumptionBand);
 }
+
+export const ENERGY_WINDOW_VALUES = ["5m", "1h", "24h"] as const;
+
+export type EnergyWindow = (typeof ENERGY_WINDOW_VALUES)[number];
+
+export const ENERGY_RETAIL_COMPARISON_BASIS_VALUES = ["nominal", "ppp"] as const;
+
+export type EnergyRetailComparisonBasis =
+  (typeof ENERGY_RETAIL_COMPARISON_BASIS_VALUES)[number];

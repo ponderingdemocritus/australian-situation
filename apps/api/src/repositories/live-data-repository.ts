@@ -7,11 +7,20 @@ import {
   getHousingOverviewFromStore,
   getMetadataFreshnessFromStore,
   getMetadataSourcesFromStore,
-  getSeriesFromStore,
-  type GetEnergyRetailComparisonInput,
-  type GetEnergyWholesaleComparisonInput
+  getSeriesFromStore
 } from "./live-store-repository";
+import type {
+  LiveDataRepository,
+  GetEnergyRetailComparisonInput,
+  GetEnergyWholesaleComparisonInput
+} from "./live-data-contract";
 import { createPostgresLiveDataRepository } from "./postgres-live-repository";
+
+export type {
+  LiveDataRepository,
+  GetEnergyRetailComparisonInput,
+  GetEnergyWholesaleComparisonInput
+} from "./live-data-contract";
 
 export type ApiDataBackend = "store" | "postgres";
 
@@ -24,32 +33,6 @@ export function resolveApiDataBackend(value: string | undefined): ApiDataBackend
   }
   throw new Error(`Unsupported API data backend: ${value}`);
 }
-
-export type LiveDataRepository = {
-  getHousingOverview(region: string): Promise<ReturnType<typeof getHousingOverviewFromStore>>;
-  getSeries(input: {
-    seriesId: string;
-    region: string;
-    from?: string;
-    to?: string;
-  }): Promise<ReturnType<typeof getSeriesFromStore>>;
-  getEnergyLiveWholesale(
-    region: string,
-    window: "5m" | "1h" | "24h"
-  ): Promise<ReturnType<typeof getEnergyLiveWholesaleFromStore>>;
-  getEnergyRetailAverage(
-    region: string
-  ): Promise<ReturnType<typeof getEnergyRetailAverageFromStore>>;
-  getEnergyRetailComparison(
-    input: GetEnergyRetailComparisonInput
-  ): Promise<ReturnType<typeof getEnergyRetailComparisonFromStore>>;
-  getEnergyWholesaleComparison(
-    input: GetEnergyWholesaleComparisonInput
-  ): Promise<ReturnType<typeof getEnergyWholesaleComparisonFromStore>>;
-  getEnergyOverview(region: string): Promise<ReturnType<typeof getEnergyOverviewFromStore>>;
-  getMetadataFreshness(): Promise<ReturnType<typeof getMetadataFreshnessFromStore>>;
-  getMetadataSources(): Promise<ReturnType<typeof getMetadataSourcesFromStore>>;
-};
 
 function createStoreLiveDataRepository(): LiveDataRepository {
   return {
@@ -78,7 +61,7 @@ export function createLiveDataRepository(
   backend: ApiDataBackend = resolveApiDataBackend(process.env.AUS_DASH_DATA_BACKEND)
 ): LiveDataRepository {
   if (backend === "postgres") {
-    return createPostgresLiveDataRepository() as LiveDataRepository;
+    return createPostgresLiveDataRepository();
   }
 
   return createStoreLiveDataRepository();

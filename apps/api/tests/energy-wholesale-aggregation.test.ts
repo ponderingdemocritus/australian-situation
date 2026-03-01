@@ -14,11 +14,7 @@ const FIXTURE_POINTS: RegionalRrpPoint[] = [
 ];
 
 async function loadAggregator() {
-  try {
-    return await import("../src/domain/energy-wholesale-aggregation");
-  } catch {
-    return null;
-  }
+  return await import("./fixtures/domain/energy-wholesale-aggregation.fixture");
 }
 
 describe("computeAuWeightedWholesaleRrp", () => {

@@ -1,42 +1,20 @@
 import { getDb, observations, sources } from "@aus-dash/db";
 import { and, eq, gte, lte } from "drizzle-orm";
 import type { ComparableObservation } from "../domain/energy-comparison";
+import {
+  API_SUPPORTED_REGIONS,
+  REQUIRED_HOUSING_OVERVIEW_SERIES_IDS
+} from "../routes/api-domain-constants";
+import { freshnessStatus, lagMinutes } from "./freshness";
 import { SeriesRepositoryError } from "./series-repository-error";
-
-const SUPPORTED_REGIONS = new Set([
-  "AU",
-  "NSW",
-  "VIC",
-  "QLD",
-  "SA",
-  "WA",
-  "TAS",
-  "NT",
-  "ACT",
-  "SYD",
-  "MEL",
-  "BNE",
-  "ADL",
-  "PER",
-  "HBA",
-  "DRW",
-  "CBR"
-]);
-
-const REQUIRED_HOUSING_SERIES_IDS = [
-  "hvi.value.index",
-  "lending.oo.count",
-  "lending.oo.value_aud",
-  "lending.investor.count",
-  "lending.investor.value_aud",
-  "lending.avg_loan_size_aud",
-  "rates.oo.variable_pct",
-  "rates.oo.fixed_pct"
-] as const;
-
-type Cadence = "5m" | "daily" | "monthly" | "quarterly";
-
-type FreshnessStatus = "fresh" | "stale" | "degraded";
+import type {
+  ComparisonResponse,
+  EnergyWindow,
+  GetEnergyRetailComparisonInput,
+  GetEnergyWholesaleComparisonInput,
+  GetSeriesInput,
+  LiveDataRepository
+} from "./live-data-contract";
 
 type ObservationRow = {
   seriesId: string;
@@ -64,44 +42,6 @@ function parseNumeric(value: unknown): number {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function toTimestamp(date: string): number | null {
-  const parsedDirect = Date.parse(date);
-  if (!Number.isNaN(parsedDirect)) {
-    return parsedDirect;
-  }
-
-  const quarterMatch = /^(\d{4})-Q([1-4])$/.exec(date);
-  if (!quarterMatch) {
-    return null;
-  }
-
-  const year = Number(quarterMatch[1]);
-  const quarter = Number(quarterMatch[2]);
-  const monthEnd = quarter * 3;
-  return Date.parse(`${year}-${String(monthEnd).padStart(2, "0")}-01T00:00:00Z`);
-}
-
-function lagMinutes(nowMs: number, date: string): number {
-  const ts = toTimestamp(date);
-  if (ts === null) {
-    return Number.POSITIVE_INFINITY;
-  }
-  return Math.max(0, Math.floor((nowMs - ts) / 60000));
-}
-
-function freshnessStatus(cadence: Cadence, lagMins: number): FreshnessStatus {
-  const thresholdMinutes =
-    cadence === "5m"
-      ? 20
-      : cadence === "daily"
-        ? 48 * 60
-        : cadence === "monthly"
-          ? 72 * 60
-          : 7 * 24 * 60;
-
-  return lagMins > thresholdMinutes ? "stale" : "fresh";
 }
 
 async function listObservations(
@@ -232,13 +172,13 @@ async function listLatestCountryObservations(input: {
   }));
 }
 
-export function createPostgresLiveDataRepository() {
+export function createPostgresLiveDataRepository(): LiveDataRepository {
   return {
     async getHousingOverview(region: string) {
       const metrics: Array<{ seriesId: string; date: string; value: number }> = [];
       const missingSeriesIds: string[] = [];
 
-      for (const seriesId of REQUIRED_HOUSING_SERIES_IDS) {
+      for (const seriesId of REQUIRED_HOUSING_OVERVIEW_SERIES_IDS) {
         const latest = await latestObservation(seriesId, region);
         if (!latest) {
           missingSeriesIds.push(seriesId);
@@ -258,20 +198,15 @@ export function createPostgresLiveDataRepository() {
 
       return {
         region,
-        requiredSeriesIds: REQUIRED_HOUSING_SERIES_IDS,
+        requiredSeriesIds: REQUIRED_HOUSING_OVERVIEW_SERIES_IDS,
         missingSeriesIds,
         metrics,
         updatedAt
       };
     },
 
-    async getSeries(input: {
-      seriesId: string;
-      region: string;
-      from?: string;
-      to?: string;
-    }) {
-      if (!SUPPORTED_REGIONS.has(input.region)) {
+    async getSeries(input: GetSeriesInput) {
+      if (!API_SUPPORTED_REGIONS.has(input.region)) {
         throw new SeriesRepositoryError(
           "UNSUPPORTED_REGION",
           `Unsupported region: ${input.region}`,
@@ -312,7 +247,7 @@ export function createPostgresLiveDataRepository() {
       };
     },
 
-    async getEnergyLiveWholesale(region: string, window: "5m" | "1h" | "24h") {
+    async getEnergyLiveWholesale(region: string, window: EnergyWindow) {
       const seriesId =
         region === "AU"
           ? "energy.wholesale.rrp.au_weighted_aud_mwh"
@@ -374,7 +309,7 @@ export function createPostgresLiveDataRepository() {
       const median =
         (await latestObservation("energy.retail.offer.annual_bill_aud.median", region)) ??
         (await latestObservation("energy.retail.offer.annual_bill_aud.median", "AU"));
-      const updatedAt = mean?.date ?? new Date().toISOString();
+      const updatedAt = mean?.date ?? "1970-01-01";
 
       return {
         region,
@@ -398,13 +333,7 @@ export function createPostgresLiveDataRepository() {
       };
     },
 
-    async getEnergyRetailComparison(input: {
-      country: string;
-      peers: string[];
-      basis: "nominal" | "ppp";
-      taxStatus?: string;
-      consumptionBand?: string;
-    }) {
+    async getEnergyRetailComparison(input: GetEnergyRetailComparisonInput) {
       const seriesId =
         input.basis === "ppp"
           ? "energy.retail.price.country.usd_kwh_ppp"
@@ -418,17 +347,17 @@ export function createPostgresLiveDataRepository() {
           taxStatus: input.taxStatus,
           consumptionBand: input.consumptionBand
         })
-      };
+      } satisfies ComparisonResponse;
     },
 
-    async getEnergyWholesaleComparison(input: { country: string; peers: string[] }) {
+    async getEnergyWholesaleComparison(input: GetEnergyWholesaleComparisonInput) {
       const countries = [input.country, ...input.peers];
       return {
         rows: await listLatestCountryObservations({
           seriesId: "energy.wholesale.spot.country.usd_mwh",
           countries
         })
-      };
+      } satisfies ComparisonResponse;
     },
 
     async getEnergyOverview(region: string) {

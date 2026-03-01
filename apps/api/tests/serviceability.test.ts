@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { calculateServiceability } from "../src/domain/serviceability";
+import { calculateServiceability } from "./fixtures/domain/serviceability.fixture";
 
 describe("calculateServiceability", () => {
   test("computes monthly repayment and burden ratio", () => {

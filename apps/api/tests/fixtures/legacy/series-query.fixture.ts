@@ -1,3 +1,5 @@
+// Legacy prototype fixture retained for regression/reference use in tests only.
+
 const SUPPORTED_REGIONS = new Set([
   "AU",
   "NSW",
@@ -47,24 +49,30 @@ const OBSERVATIONS: Observation[] = [
   { seriesId: "rates.oo.variable_pct", region: "AU", date: "2025-12-31", value: 6.08 }
 ];
 
-export type SeriesPoint = {
+export type LegacySeriesPointFixture = {
   date: string;
   value: number;
 };
 
-export type SeriesResponse = {
+export type LegacySeriesResponseFixture = {
   seriesId: string;
   region: string;
-  points: SeriesPoint[];
+  points: LegacySeriesPointFixture[];
 };
 
-export type SeriesQueryErrorCode = "UNSUPPORTED_REGION" | "UNKNOWN_SERIES_ID";
+export type LegacySeriesQueryErrorCodeFixture =
+  | "UNSUPPORTED_REGION"
+  | "UNKNOWN_SERIES_ID";
 
-export class SeriesQueryError extends Error {
-  code: SeriesQueryErrorCode;
+export class LegacySeriesQueryErrorFixture extends Error {
+  code: LegacySeriesQueryErrorCodeFixture;
   status: number;
 
-  constructor(code: SeriesQueryErrorCode, message: string, status: number) {
+  constructor(
+    code: LegacySeriesQueryErrorCodeFixture,
+    message: string,
+    status: number
+  ) {
     super(message);
     this.code = code;
     this.status = status;
@@ -78,9 +86,11 @@ type QueryInput = {
   to?: string;
 };
 
-export function querySeries(input: QueryInput): SeriesResponse {
+export function queryLegacySeriesFixture(
+  input: QueryInput
+): LegacySeriesResponseFixture {
   if (!SUPPORTED_REGIONS.has(input.region)) {
-    throw new SeriesQueryError(
+    throw new LegacySeriesQueryErrorFixture(
       "UNSUPPORTED_REGION",
       `Unsupported region: ${input.region}`,
       400
@@ -88,7 +98,7 @@ export function querySeries(input: QueryInput): SeriesResponse {
   }
 
   if (!KNOWN_SERIES_IDS.has(input.seriesId)) {
-    throw new SeriesQueryError(
+    throw new LegacySeriesQueryErrorFixture(
       "UNKNOWN_SERIES_ID",
       `Unknown series id: ${input.seriesId}`,
       404
