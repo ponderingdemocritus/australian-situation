@@ -1,91 +1,69 @@
-import { syncEnergyRetailPlans } from "./jobs/sync-energy-retail-plans";
-import { syncEnergyRetailGlobal } from "./jobs/sync-energy-retail-global";
-import { syncEnergyWholesale } from "./jobs/sync-energy-wholesale";
-import { syncEnergyWholesaleGlobal } from "./jobs/sync-energy-wholesale-global";
-import { syncEnergyNormalization } from "./jobs/sync-energy-normalization";
-import { syncEnergyBenchmarkDmo } from "./jobs/sync-energy-benchmark-dmo";
-import { syncHousingSeries } from "./jobs/sync-housing-series";
-import { syncHousingRba } from "./jobs/sync-housing-rba";
-import { syncMacroAbsCpi } from "./jobs/sync-macro-abs-cpi";
-import { DEFAULT_JOB_SCHEDULES, runJobWithRetry } from "./scheduler";
+import { runLegacyIngestOrchestration } from "./legacy-orchestrator";
+import { upsertRecurringJobSchedulers } from "./queue/scheduler";
+import { createGracefulShutdownHandler, createIngestWorker } from "./queue/worker";
+import { attachQueueEventsTelemetry, createQueueEventsClient } from "./queue/events";
+import { createIngestQueue, resolveQueueRuntimeConfig } from "./queue/runtime";
+import {
+  assertLegacyRuntimeAllowed,
+  resolveIngestRuntimeMode
+} from "./runtime-mode";
 
-async function main() {
-  const jobs = [
-    {
-      jobId: "sync-housing-abs-daily",
-      run: () => syncHousingSeries()
-    },
-    {
-      jobId: "sync-energy-wholesale-5m",
-      run: () => syncEnergyWholesale()
-    },
-    {
-      jobId: "sync-energy-wholesale-global-hourly",
-      run: () => syncEnergyWholesaleGlobal()
-    },
-    {
-      jobId: "sync-energy-retail-prd-hourly",
-      run: () => syncEnergyRetailPlans()
-    },
-    {
-      jobId: "sync-energy-retail-global-daily",
-      run: () => syncEnergyRetailGlobal()
-    },
-    {
-      jobId: "sync-energy-normalization-daily",
-      run: () => syncEnergyNormalization()
-    },
-    {
-      jobId: "sync-energy-benchmark-dmo-daily",
-      run: () => syncEnergyBenchmarkDmo()
-    },
-    {
-      jobId: "sync-housing-rba-daily",
-      run: () => syncHousingRba()
-    },
-    {
-      jobId: "sync-macro-abs-cpi-daily",
-      run: () => syncMacroAbsCpi()
-    }
-  ] as const;
+async function runBullMqRuntime() {
+  const queueConfig = resolveQueueRuntimeConfig();
+  const queue = createIngestQueue(queueConfig);
+  const worker = createIngestWorker(queueConfig);
+  const queueEvents = createQueueEventsClient(queueConfig);
 
-  const runs = await Promise.all(
-    jobs.map((job) =>
-      runJobWithRetry({
-        jobId: job.jobId,
-        maxRetries: 3,
-        onAlert: (alert) => {
-          console.error(
-            JSON.stringify(
-              {
-                level: "error",
-                type: "ingest.alert",
-                jobId: alert.jobId,
-                attempt: alert.attempt,
-                maxRetries: alert.maxRetries,
-                error: alert.error instanceof Error ? alert.error.message : String(alert.error)
-              },
-              null,
-              2
-            )
-          );
-        },
-        run: job.run
-      })
-    )
-  );
+  attachQueueEventsTelemetry(queueEvents, {
+    queueName: queueConfig.queueName
+  });
+
+  await upsertRecurringJobSchedulers(queue);
+  await Promise.all([worker.waitUntilReady(), queueEvents.waitUntilReady()]);
 
   console.log(
-    JSON.stringify(
-      {
-        status: "ok",
-        schedules: DEFAULT_JOB_SCHEDULES,
-        jobs: runs
-      },
-      null,
-      2
-    )
+    JSON.stringify({
+      level: "info",
+      type: "ingest.runtime.started",
+      runtime: "bullmq",
+      queueName: queueConfig.queueName,
+      concurrency: queueConfig.workerConcurrency
+    })
   );
+
+  const shutdownWorker = createGracefulShutdownHandler(worker);
+
+  const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
+    await shutdownWorker(signal);
+    await Promise.all([queueEvents.close(), queue.close()]);
+  };
+
+  const handleSignal = (signal: "SIGINT" | "SIGTERM") => {
+    void shutdown(signal)
+      .then(() => {
+        process.exit(0);
+      })
+      .catch((error) => {
+        console.error(error);
+        process.exit(1);
+      });
+  };
+
+  process.once("SIGINT", () => handleSignal("SIGINT"));
+  process.once("SIGTERM", () => handleSignal("SIGTERM"));
+}
+
+async function main() {
+  const runtimeMode = resolveIngestRuntimeMode(process.env.AUS_DASH_INGEST_RUNTIME);
+
+  if (runtimeMode === "legacy") {
+    assertLegacyRuntimeAllowed(process.env.NODE_ENV);
+    const legacyResult = await runLegacyIngestOrchestration();
+    console.log(JSON.stringify(legacyResult, null, 2));
+    return;
+  }
+
+  await runBullMqRuntime();
 }
 
 main().catch((error) => {

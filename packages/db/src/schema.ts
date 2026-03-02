@@ -104,10 +104,19 @@ export const ingestionRuns = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true }).notNull(),
     rowsInserted: integer("rows_inserted").notNull(),
     rowsUpdated: integer("rows_updated").notNull(),
-    errorSummary: text("error_summary")
+    errorSummary: text("error_summary"),
+    bullJobId: text("bull_job_id"),
+    queueName: text("queue_name"),
+    attempt: integer("attempt"),
+    runMode: text("run_mode")
   },
   (table) => ({
-    ingestionRunsJobIdx: index("ingestion_runs_job_idx").on(table.job, table.finishedAt)
+    ingestionRunsJobIdx: index("ingestion_runs_job_idx").on(table.job, table.finishedAt),
+    ingestionRunsQueueJobIdx: index("ingestion_runs_queue_job_idx").on(
+      table.queueName,
+      table.job,
+      table.finishedAt
+    )
   })
 );
 
