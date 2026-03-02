@@ -129,6 +129,20 @@ function resolveInitialSubject(): SubjectTab {
   return parseSubject(new URLSearchParams(window.location.search).get("subject"));
 }
 
+function buildDashboardUrl(region: RegionCode, subject: SubjectTab): string {
+  const path = region === "AU" ? "/" : `/${region}`;
+  const params = new URLSearchParams({ subject });
+  return `${path}?${params.toString()}`;
+}
+
+function parseRegionFromPath(pathname: string): RegionCode | null {
+  const segment = pathname.split("/").filter(Boolean)[0]?.toUpperCase();
+  if (segment && REGIONS.includes(segment as RegionCode)) {
+    return segment as RegionCode;
+  }
+  return null;
+}
+
 function formatAud(value: number): string {
   return `${Math.round(value)} AUD`;
 }
@@ -429,8 +443,21 @@ export function DashboardShell({
   initialWholesaleComparison = null,
   initialRetailMethodology = null
 }: DashboardShellProps = {}) {
-  const [region, setRegion] = useState<RegionCode>(initialRegion);
+  const [region, setRegionState] = useState<RegionCode>(initialRegion);
   const [subject, setSubject] = useState<SubjectTab>(() => resolveInitialSubject());
+
+  const setRegion = useCallback(
+    (nextRegion: RegionCode, pushUrl = true) => {
+      setRegionState(nextRegion);
+      if (pushUrl && typeof window !== "undefined") {
+        const subjectParam = parseSubject(
+          new URLSearchParams(window.location.search).get("subject")
+        );
+        window.history.pushState({}, "", buildDashboardUrl(nextRegion, subjectParam));
+      }
+    },
+    []
+  );
   const [energyOverview, setEnergyOverview] =
     useState<EnergyOverviewResponse | null>(initialEnergyOverview);
   const [energyLoading, setEnergyLoading] = useState(!initialEnergyOverview);
@@ -684,16 +711,30 @@ export function DashboardShell({
       return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("subject") === subject) {
+    window.history.replaceState({}, "", buildDashboardUrl(region, subject));
+  }, [subject]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
       return;
     }
 
-    params.set("subject", subject);
-    const search = params.toString();
-    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
-    window.history.replaceState({}, "", nextUrl);
-  }, [subject]);
+    function handlePopState() {
+      const regionFromPath = parseRegionFromPath(window.location.pathname);
+      const nextRegion = regionFromPath ?? DEFAULT_REGION;
+      setRegion(nextRegion, false);
+
+      const nextSubject = parseSubject(
+        new URLSearchParams(window.location.search).get("subject")
+      );
+      setSubject(nextSubject);
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [setRegion]);
 
   useEffect(() => {
     function syncClock() {

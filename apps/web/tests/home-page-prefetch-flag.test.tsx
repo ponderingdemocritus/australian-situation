@@ -1,6 +1,6 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import HomePage from "../app/page";
+import RegionPage from "../app/[[...region]]/page";
 
 const fetchMock = vi.fn();
 
@@ -24,7 +24,7 @@ describe("HomePage server prefetch flag", () => {
   });
 
   test("skips server-side API fetches when disabled", async () => {
-    await HomePage();
+    await RegionPage({ params: Promise.resolve({ region: undefined }) });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
