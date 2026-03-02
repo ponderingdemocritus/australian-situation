@@ -48,6 +48,7 @@ describe("Region selector sync", () => {
   });
 
   test("one region selector updates housing and energy panels", async () => {
+    const pushStateSpy = vi.spyOn(window.history, "pushState");
     await renderHomePage();
 
     const selector = screen.getByLabelText("Region");
@@ -58,6 +59,9 @@ describe("Region selector sync", () => {
 
     expect(screen.getByText("Housing region: VIC")).toBeDefined();
     expect(screen.getByText("Energy region: VIC")).toBeDefined();
+    expect(pushStateSpy).toHaveBeenCalledWith({}, "", "/VIC?subject=energy");
+
+    pushStateSpy.mockRestore();
   });
 
   test("map click updates region labels and refetches housing + energy", async () => {
@@ -82,10 +86,15 @@ describe("Region selector sync", () => {
 
     await renderHomePage();
 
+    const pushStateSpy = vi.spyOn(window.history, "pushState");
+
     fireEvent.click(screen.getByRole("button", { name: "Select region VIC" }));
 
     expect(screen.getByText("Housing region: VIC")).toBeDefined();
     expect(screen.getByText("Energy region: VIC")).toBeDefined();
+    expect(pushStateSpy).toHaveBeenCalledWith({}, "", "/VIC?subject=energy");
+
+    pushStateSpy.mockRestore();
 
     await waitFor(() => {
       const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
