@@ -6,12 +6,19 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "backfill:store-to-postgres": "bun src/scripts/backfill-store-to-postgres.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "scheduler": "bun src/ingest-scheduler.ts",
+    "worker": "bun src/ingest-worker.ts",
+    "dispatch:manual": "bun src/scripts/dispatch-ingest-job.ts",
+    "dispatch:backfill": "bun src/scripts/dispatch-ingest-backfill.ts",
+    "start:legacy": "AUS_DASH_INGEST_RUNTIME=legacy bun src/index.ts"
   },
   "dependencies": {
     "@aus-dash/db": "workspace:*",
     "@aus-dash/shared": "workspace:*",
-    "drizzle-orm": "^0.45.1"
+    "bullmq": "^5.70.1",
+    "drizzle-orm": "^0.45.1",
+    "ioredis": "^5.10.0"
   },
   "devDependencies": {
     "vitest": "2.1.9"

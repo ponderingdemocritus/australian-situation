@@ -20,11 +20,15 @@ Run everything:
 bun run dev:all
 ```
 
+Ingest defaults to BullMQ runtime (`scheduler` upsert + `worker` processing) via `apps/ingest/src/index.ts`.
+
 Bring up infra + migrate + backfill + build + run:
 
 ```bash
 bun run up:all
 ```
+
+`up:all` starts both Postgres and Redis before launching API + ingest services.
 
 Run tests:
 
@@ -101,6 +105,9 @@ tests/
 - `NEXT_PUBLIC_API_BASE_URL` (web): defaults to `http://localhost:3001`
 - `ENABLE_ENERGY_HOUSEHOLD_ESTIMATE=true` (api): enables `/api/energy/household-estimate`
 - `AUS_DASH_STORE_PATH=/abs/path/to/live-store.json`: shared JSON store override
+- `AUS_DASH_REDIS_URL=redis://127.0.0.1:6379/0`: BullMQ Redis connection for ingest runtime
+- `AUS_DASH_BULLMQ_QUEUE_NAME=ingest-jobs`: queue name override for ingest runtime
+- `AUS_DASH_INGEST_RUNTIME=bullmq|legacy`: ingest runtime selector (`bullmq` default; `legacy` is non-production burn-in fallback)
 
 ## Planning Docs
 

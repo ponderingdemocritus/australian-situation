@@ -71,6 +71,14 @@ describe("db schema contracts", () => {
     expect(ingestionRuns.status).toBeDefined();
     expect(ingestionRuns.rowsInserted).toBeDefined();
     expect(ingestionRuns.rowsUpdated).toBeDefined();
+    expect(ingestionRuns.bullJobId).toBeDefined();
+    expect(ingestionRuns.queueName).toBeDefined();
+    expect(ingestionRuns.attempt).toBeDefined();
+    expect(ingestionRuns.runMode).toBeDefined();
+
+    const ingestionRunConfig = getTableConfig(ingestionRuns);
+    const ingestionRunIndexNames = ingestionRunConfig.indexes.map((entry) => entry.config.name);
+    expect(ingestionRunIndexNames).toContain("ingestion_runs_queue_job_idx");
 
     expect(rawSnapshots.snapshotId).toBeDefined();
     expect(rawSnapshots.sourceId).toBeDefined();

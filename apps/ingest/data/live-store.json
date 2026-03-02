@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-03-01T01:49:57.733Z",
+  "updatedAt": "2026-03-02T02:05:00.058Z",
   "observations": [
     {
       "seriesId": "hvi.value.index",
@@ -255,7 +255,7 @@
       "sourceName": "AEMO",
       "sourceUrl": "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem",
       "publishedAt": "2026-02-27T01:55:00Z",
-      "ingestedAt": "2026-03-01T01:49:57.731Z",
+      "ingestedAt": "2026-03-02T02:05:00.058Z",
       "vintage": "2026-02-27",
       "isModeled": false,
       "confidence": "official",
@@ -276,7 +276,7 @@
       "sourceName": "AEMO",
       "sourceUrl": "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem",
       "publishedAt": "2026-02-27T02:00:00Z",
-      "ingestedAt": "2026-03-01T01:49:57.731Z",
+      "ingestedAt": "2026-03-02T02:05:00.058Z",
       "vintage": "2026-02-27",
       "isModeled": false,
       "confidence": "official",
@@ -455,7 +455,7 @@
       "sourceName": "EIA",
       "sourceUrl": "https://www.eia.gov/opendata/documentation.php",
       "publishedAt": "2026-02-28T01:00:00Z",
-      "ingestedAt": "2026-03-01T01:49:57.731Z",
+      "ingestedAt": "2026-03-02T02:05:00.054Z",
       "vintage": "2026-02-28",
       "isModeled": false,
       "confidence": "official",
@@ -476,7 +476,7 @@
       "sourceName": "ENTSO-E",
       "sourceUrl": "https://transparencyplatform.zendesk.com/hc/en-us/articles/12845911031188-How-to-get-security-token",
       "publishedAt": "2026-02-28T01:00:00Z",
-      "ingestedAt": "2026-03-01T01:49:57.731Z",
+      "ingestedAt": "2026-03-02T02:05:00.054Z",
       "vintage": "2026-02-28",
       "isModeled": false,
       "confidence": "official",
@@ -937,7 +937,7 @@
     {
       "sourceId": "aemo_wholesale",
       "cursor": "2026-02-27T02:00:00Z",
-      "updatedAt": "2026-03-01T01:49:57.731Z"
+      "updatedAt": "2026-03-02T02:05:00.058Z"
     },
     {
       "sourceId": "aer_prd",
@@ -946,13 +946,13 @@
     },
     {
       "sourceId": "eia_electricity",
-      "cursor": "2026-01",
-      "updatedAt": "2026-03-01T01:49:57.733Z"
+      "cursor": "2026-02-28T00:00:00Z",
+      "updatedAt": "2026-03-02T02:05:00.057Z"
     },
     {
       "sourceId": "entsoe_wholesale",
       "cursor": "2026-02-28T00:00:00Z",
-      "updatedAt": "2026-03-01T01:49:57.732Z"
+      "updatedAt": "2026-03-02T02:05:00.057Z"
     },
     {
       "sourceId": "eurostat_retail",
@@ -1640,6 +1640,24 @@
       "finishedAt": "2026-03-01T01:49:57.733Z",
       "rowsInserted": 0,
       "rowsUpdated": 16
+    },
+    {
+      "runId": "sync-energy-wholesale-global-hourly-1772417100057",
+      "job": "sync-energy-wholesale-global-hourly",
+      "status": "ok",
+      "startedAt": "2026-03-02T02:05:00.054Z",
+      "finishedAt": "2026-03-02T02:05:00.057Z",
+      "rowsInserted": 0,
+      "rowsUpdated": 2
+    },
+    {
+      "runId": "sync-energy-wholesale-5m-1772417100058",
+      "job": "sync-energy-wholesale-5m",
+      "status": "ok",
+      "startedAt": "2026-03-02T02:05:00.058Z",
+      "finishedAt": "2026-03-02T02:05:00.058Z",
+      "rowsInserted": 0,
+      "rowsUpdated": 2
     }
   ]
 }
