@@ -1,4 +1,9 @@
-import { readLiveStoreSync, type LiveObservation } from "@aus-dash/shared";
+import {
+  compareObservationRecency,
+  pickLatestObservation,
+  readLiveStoreSync,
+  type LiveObservation
+} from "@aus-dash/shared";
 import type { ComparableObservation } from "../domain/energy-comparison";
 import {
   API_SUPPORTED_REGIONS,
@@ -35,22 +40,18 @@ type StoreWholesaleComparisonInput = GetEnergyWholesaleComparisonInput & {
   storePath?: string;
 };
 
-function sortByDateDesc<T extends { date: string }>(values: T[]): T[] {
-  return [...values].sort((a, b) => b.date.localeCompare(a.date));
-}
-
 function latestObservation(
   seriesId: string,
   regionCode: string,
   storePath?: string
 ): LiveObservation | null {
   const store = readLiveStoreSync(storePath);
-  const match = sortByDateDesc(
+  const match = pickLatestObservation(
     store.observations.filter(
       (observation) =>
         observation.seriesId === seriesId && observation.regionCode === regionCode
     )
-  )[0];
+  );
   return match ?? null;
 }
 
@@ -96,7 +97,7 @@ function listLatestCountryObservations(
     }
 
     const existing = latestByCountry.get(observation.countryCode);
-    if (!existing || observation.date > existing.date) {
+    if (!existing || compareObservationRecency(observation, existing) < 0) {
       latestByCountry.set(observation.countryCode, observation);
     }
   }
@@ -200,9 +201,11 @@ export function getEnergyLiveWholesaleFromStore(
       ? "energy.wholesale.rrp.au_weighted_aud_mwh"
       : "energy.wholesale.rrp.region_aud_mwh";
   const regionCode = region === "AU" ? "AU" : region;
+  let isFallback = false;
 
   let points = listObservations(seriesId, regionCode, storePath);
   if (points.length === 0 && region !== "AU") {
+    isFallback = true;
     points = listObservations(
       "energy.wholesale.rrp.au_weighted_aud_mwh",
       "AU",
@@ -232,7 +235,7 @@ export function getEnergyLiveWholesaleFromStore(
   return {
     region,
     window,
-    isModeled: false,
+    isModeled: isFallback,
     methodSummary:
       "Wholesale reference prices aggregated using demand-weighted AU rollup.",
     sourceRefs: [
@@ -269,11 +272,16 @@ export function getEnergyRetailAverageFromStore(
     latestObservation("energy.retail.offer.annual_bill_aud.median", regionCode, storePath) ??
     latestObservation("energy.retail.offer.annual_bill_aud.median", "AU", storePath);
   const updatedAt = mean?.date ?? "1970-01-01";
+  const isFallback =
+    region !== "AU" &&
+    ((mean?.regionCode && mean.regionCode !== regionCode) ||
+      (median?.regionCode && median.regionCode !== regionCode) ||
+      (!mean && !median));
 
   return {
     region,
     customerType: "residential",
-    isModeled: false,
+    isModeled: isFallback,
     methodSummary: "Daily aggregation of retail plan prices for residential offers.",
     sourceRefs: [
       {

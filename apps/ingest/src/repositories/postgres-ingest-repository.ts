@@ -12,7 +12,7 @@ import {
   type LiveObservation,
   type SourceCatalogItem
 } from "@aus-dash/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 function parseDate(value: string): Date {
   const parsed = new Date(value);
@@ -31,6 +31,14 @@ function parseOptionalDate(value: string | undefined): Date | null {
     return null;
   }
   return parsed;
+}
+
+function parseNumeric(value: unknown): number {
+  if (typeof value === "number") {
+    return value;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export function mapObservationForPostgres(observation: LiveObservation) {
@@ -223,6 +231,66 @@ export async function upsertObservationsInPostgres(
   }
 
   return { inserted, updated };
+}
+
+export async function listObservationsInPostgres(
+  seriesIds: string[]
+): Promise<LiveObservation[]> {
+  if (seriesIds.length === 0) {
+    return [];
+  }
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      seriesId: observations.seriesId,
+      regionCode: observations.regionCode,
+      countryCode: observations.countryCode,
+      market: observations.market,
+      metricFamily: observations.metricFamily,
+      date: observations.date,
+      intervalStartUtc: observations.intervalStartUtc,
+      intervalEndUtc: observations.intervalEndUtc,
+      value: observations.value,
+      unit: observations.unit,
+      currency: observations.currency,
+      taxStatus: observations.taxStatus,
+      consumptionBand: observations.consumptionBand,
+      sourceName: observations.sourceName,
+      sourceUrl: observations.sourceUrl,
+      publishedAt: observations.publishedAt,
+      ingestedAt: observations.ingestedAt,
+      vintage: observations.vintage,
+      isModeled: observations.isModeled,
+      confidence: observations.confidence,
+      methodologyVersion: observations.methodologyVersion
+    })
+    .from(observations)
+    .where(inArray(observations.seriesId, seriesIds));
+
+  return rows.map((row) => ({
+    seriesId: row.seriesId,
+    regionCode: row.regionCode,
+    countryCode: row.countryCode ?? undefined,
+    market: row.market ?? undefined,
+    metricFamily: row.metricFamily ?? undefined,
+    date: row.date,
+    intervalStartUtc: row.intervalStartUtc?.toISOString(),
+    intervalEndUtc: row.intervalEndUtc?.toISOString(),
+    value: parseNumeric(row.value),
+    unit: row.unit,
+    currency: row.currency ?? undefined,
+    taxStatus: row.taxStatus ?? undefined,
+    consumptionBand: row.consumptionBand ?? undefined,
+    sourceName: row.sourceName,
+    sourceUrl: row.sourceUrl,
+    publishedAt: row.publishedAt.toISOString(),
+    ingestedAt: row.ingestedAt.toISOString(),
+    vintage: row.vintage,
+    isModeled: row.isModeled,
+    confidence: row.confidence as LiveObservation["confidence"],
+    methodologyVersion: row.methodologyVersion ?? undefined
+  }));
 }
 
 export async function setSourceCursorInPostgres(

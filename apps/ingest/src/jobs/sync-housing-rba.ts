@@ -1,11 +1,5 @@
 import {
-  appendIngestionRun,
-  createSeedLiveStore,
-  readLiveStoreSync,
-  setSourceCursor,
-  stageRawPayload,
-  upsertObservations,
-  writeLiveStoreSync
+  createSeedLiveStore
 } from "@aus-dash/shared";
 import {
   fetchRbaRatesSnapshot,
@@ -14,12 +8,8 @@ import {
 } from "../sources/live-source-clients";
 import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
-  appendIngestionRunInPostgres,
-  ensureSourceCatalogInPostgres,
-  setSourceCursorInPostgres,
-  stageRawPayloadInPostgres,
-  upsertObservationsInPostgres
-} from "../repositories/postgres-ingest-repository";
+  persistIngestArtifacts
+} from "../repositories/ingest-persistence";
 
 const RBA_SOURCE_URL = "https://www.rba.gov.au/statistics/interest-rates/";
 
@@ -113,49 +103,27 @@ export async function syncHousingRba(
     confidence: "official" as const
   }));
 
-  let upsertResult: { inserted: number; updated: number };
-  if (ingestBackend === "postgres") {
-    await ensureSourceCatalogInPostgres(createSeedLiveStore().sources);
-    await stageRawPayloadInPostgres({
-      sourceId: "rba_rates",
-      payload: rawPayload,
-      contentType: "text/csv",
-      capturedAt: ingestedAt
-    });
-    upsertResult = await upsertObservationsInPostgres(observations);
-    if (latestDate) {
-      await setSourceCursorInPostgres("rba_rates", latestDate);
-    }
-    await appendIngestionRunInPostgres({
+  const upsertResult = await persistIngestArtifacts({
+    backend: ingestBackend,
+    storePath: options.storePath,
+    sourceCatalog: createSeedLiveStore().sources,
+    rawSnapshots: [
+      {
+        sourceId: "rba_rates",
+        payload: rawPayload,
+        contentType: "text/csv",
+        capturedAt: ingestedAt
+      }
+    ],
+    observations,
+    sourceCursors: latestDate ? [{ sourceId: "rba_rates", cursor: latestDate }] : [],
+    ingestionRun: {
       job: "sync-housing-rba-daily",
       status: "ok",
       startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-  } else {
-    const store = readLiveStoreSync(options.storePath);
-    stageRawPayload(store, {
-      sourceId: "rba_rates",
-      payload: rawPayload,
-      contentType: "text/csv",
-      capturedAt: ingestedAt
-    });
-    upsertResult = upsertObservations(store, observations);
-    if (latestDate) {
-      setSourceCursor(store, "rba_rates", latestDate);
+      finishedAt: ingestedAt
     }
-    appendIngestionRun(store, {
-      job: "sync-housing-rba-daily",
-      status: "ok",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-    writeLiveStoreSync(store, options.storePath);
-  }
+  });
 
   return {
     job: "sync-housing-rba",
@@ -163,6 +131,6 @@ export async function syncHousingRba(
     pointsIngested: observations.length,
     rowsInserted: upsertResult.inserted,
     rowsUpdated: upsertResult.updated,
-    syncedAt: new Date().toISOString()
+    syncedAt: ingestedAt
   };
 }

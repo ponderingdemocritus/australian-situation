@@ -1,12 +1,6 @@
 import {
-  appendIngestionRun,
   createSeedLiveStore,
-  readLiveStoreSync,
-  setSourceCursor,
-  stageRawPayload,
-  upsertObservations,
-  writeLiveStoreSync,
-  type SourceCatalogItem
+  getSourceCatalogItems,
 } from "@aus-dash/shared";
 import {
   fetchEiaElectricitySnapshot,
@@ -18,29 +12,13 @@ import {
 import { mapEiaRetailPointsToObservations, mapEurostatRetailPointsToObservations } from "../mappers/global-energy";
 import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
-  appendIngestionRunInPostgres,
-  ensureSourceCatalogInPostgres,
-  setSourceCursorInPostgres,
-  stageRawPayloadInPostgres,
-  upsertObservationsInPostgres
-} from "../repositories/postgres-ingest-repository";
+  persistIngestArtifacts
+} from "../repositories/ingest-persistence";
 
-const GLOBAL_SOURCE_CATALOG: SourceCatalogItem[] = [
-  {
-    sourceId: "eia_electricity",
-    domain: "energy",
-    name: "US EIA Electricity",
-    url: "https://www.eia.gov/opendata/documentation.php",
-    expectedCadence: "hourly|monthly"
-  },
-  {
-    sourceId: "eurostat_retail",
-    domain: "energy",
-    name: "Eurostat Electricity Prices",
-    url: "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_pc_204_sims.htm",
-    expectedCadence: "semiannual"
-  }
-];
+const GLOBAL_SOURCE_CATALOG = getSourceCatalogItems([
+  "eia_electricity",
+  "eurostat_retail"
+]);
 
 const EIA_RETAIL_FIXTURE: EiaRetailPricePoint[] = [
   {
@@ -93,6 +71,7 @@ export async function syncEnergyRetailGlobal(
   );
   const useLiveSource =
     options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
+  const observationVintage = useLiveSource ? ingestedAt.slice(0, 10) : "2026-02-28";
 
   let eiaPoints = EIA_RETAIL_FIXTURE;
   let eurostatPoints = EUROSTAT_RETAIL_FIXTURE;
@@ -122,11 +101,11 @@ export async function syncEnergyRetailGlobal(
   const observations = [
     ...mapEiaRetailPointsToObservations(eiaPoints, {
       ingestedAt,
-      vintage: "2026-02-28"
+      vintage: observationVintage
     }),
     ...mapEurostatRetailPointsToObservations(eurostatPoints, {
       ingestedAt,
-      vintage: "2026-02-28"
+      vintage: observationVintage
     })
   ];
 
@@ -135,70 +114,41 @@ export async function syncEnergyRetailGlobal(
     .sort((a, b) => a.period.localeCompare(b.period))
     .at(-1);
 
-  let upsertResult: { inserted: number; updated: number };
-  if (ingestBackend === "postgres") {
-    await ensureSourceCatalogInPostgres([
-      ...createSeedLiveStore().sources,
-      ...GLOBAL_SOURCE_CATALOG
-    ]);
-    await stageRawPayloadInPostgres({
-      sourceId: "eia_electricity",
-      payload: eiaRawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    await stageRawPayloadInPostgres({
-      sourceId: "eurostat_retail",
-      payload: eurostatRawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    upsertResult = await upsertObservationsInPostgres(observations);
-    if (latestEia) {
-      await setSourceCursorInPostgres("eia_electricity", latestEia.period);
-    }
-    if (latestEurostat) {
-      await setSourceCursorInPostgres("eurostat_retail", latestEurostat.period);
-    }
-    await appendIngestionRunInPostgres({
-      job: "sync-energy-retail-global-daily",
-      status: "ok",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-  } else {
-    const store = readLiveStoreSync(options.storePath);
-    stageRawPayload(store, {
-      sourceId: "eia_electricity",
-      payload: eiaRawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    stageRawPayload(store, {
-      sourceId: "eurostat_retail",
-      payload: eurostatRawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    upsertResult = upsertObservations(store, observations);
-    if (latestEia) {
-      setSourceCursor(store, "eia_electricity", latestEia.period);
-    }
-    if (latestEurostat) {
-      setSourceCursor(store, "eurostat_retail", latestEurostat.period);
-    }
-    appendIngestionRun(store, {
-      job: "sync-energy-retail-global-daily",
-      status: "ok",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-    writeLiveStoreSync(store, options.storePath);
+  const sourceCursors = [];
+  if (latestEia) {
+    sourceCursors.push({ sourceId: "eia_electricity", cursor: latestEia.period });
   }
+  if (latestEurostat) {
+    sourceCursors.push({ sourceId: "eurostat_retail", cursor: latestEurostat.period });
+  }
+
+  const upsertResult = await persistIngestArtifacts({
+    backend: ingestBackend,
+    storePath: options.storePath,
+    sourceCatalog: [...createSeedLiveStore().sources, ...GLOBAL_SOURCE_CATALOG],
+    rawSnapshots: [
+      {
+        sourceId: "eia_electricity",
+        payload: eiaRawPayload,
+        contentType: "application/json",
+        capturedAt: ingestedAt
+      },
+      {
+        sourceId: "eurostat_retail",
+        payload: eurostatRawPayload,
+        contentType: "application/json",
+        capturedAt: ingestedAt
+      }
+    ],
+    observations,
+    sourceCursors,
+    ingestionRun: {
+      job: "sync-energy-retail-global-daily",
+      status: "ok",
+      startedAt,
+      finishedAt: new Date().toISOString()
+    }
+  });
 
   return {
     job: "sync-energy-retail-global",

@@ -1,12 +1,6 @@
 import {
-  appendIngestionRun,
   createSeedLiveStore,
   type SourceCatalogItem,
-  readLiveStoreSync,
-  setSourceCursor,
-  stageRawPayload,
-  upsertObservations,
-  writeLiveStoreSync
 } from "@aus-dash/shared";
 import {
   fetchAbsCpiSnapshot,
@@ -15,12 +9,8 @@ import {
 } from "../sources/live-source-clients";
 import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
-  appendIngestionRunInPostgres,
-  ensureSourceCatalogInPostgres,
-  setSourceCursorInPostgres,
-  stageRawPayloadInPostgres,
-  upsertObservationsInPostgres
-} from "../repositories/postgres-ingest-repository";
+  persistIngestArtifacts
+} from "../repositories/ingest-persistence";
 
 const ABS_CPI_SOURCE_CATALOG: SourceCatalogItem = {
   sourceId: "abs_cpi",
@@ -104,52 +94,27 @@ export async function syncMacroAbsCpi(
   }));
   const cursor = [...points].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.date;
 
-  let upsertResult: { inserted: number; updated: number };
-  if (ingestBackend === "postgres") {
-    await ensureSourceCatalogInPostgres([
-      ...createSeedLiveStore().sources,
-      ABS_CPI_SOURCE_CATALOG
-    ]);
-    await stageRawPayloadInPostgres({
-      sourceId: "abs_cpi",
-      payload: rawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    upsertResult = await upsertObservationsInPostgres(observations);
-    if (cursor) {
-      await setSourceCursorInPostgres("abs_cpi", cursor);
-    }
-    await appendIngestionRunInPostgres({
+  const upsertResult = await persistIngestArtifacts({
+    backend: ingestBackend,
+    storePath: options.storePath,
+    sourceCatalog: [...createSeedLiveStore().sources, ABS_CPI_SOURCE_CATALOG],
+    rawSnapshots: [
+      {
+        sourceId: "abs_cpi",
+        payload: rawPayload,
+        contentType: "application/json",
+        capturedAt: ingestedAt
+      }
+    ],
+    observations,
+    sourceCursors: cursor ? [{ sourceId: "abs_cpi", cursor }] : [],
+    ingestionRun: {
       job: "sync-macro-abs-cpi-daily",
       status: "ok",
       startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-  } else {
-    const store = readLiveStoreSync(options.storePath);
-    stageRawPayload(store, {
-      sourceId: "abs_cpi",
-      payload: rawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    upsertResult = upsertObservations(store, observations);
-    if (cursor) {
-      setSourceCursor(store, "abs_cpi", cursor);
+      finishedAt: ingestedAt
     }
-    appendIngestionRun(store, {
-      job: "sync-macro-abs-cpi-daily",
-      status: "ok",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-    writeLiveStoreSync(store, options.storePath);
-  }
+  });
 
   return {
     job: "sync-macro-abs-cpi",
@@ -157,6 +122,6 @@ export async function syncMacroAbsCpi(
     pointsIngested: observations.length,
     rowsInserted: upsertResult.inserted,
     rowsUpdated: upsertResult.updated,
-    syncedAt: new Date().toISOString()
+    syncedAt: ingestedAt
   };
 }

@@ -63,4 +63,37 @@ describe("syncEnergyNormalization", () => {
     expect(hasFx).toBe(true);
     expect(hasPpp).toBe(true);
   });
+
+  test("registers the normalization source and derives comparison observations", async () => {
+    const syncEnergyNormalization = await loadSyncEnergyNormalization();
+    expect(typeof syncEnergyNormalization).toBe("function");
+    if (typeof syncEnergyNormalization !== "function") {
+      return;
+    }
+
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), "aus-dash-global-normalization-derived-"));
+    const storePath = resolveLiveStorePath(path.join(tempDir, "live-store.json"));
+
+    await syncEnergyNormalization({ storePath });
+
+    const after = readLiveStoreSync(storePath);
+    expect(
+      after.sources.find((source) => source.sourceId === "world_bank_normalization")
+    ).toBeTruthy();
+
+    const hasRetailPpp = after.observations.some(
+      (observation) =>
+        observation.seriesId === "energy.retail.price.country.usd_kwh_ppp" &&
+        observation.countryCode === "AU"
+    );
+    const hasWholesaleUsd = after.observations.some(
+      (observation) =>
+        observation.seriesId === "energy.wholesale.spot.country.usd_mwh" &&
+        observation.countryCode === "AU" &&
+        observation.methodologyVersion === "energy-comparison-v1"
+    );
+
+    expect(hasRetailPpp).toBe(true);
+    expect(hasWholesaleUsd).toBe(true);
+  });
 });

@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import {
   appendIngestionRun,
+  getSourceCatalogItems,
   readLiveStoreSync,
   resolveLiveStorePath,
   setSourceCursor,
@@ -177,5 +178,24 @@ describe("live store", () => {
   test("resolveLiveStorePath respects explicit value first", () => {
     const resolved = resolveLiveStorePath("./data/custom.json");
     expect(resolved.endsWith(path.normalize("data/custom.json"))).toBe(true);
+  });
+
+  test("backfills missing source catalog entries when reading an older store", () => {
+    const storePath = createTempStorePath("source-backfill");
+    const store = readLiveStoreSync(storePath);
+    store.sources = store.sources.filter((item) => item.sourceId === "abs_housing");
+    writeLiveStoreSync(store, storePath);
+
+    const reread = readLiveStoreSync(storePath);
+
+    expect(reread.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sourceId: "abs_housing" }),
+        expect.objectContaining({ sourceId: "world_bank_normalization" }),
+        expect.objectContaining({ sourceId: "eia_electricity" }),
+        expect.objectContaining({ sourceId: "entsoe_wholesale" })
+      ])
+    );
+    expect(reread.sources).toHaveLength(getSourceCatalogItems().length);
   });
 });

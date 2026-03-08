@@ -9,6 +9,7 @@ import {
   resolveQueueRuntimeConfig,
   type QueueRuntimeConfig
 } from "./runtime";
+import { resolveIngestBackend } from "../repositories/ingest-backend";
 
 type WorkerLogger = {
   info: (payload: Record<string, unknown>) => void;
@@ -28,6 +29,23 @@ function defaultLogger(): WorkerLogger {
     error: (payload) => {
       console.error(JSON.stringify(payload));
     }
+  };
+}
+
+function shouldSerializeStoreJob(payload: IngestJobPayload): boolean {
+  return resolveIngestBackend(payload.ingestBackend ?? process.env.AUS_DASH_INGEST_BACKEND) === "store";
+}
+
+function createStoreExecutionGate() {
+  let chain = Promise.resolve();
+
+  return async <T>(run: () => Promise<T>): Promise<T> => {
+    const result = chain.then(run, run);
+    chain = result.then(
+      () => undefined,
+      () => undefined
+    );
+    return result;
   };
 }
 
@@ -87,6 +105,7 @@ export function buildRegistryBackedProcessor(
   logger: WorkerLogger = defaultLogger()
 ) {
   const jobsById = indexRegistryById(registry);
+  const runStoreSerially = createStoreExecutionGate();
 
   return async (job: WorkerJobLike): Promise<unknown> => {
     const jobDefinition = jobsById.get(job.name);
@@ -96,7 +115,11 @@ export function buildRegistryBackedProcessor(
     }
 
     try {
-      const result = await jobDefinition.processor((job.data ?? {}) as IngestJobPayload);
+      const payload = (job.data ?? {}) as IngestJobPayload;
+      const execute = () => jobDefinition.processor(payload);
+      const result = shouldSerializeStoreJob(payload)
+        ? await runStoreSerially(execute)
+        : await execute();
 
       logger.info({
         level: "info",

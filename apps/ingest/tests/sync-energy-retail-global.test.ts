@@ -69,5 +69,7 @@ describe("syncEnergyRetailGlobal", () => {
 
     expect(hasUsRetail).toBe(true);
     expect(hasEuRetail).toBe(true);
+    expect(after.sources.find((source) => source.sourceId === "eia_electricity")).toBeTruthy();
+    expect(after.sources.find((source) => source.sourceId === "eurostat_retail")).toBeTruthy();
   });
 });

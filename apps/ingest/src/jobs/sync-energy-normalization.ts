@@ -1,12 +1,10 @@
 import {
-  appendIngestionRun,
+  compareObservationRecency,
   createSeedLiveStore,
+  getSourceCatalogItems,
   type LiveObservation,
+  pickLatestObservation,
   readLiveStoreSync,
-  setSourceCursor,
-  stageRawPayload,
-  upsertObservations,
-  writeLiveStoreSync,
   type SourceCatalogItem
 } from "@aus-dash/shared";
 import {
@@ -17,22 +15,13 @@ import {
 import { mapWorldBankNormalizationPointsToObservations } from "../mappers/global-energy";
 import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
-  appendIngestionRunInPostgres,
-  ensureSourceCatalogInPostgres,
-  setSourceCursorInPostgres,
-  stageRawPayloadInPostgres,
-  upsertObservationsInPostgres
+  listObservationsInPostgres,
 } from "../repositories/postgres-ingest-repository";
+import { persistIngestArtifacts } from "../repositories/ingest-persistence";
 
-const GLOBAL_SOURCE_CATALOG: SourceCatalogItem[] = [
-  {
-    sourceId: "world_bank_normalization",
-    domain: "macro",
-    name: "World Bank Indicators API",
-    url: "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392-about-the-indicators-api-documentation",
-    expectedCadence: "annual"
-  }
-];
+const GLOBAL_SOURCE_CATALOG: SourceCatalogItem[] = getSourceCatalogItems([
+  "world_bank_normalization"
+]);
 
 const WORLD_BANK_FIXTURE: WorldBankNormalizationPoint[] = [
   {
@@ -82,6 +71,16 @@ const ISO3_TO_ISO2_COUNTRY: Record<string, string> = {
   DEU: "DE"
 };
 
+const COMPARISON_INPUT_SERIES_IDS = [
+  "macro.fx.local_per_usd",
+  "macro.ppp.local_per_usd",
+  "energy.retail.price.country.usd_kwh_nominal",
+  "energy.retail.price.country.local_kwh",
+  "energy.retail.offer.annual_bill_aud.mean",
+  "energy.wholesale.spot.country.local_mwh",
+  "energy.wholesale.rrp.au_weighted_aud_mwh"
+];
+
 function normalizeCountryCode(code: string | undefined): string | null {
   if (!code) {
     return null;
@@ -119,7 +118,7 @@ function collectLatestByCountry(
     }
 
     const existing = latestByCountry.get(countryCode);
-    if (!existing || observation.date > existing.date) {
+    if (!existing || compareObservationRecency(observation, existing) < 0) {
       latestByCountry.set(countryCode, observation);
     }
   }
@@ -217,14 +216,13 @@ function deriveComparisonObservations(
     });
   }
 
-  const latestAuRetailMean = [...observations]
-    .filter(
+  const latestAuRetailMean = pickLatestObservation(
+    observations.filter(
       (observation) =>
         observation.seriesId === "energy.retail.offer.annual_bill_aud.mean" &&
         (observation.regionCode === "AU" || observation.countryCode === "AU")
     )
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .at(-1);
+  );
   const auFx = fxByCountry.get("AU");
   if (latestAuRetailMean && auFx && auFx.value > 0) {
     const audKwh = latestAuRetailMean.value / auUsageKwh;
@@ -317,14 +315,13 @@ function deriveComparisonObservations(
     });
   }
 
-  const latestAuWholesaleAud = [...observations]
-    .filter(
+  const latestAuWholesaleAud = pickLatestObservation(
+    observations.filter(
       (observation) =>
         observation.seriesId === "energy.wholesale.rrp.au_weighted_aud_mwh" &&
         (observation.regionCode === "AU" || observation.countryCode === "AU")
     )
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .at(-1);
+  );
   if (latestAuWholesaleAud && auFx && auFx.value > 0) {
     derived.push({
       seriesId: "energy.wholesale.spot.country.usd_mwh",
@@ -379,6 +376,7 @@ export async function syncEnergyNormalization(
   );
   const useLiveSource =
     options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
+  const observationVintage = useLiveSource ? ingestedAt.slice(0, 10) : "2026-02-28";
 
   let worldBankPoints = WORLD_BANK_FIXTURE;
   let worldBankRawPayload = JSON.stringify({ data: WORLD_BANK_FIXTURE });
@@ -393,7 +391,7 @@ export async function syncEnergyNormalization(
 
   const observations = mapWorldBankNormalizationPointsToObservations(worldBankPoints, {
     ingestedAt,
-    vintage: "2026-02-28"
+    vintage: observationVintage
   });
   const latestYear = [...worldBankPoints]
     .sort((a, b) => a.year.localeCompare(b.year))
@@ -401,61 +399,43 @@ export async function syncEnergyNormalization(
 
   let upsertResult: { inserted: number; updated: number };
   let comparisonDerivedCount = 0;
-  if (ingestBackend === "postgres") {
-    await ensureSourceCatalogInPostgres([
-      ...createSeedLiveStore().sources,
-      ...GLOBAL_SOURCE_CATALOG
-    ]);
-    await stageRawPayloadInPostgres({
-      sourceId: "world_bank_normalization",
-      payload: worldBankRawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    upsertResult = await upsertObservationsInPostgres(observations);
-    if (latestYear) {
-      await setSourceCursorInPostgres("world_bank_normalization", latestYear);
-    }
-    await appendIngestionRunInPostgres({
-      job: "sync-energy-normalization-daily",
-      status: "ok",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-  } else {
-    const store = readLiveStoreSync(options.storePath);
-    stageRawPayload(store, {
-      sourceId: "world_bank_normalization",
-      payload: worldBankRawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    upsertResult = upsertObservations(store, observations);
-    const comparisonObservations = deriveComparisonObservations(store.observations, {
+  const comparisonInputObservations =
+    ingestBackend === "postgres"
+      ? await listObservationsInPostgres(COMPARISON_INPUT_SERIES_IDS)
+      : readLiveStoreSync(options.storePath).observations;
+  const comparisonObservations = deriveComparisonObservations(
+    [...comparisonInputObservations, ...observations],
+    {
       ingestedAt,
-      vintage: "2026-02-28"
-    });
-    comparisonDerivedCount = comparisonObservations.length;
-    const comparisonUpsertResult = upsertObservations(store, comparisonObservations);
-    upsertResult = {
-      inserted: upsertResult.inserted + comparisonUpsertResult.inserted,
-      updated: upsertResult.updated + comparisonUpsertResult.updated
-    };
-    if (latestYear) {
-      setSourceCursor(store, "world_bank_normalization", latestYear);
+      vintage: observationVintage
     }
-    appendIngestionRun(store, {
+  );
+  comparisonDerivedCount = comparisonObservations.length;
+  const allObservations = [...observations, ...comparisonObservations];
+  const sourceCursors = latestYear
+    ? [{ sourceId: "world_bank_normalization", cursor: latestYear }]
+    : [];
+  upsertResult = await persistIngestArtifacts({
+    backend: ingestBackend,
+    storePath: options.storePath,
+    sourceCatalog: [...createSeedLiveStore().sources, ...GLOBAL_SOURCE_CATALOG],
+    rawSnapshots: [
+      {
+        sourceId: "world_bank_normalization",
+        payload: worldBankRawPayload,
+        contentType: "application/json",
+        capturedAt: ingestedAt
+      }
+    ],
+    observations: allObservations,
+    sourceCursors,
+    ingestionRun: {
       job: "sync-energy-normalization-daily",
       status: "ok",
       startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-    writeLiveStoreSync(store, options.storePath);
-  }
+      finishedAt: new Date().toISOString()
+    }
+  });
 
   return {
     job: "sync-energy-normalization",

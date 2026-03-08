@@ -34,6 +34,7 @@ export type IngestJobDefinition = {
   jobId: string;
   processor: IngestJobProcessor;
   schedule?: IngestJobSchedule;
+  phase?: number;
 };
 
 function hasValidJobId(jobId: string): boolean {
@@ -87,6 +88,7 @@ export function createValidatedIngestJobRegistry(
 export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
   {
     jobId: "sync-housing-abs-daily",
+    phase: 1,
     schedule: { pattern: "0 2 * * *" },
     processor: async (payload) =>
       syncHousingSeries({
@@ -97,6 +99,7 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
   },
   {
     jobId: "sync-energy-wholesale-5m",
+    phase: 1,
     schedule: { pattern: "*/5 * * * *" },
     processor: async (payload) =>
       syncEnergyWholesale({
@@ -107,6 +110,7 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
   },
   {
     jobId: "sync-energy-wholesale-global-hourly",
+    phase: 1,
     schedule: { pattern: "5 * * * *" },
     processor: async (payload) =>
       syncEnergyWholesaleGlobal({
@@ -117,6 +121,7 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
   },
   {
     jobId: "sync-energy-retail-prd-hourly",
+    phase: 1,
     schedule: { pattern: "0 * * * *" },
     processor: async (payload) =>
       syncEnergyRetailPlans({
@@ -127,6 +132,7 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
   },
   {
     jobId: "sync-energy-retail-global-daily",
+    phase: 1,
     schedule: { pattern: "30 3 * * *" },
     processor: async (payload) =>
       syncEnergyRetailGlobal({
@@ -137,6 +143,7 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
   },
   {
     jobId: "sync-energy-normalization-daily",
+    phase: 2,
     schedule: { pattern: "45 3 * * *" },
     processor: async (payload) =>
       syncEnergyNormalization({
@@ -147,6 +154,7 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
   },
   {
     jobId: "sync-energy-benchmark-dmo-daily",
+    phase: 1,
     schedule: { pattern: "15 1 * * *" },
     processor: async (payload) =>
       syncEnergyBenchmarkDmo({
@@ -157,6 +165,7 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
   },
   {
     jobId: "sync-housing-rba-daily",
+    phase: 1,
     schedule: { pattern: "30 2 * * *" },
     processor: async (payload) =>
       syncHousingRba({
@@ -167,6 +176,7 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
   },
   {
     jobId: "sync-macro-abs-cpi-daily",
+    phase: 1,
     schedule: { pattern: "0 3 * * *" },
     processor: async (payload) =>
       syncMacroAbsCpi({

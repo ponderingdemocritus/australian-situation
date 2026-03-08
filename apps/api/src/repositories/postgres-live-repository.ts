@@ -1,4 +1,5 @@
 import { getDb, observations, sources } from "@aus-dash/db";
+import { compareObservationRecency } from "@aus-dash/shared";
 import { and, eq, gte, lte } from "drizzle-orm";
 import type { ComparableObservation } from "../domain/energy-comparison";
 import {
@@ -33,6 +34,8 @@ type ObservationRow = {
   sourceName: string;
   sourceUrl: string;
   publishedAt: string;
+  ingestedAt: string;
+  vintage: string;
   methodologyVersion: string | null;
 };
 
@@ -69,6 +72,8 @@ async function listObservations(
       sourceName: observations.sourceName,
       sourceUrl: observations.sourceUrl,
       publishedAt: observations.publishedAt,
+      ingestedAt: observations.ingestedAt,
+      vintage: observations.vintage,
       methodologyVersion: observations.methodologyVersion
     })
     .from(observations)
@@ -80,7 +85,12 @@ async function listObservations(
         to ? lte(observations.date, to) : undefined
       )
     )
-    .orderBy(observations.date);
+    .orderBy(
+      observations.date,
+      observations.vintage,
+      observations.publishedAt,
+      observations.ingestedAt
+    );
 
   return rows.map((row) => ({
     seriesId: row.seriesId,
@@ -99,6 +109,8 @@ async function listObservations(
     sourceName: row.sourceName,
     sourceUrl: row.sourceUrl,
     publishedAt: row.publishedAt.toISOString(),
+    ingestedAt: row.ingestedAt.toISOString(),
+    vintage: row.vintage,
     methodologyVersion: row.methodologyVersion
   }));
 }
@@ -126,6 +138,9 @@ async function listLatestCountryObservations(input: {
       countryCode: observations.countryCode,
       date: observations.date,
       value: observations.value,
+      publishedAt: observations.publishedAt,
+      ingestedAt: observations.ingestedAt,
+      vintage: observations.vintage,
       methodologyVersion: observations.methodologyVersion
     })
     .from(observations)
@@ -145,6 +160,9 @@ async function listLatestCountryObservations(input: {
     {
       date: string;
       value: number;
+      publishedAt: string;
+      ingestedAt: string;
+      vintage: string;
       methodologyVersion: string | null;
     }
   >();
@@ -155,11 +173,17 @@ async function listLatestCountryObservations(input: {
     }
 
     const existing = latestByCountry.get(row.countryCode);
-    if (!existing || row.date > existing.date) {
+    const nextValue = {
+      date: row.date,
+      value: parseNumeric(row.value),
+      publishedAt: row.publishedAt.toISOString(),
+      ingestedAt: row.ingestedAt.toISOString(),
+      vintage: row.vintage,
+      methodologyVersion: row.methodologyVersion
+    };
+    if (!existing || compareObservationRecency(nextValue, existing) < 0) {
       latestByCountry.set(row.countryCode, {
-        date: row.date,
-        value: parseNumeric(row.value),
-        methodologyVersion: row.methodologyVersion
+        ...nextValue
       });
     }
   }
@@ -253,8 +277,10 @@ export function createPostgresLiveDataRepository(): LiveDataRepository {
           ? "energy.wholesale.rrp.au_weighted_aud_mwh"
           : "energy.wholesale.rrp.region_aud_mwh";
       const regionCode = region === "AU" ? "AU" : region;
+      let isFallback = false;
       let points = await listObservations(seriesId, regionCode);
       if (points.length === 0 && region !== "AU") {
+        isFallback = true;
         points = await listObservations(
           "energy.wholesale.rrp.au_weighted_aud_mwh",
           "AU"
@@ -270,7 +296,7 @@ export function createPostgresLiveDataRepository(): LiveDataRepository {
       return {
         region,
         window,
-        isModeled: false,
+        isModeled: isFallback,
         methodSummary:
           "Wholesale reference prices aggregated using demand-weighted AU rollup.",
         sourceRefs: [
@@ -310,11 +336,16 @@ export function createPostgresLiveDataRepository(): LiveDataRepository {
         (await latestObservation("energy.retail.offer.annual_bill_aud.median", region)) ??
         (await latestObservation("energy.retail.offer.annual_bill_aud.median", "AU"));
       const updatedAt = mean?.date ?? "1970-01-01";
+      const isFallback =
+        region !== "AU" &&
+        ((mean?.regionCode && mean.regionCode !== region) ||
+          (median?.regionCode && median.regionCode !== region) ||
+          (!mean && !median));
 
       return {
         region,
         customerType: "residential",
-        isModeled: false,
+        isModeled: isFallback,
         methodSummary: "Daily aggregation of retail plan prices for residential offers.",
         sourceRefs: [
           {
