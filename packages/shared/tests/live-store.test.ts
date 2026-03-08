@@ -161,8 +161,16 @@ describe("live store", () => {
       startedAt: "2026-02-27T02:00:00Z",
       finishedAt: "2026-02-27T02:01:00Z",
       rowsInserted: 5,
-      rowsUpdated: 0
+      rowsUpdated: 0,
+      bullJobId: "abc-123",
+      queueName: "ingest-jobs",
+      attempt: 1,
+      runMode: "scheduled"
     });
+    expect(run.bullJobId).toBe("abc-123");
+    expect(run.queueName).toBe("ingest-jobs");
+    expect(run.attempt).toBe(1);
+    expect(run.runMode).toBe("scheduled");
     expect(run.runId).toContain("sync-energy-wholesale-5m");
     expect(store.ingestionRuns).toHaveLength(1);
   });

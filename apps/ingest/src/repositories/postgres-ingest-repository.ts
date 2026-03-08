@@ -67,6 +67,23 @@ export function mapObservationForPostgres(observation: LiveObservation) {
   };
 }
 
+export function mapIngestionRunForPostgres(run: IngestionRun) {
+  return {
+    runId: run.runId,
+    job: run.job,
+    status: run.status,
+    startedAt: parseDate(run.startedAt),
+    finishedAt: parseDate(run.finishedAt),
+    rowsInserted: run.rowsInserted,
+    rowsUpdated: run.rowsUpdated,
+    errorSummary: run.errorSummary ?? null,
+    bullJobId: run.bullJobId ?? null,
+    queueName: run.queueName ?? null,
+    attempt: run.attempt ?? null,
+    runMode: run.runMode ?? null
+  };
+}
+
 export async function ensureSourceCatalogInPostgres(
   sourceCatalog: SourceCatalogItem[]
 ): Promise<void> {
@@ -306,45 +323,33 @@ export async function appendIngestionRunInPostgres(
     runId: `${run.job}-${Date.now()}`,
     ...run
   };
+  const mapped = mapIngestionRunForPostgres(ingestionRun);
 
-  await db.insert(ingestionRuns).values({
-    runId: ingestionRun.runId,
-    job: ingestionRun.job,
-    status: ingestionRun.status,
-    startedAt: parseDate(ingestionRun.startedAt),
-    finishedAt: parseDate(ingestionRun.finishedAt),
-    rowsInserted: ingestionRun.rowsInserted,
-    rowsUpdated: ingestionRun.rowsUpdated,
-    errorSummary: ingestionRun.errorSummary ?? null
-  });
+  await db.insert(ingestionRuns).values(mapped);
 
   return ingestionRun;
 }
 
 export async function upsertIngestionRunInPostgres(run: IngestionRun): Promise<void> {
   const db = getDb();
+  const mapped = mapIngestionRunForPostgres(run);
   await db
     .insert(ingestionRuns)
-    .values({
-      runId: run.runId,
-      job: run.job,
-      status: run.status,
-      startedAt: parseDate(run.startedAt),
-      finishedAt: parseDate(run.finishedAt),
-      rowsInserted: run.rowsInserted,
-      rowsUpdated: run.rowsUpdated,
-      errorSummary: run.errorSummary ?? null
-    })
+    .values(mapped)
     .onConflictDoUpdate({
       target: ingestionRuns.runId,
       set: {
-        job: run.job,
-        status: run.status,
-        startedAt: parseDate(run.startedAt),
-        finishedAt: parseDate(run.finishedAt),
-        rowsInserted: run.rowsInserted,
-        rowsUpdated: run.rowsUpdated,
-        errorSummary: run.errorSummary ?? null
+        job: mapped.job,
+        status: mapped.status,
+        startedAt: mapped.startedAt,
+        finishedAt: mapped.finishedAt,
+        rowsInserted: mapped.rowsInserted,
+        rowsUpdated: mapped.rowsUpdated,
+        errorSummary: mapped.errorSummary,
+        bullJobId: mapped.bullJobId,
+        queueName: mapped.queueName,
+        attempt: mapped.attempt,
+        runMode: mapped.runMode
       }
     });
 }

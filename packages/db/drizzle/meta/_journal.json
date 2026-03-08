@@ -15,6 +15,13 @@
       "when": 1772243381109,
       "tag": "0001_nice_vulcan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772415692206,
+      "tag": "0002_open_agent_brand",
+      "breakpoints": true
     }
   ]
 }

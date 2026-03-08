@@ -51,6 +51,10 @@ export type IngestionRun = {
   rowsInserted: number;
   rowsUpdated: number;
   errorSummary?: string;
+  bullJobId?: string;
+  queueName?: string;
+  attempt?: number;
+  runMode?: "scheduled" | "manual" | "backfill";
 };
 
 export type RawSnapshot = {

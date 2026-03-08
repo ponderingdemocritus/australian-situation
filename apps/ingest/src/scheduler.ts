@@ -1,21 +1,17 @@
 import { SourceClientError } from "./sources/live-source-clients";
+import { RECURRING_INGEST_JOBS } from "./jobs/job-registry";
 
 export type IngestionSchedule = {
   jobId: string;
   cadence: string;
 };
 
-export const DEFAULT_JOB_SCHEDULES: IngestionSchedule[] = [
-  { jobId: "sync-energy-wholesale-5m", cadence: "*/5 * * * *" },
-  { jobId: "sync-energy-wholesale-global-hourly", cadence: "5 * * * *" },
-  { jobId: "sync-energy-retail-prd-hourly", cadence: "0 * * * *" },
-  { jobId: "sync-energy-retail-global-daily", cadence: "30 3 * * *" },
-  { jobId: "sync-energy-normalization-daily", cadence: "45 3 * * *" },
-  { jobId: "sync-energy-benchmark-dmo-daily", cadence: "15 1 * * *" },
-  { jobId: "sync-housing-abs-daily", cadence: "0 2 * * *" },
-  { jobId: "sync-housing-rba-daily", cadence: "30 2 * * *" },
-  { jobId: "sync-macro-abs-cpi-daily", cadence: "0 3 * * *" }
-];
+export const DEFAULT_JOB_SCHEDULES: IngestionSchedule[] = RECURRING_INGEST_JOBS.map(
+  (job) => ({
+    jobId: job.jobId,
+    cadence: "pattern" in job.schedule ? job.schedule.pattern : `every:${job.schedule.everyMs}`
+  })
+);
 
 type RunJobWithRetryOptions<T> = {
   jobId: string;

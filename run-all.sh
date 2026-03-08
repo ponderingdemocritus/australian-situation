@@ -6,6 +6,7 @@ cd "$ROOT_DIR"
 
 # Keep API and ingest on the same JSON store path in local/store mode.
 export AUS_DASH_STORE_PATH="${AUS_DASH_STORE_PATH:-$ROOT_DIR/apps/ingest/data/live-store.json}"
+export AUS_DASH_INGEST_RUNTIME="${AUS_DASH_INGEST_RUNTIME:-bullmq}"
 
 usage() {
   cat <<'EOF'
@@ -61,6 +62,23 @@ wait_for_postgres() {
   done
 
   echo "Postgres did not become ready in time."
+  exit 1
+}
+
+wait_for_redis() {
+  local max_attempts=60
+  local attempt=1
+  while [[ "$attempt" -le "$max_attempts" ]]; do
+    if compose_cmd exec -T redis redis-cli ping >/dev/null 2>&1; then
+      echo "Redis is ready."
+      return
+    fi
+
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+
+  echo "Redis did not become ready in time."
   exit 1
 }
 
@@ -122,14 +140,17 @@ run_up() {
   export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
   export POSTGRES_DB="${POSTGRES_DB:-aus_dash}"
   export POSTGRES_PORT="${POSTGRES_PORT:-5433}"
+  export REDIS_PORT="${REDIS_PORT:-6379}"
   export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}"
+  export AUS_DASH_REDIS_URL="${AUS_DASH_REDIS_URL:-redis://127.0.0.1:${REDIS_PORT}/0}"
   export AUS_DASH_DATA_BACKEND="${AUS_DASH_DATA_BACKEND:-postgres}"
   export AUS_DASH_INGEST_BACKEND="${AUS_DASH_INGEST_BACKEND:-postgres}"
 
   echo "Starting docker compose infrastructure..."
-  compose_cmd up -d --force-recreate postgres
+  compose_cmd up -d --force-recreate postgres redis
 
   wait_for_postgres
+  wait_for_redis
 
   echo "Running database migrations..."
   bun --filter @aus-dash/db db:migrate
@@ -154,7 +175,7 @@ run_up() {
 run_infra() {
   case "${1:-}" in
     up)
-      compose_cmd up -d postgres
+      compose_cmd up -d postgres redis
       ;;
     down)
       compose_cmd down
