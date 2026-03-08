@@ -1,11 +1,5 @@
 import {
-  appendIngestionRun,
-  createSeedLiveStore,
-  readLiveStoreSync,
-  setSourceCursor,
-  stageRawPayload,
-  upsertObservations,
-  writeLiveStoreSync
+  createSeedLiveStore
 } from "@aus-dash/shared";
 import {
   fetchAemoWholesaleSnapshot,
@@ -13,12 +7,8 @@ import {
 } from "../sources/live-source-clients";
 import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
-  appendIngestionRunInPostgres,
-  ensureSourceCatalogInPostgres,
-  setSourceCursorInPostgres,
-  stageRawPayloadInPostgres,
-  upsertObservationsInPostgres
-} from "../repositories/postgres-ingest-repository";
+  persistIngestArtifacts
+} from "../repositories/ingest-persistence";
 
 type WholesalePoint = {
   regionCode: string;
@@ -78,11 +68,13 @@ export async function syncEnergyWholesale(
   options: SyncEnergyWholesaleOptions = {}
 ): Promise<SyncEnergyWholesaleResult> {
   const startedAt = new Date().toISOString();
+  const ingestedAt = new Date().toISOString();
   const ingestBackend = resolveIngestBackend(
     options.ingestBackend ?? process.env.AUS_DASH_INGEST_BACKEND
   );
   const useLiveSource =
     options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
+  const observationVintage = useLiveSource ? ingestedAt.slice(0, 10) : "2026-02-27";
   const sourcePayload =
     "SETTLEMENTDATE,REGIONID,RRP,TOTALDEMAND\n" +
     WHOLESALE_FIXTURE.map((point) =>
@@ -142,52 +134,33 @@ export async function syncEnergyWholesale(
     sourceUrl:
       "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem",
     publishedAt: point.timestamp,
-    ingestedAt: new Date().toISOString(),
-    vintage: "2026-02-27",
+    ingestedAt,
+    vintage: observationVintage,
     isModeled: false,
     confidence: "official" as const,
     methodologyVersion: "energy-wholesale-v1"
   }));
-  let upsertResult: { inserted: number; updated: number };
-
-  if (ingestBackend === "postgres") {
-    await ensureSourceCatalogInPostgres(createSeedLiveStore().sources);
-    await stageRawPayloadInPostgres({
-      sourceId: "aemo_wholesale",
-      payload: rawPayload,
-      contentType: "text/csv",
-      capturedAt: new Date().toISOString()
-    });
-    upsertResult = await upsertObservationsInPostgres(observations);
-    await setSourceCursorInPostgres("aemo_wholesale", latest.timestamp);
-    await appendIngestionRunInPostgres({
+  const upsertResult = await persistIngestArtifacts({
+    backend: ingestBackend,
+    storePath: options.storePath,
+    sourceCatalog: createSeedLiveStore().sources,
+    rawSnapshots: [
+      {
+        sourceId: "aemo_wholesale",
+        payload: rawPayload,
+        contentType: "text/csv",
+        capturedAt: ingestedAt
+      }
+    ],
+    observations,
+    sourceCursors: [{ sourceId: "aemo_wholesale", cursor: latest.timestamp }],
+    ingestionRun: {
       job: "sync-energy-wholesale-5m",
       status: "ok",
       startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-  } else {
-    const store = readLiveStoreSync(options.storePath);
-    stageRawPayload(store, {
-      sourceId: "aemo_wholesale",
-      payload: rawPayload,
-      contentType: "text/csv",
-      capturedAt: new Date().toISOString()
-    });
-    upsertResult = upsertObservations(store, observations);
-    setSourceCursor(store, "aemo_wholesale", latest.timestamp);
-    appendIngestionRun(store, {
-      job: "sync-energy-wholesale-5m",
-      status: "ok",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-    writeLiveStoreSync(store, options.storePath);
-  }
+      finishedAt: ingestedAt
+    }
+  });
 
   return {
     job: "sync-energy-wholesale",
@@ -197,6 +170,6 @@ export async function syncEnergyWholesale(
     rowsInserted: upsertResult.inserted,
     rowsUpdated: upsertResult.updated,
     latest,
-    syncedAt: new Date().toISOString()
+    syncedAt: ingestedAt
   };
 }

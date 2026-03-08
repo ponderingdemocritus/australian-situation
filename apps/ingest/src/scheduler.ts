@@ -29,6 +29,10 @@ type RunJobWithRetryOptions<T> = {
   }) => void;
 };
 
+export type ScheduledJob<T> = RunJobWithRetryOptions<T> & {
+  phase: number;
+};
+
 function isTransientSourceError(error: unknown): boolean {
   return error instanceof SourceClientError && error.transient;
 }
@@ -58,4 +62,25 @@ export async function runJobWithRetry<T>(
   }
 
   throw new Error(`unreachable retry state for job ${options.jobId}`);
+}
+
+export async function runScheduledJobs<T>(jobs: ScheduledJob<T>[]): Promise<T[]> {
+  const phases = [...new Set(jobs.map((job) => job.phase))].sort((a, b) => a - b);
+  const results: T[] = [];
+
+  for (const phase of phases) {
+    const jobsInPhase = jobs.filter((job) => job.phase === phase);
+    for (const job of jobsInPhase) {
+      results.push(
+        await runJobWithRetry({
+          jobId: job.jobId,
+          maxRetries: job.maxRetries ?? 3,
+          onAlert: job.onAlert,
+          run: job.run
+        })
+      );
+    }
+  }
+
+  return results;
 }

@@ -1,11 +1,5 @@
 import {
-  appendIngestionRun,
   createSeedLiveStore,
-  readLiveStoreSync,
-  setSourceCursor,
-  stageRawPayload,
-  upsertObservations,
-  writeLiveStoreSync
 } from "@aus-dash/shared";
 import {
   type AerRetailPlan,
@@ -17,12 +11,8 @@ import {
 } from "../sources/live-source-clients";
 import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
-  appendIngestionRunInPostgres,
-  ensureSourceCatalogInPostgres,
-  setSourceCursorInPostgres,
-  stageRawPayloadInPostgres,
-  upsertObservationsInPostgres
-} from "../repositories/postgres-ingest-repository";
+  persistIngestArtifacts
+} from "../repositories/ingest-persistence";
 
 export type SyncEnergyRetailPlansResult = {
   job: "sync-energy-retail-plans";
@@ -97,11 +87,15 @@ export async function syncEnergyRetailPlans(
   options: SyncEnergyRetailPlansOptions = {}
 ): Promise<SyncEnergyRetailPlansResult> {
   const startedAt = new Date().toISOString();
+  const ingestedAt = new Date().toISOString();
   const ingestBackend = resolveIngestBackend(
     options.ingestBackend ?? process.env.AUS_DASH_INGEST_BACKEND
   );
   const useLiveSource =
     options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
+  const observationDate = useLiveSource ? ingestedAt.slice(0, 10) : "2026-02-27";
+  const intervalStartUtc = `${observationDate}T00:00:00Z`;
+  const intervalEndUtc = `${observationDate}T23:59:59Z`;
   let plans = PLAN_FIXTURE;
   let rawPayload = JSON.stringify({ data: PLAN_FIXTURE });
   if (useLiveSource) {
@@ -125,9 +119,9 @@ export async function syncEnergyRetailPlans(
       countryCode: "AU",
       market: "NEM",
       metricFamily: "retail",
-      date: "2026-02-27",
-      intervalStartUtc: "2026-02-27T00:00:00Z",
-      intervalEndUtc: "2026-02-27T23:59:59Z",
+      date: observationDate,
+      intervalStartUtc,
+      intervalEndUtc,
       value: annualBillAudMean,
       unit: "aud",
       currency: "AUD",
@@ -135,9 +129,9 @@ export async function syncEnergyRetailPlans(
       consumptionBand: "household_mid",
       sourceName: "AER",
       sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
-      publishedAt: "2026-02-27T00:00:00Z",
-      ingestedAt: new Date().toISOString(),
-      vintage: "2026-02-27",
+      publishedAt: intervalStartUtc,
+      ingestedAt,
+      vintage: observationDate,
       isModeled: false,
       confidence: "official" as const,
       methodologyVersion: "energy-retail-prd-v1"
@@ -148,9 +142,9 @@ export async function syncEnergyRetailPlans(
       countryCode: "AU",
       market: "NEM",
       metricFamily: "retail",
-      date: "2026-02-27",
-      intervalStartUtc: "2026-02-27T00:00:00Z",
-      intervalEndUtc: "2026-02-27T23:59:59Z",
+      date: observationDate,
+      intervalStartUtc,
+      intervalEndUtc,
       value: annualBillAudMedian,
       unit: "aud",
       currency: "AUD",
@@ -158,53 +152,35 @@ export async function syncEnergyRetailPlans(
       consumptionBand: "household_mid",
       sourceName: "AER",
       sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
-      publishedAt: "2026-02-27T00:00:00Z",
-      ingestedAt: new Date().toISOString(),
-      vintage: "2026-02-27",
+      publishedAt: intervalStartUtc,
+      ingestedAt,
+      vintage: observationDate,
       isModeled: false,
       confidence: "official" as const,
       methodologyVersion: "energy-retail-prd-v1"
     }
   ];
-  let upsertResult: { inserted: number; updated: number };
-  if (ingestBackend === "postgres") {
-    await ensureSourceCatalogInPostgres(createSeedLiveStore().sources);
-    await stageRawPayloadInPostgres({
-      sourceId: "aer_prd",
-      payload: rawPayload,
-      contentType: "application/json",
-      capturedAt: new Date().toISOString()
-    });
-    upsertResult = await upsertObservationsInPostgres(observations);
-    await setSourceCursorInPostgres("aer_prd", "2026-02-27");
-    await appendIngestionRunInPostgres({
+  const upsertResult = await persistIngestArtifacts({
+    backend: ingestBackend,
+    storePath: options.storePath,
+    sourceCatalog: createSeedLiveStore().sources,
+    rawSnapshots: [
+      {
+        sourceId: "aer_prd",
+        payload: rawPayload,
+        contentType: "application/json",
+        capturedAt: ingestedAt
+      }
+    ],
+    observations,
+    sourceCursors: [{ sourceId: "aer_prd", cursor: observationDate }],
+    ingestionRun: {
       job: "sync-energy-retail-prd-hourly",
       status: "ok",
       startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-  } else {
-    const store = readLiveStoreSync(options.storePath);
-    stageRawPayload(store, {
-      sourceId: "aer_prd",
-      payload: rawPayload,
-      contentType: "application/json",
-      capturedAt: new Date().toISOString()
-    });
-    upsertResult = upsertObservations(store, observations);
-    setSourceCursor(store, "aer_prd", "2026-02-27");
-    appendIngestionRun(store, {
-      job: "sync-energy-retail-prd-hourly",
-      status: "ok",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-    writeLiveStoreSync(store, options.storePath);
-  }
+      finishedAt: ingestedAt
+    }
+  });
 
   return {
     job: "sync-energy-retail-plans",
@@ -217,6 +193,6 @@ export async function syncEnergyRetailPlans(
       annualBillAudMean,
       annualBillAudMedian
     },
-    syncedAt: new Date().toISOString()
+    syncedAt: ingestedAt
   };
 }

@@ -1,6 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
 import { SourceClientError } from "../src/sources/live-source-clients";
-import { DEFAULT_JOB_SCHEDULES, runJobWithRetry } from "../src/scheduler";
+import {
+  DEFAULT_JOB_SCHEDULES,
+  runJobWithRetry,
+  runScheduledJobs
+} from "../src/scheduler";
 
 describe("ingest scheduler", () => {
   test("registers expected PRD cadences", () => {
@@ -77,5 +81,44 @@ describe("ingest scheduler", () => {
 
     expect(attempts).toBe(1);
     expect(onAlert).toHaveBeenCalledTimes(1);
+  });
+
+  test("runs jobs in phase order and keeps derived work after base jobs", async () => {
+    const execution: string[] = [];
+    let completedBaseJobs = 0;
+
+    const results = await runScheduledJobs([
+      {
+        jobId: "base-a",
+        phase: 1,
+        run: async () => {
+          execution.push("base-a");
+          completedBaseJobs += 1;
+          return "base-a";
+        }
+      },
+      {
+        jobId: "base-b",
+        phase: 1,
+        run: async () => {
+          expect(completedBaseJobs).toBe(1);
+          execution.push("base-b");
+          completedBaseJobs += 1;
+          return "base-b";
+        }
+      },
+      {
+        jobId: "derived",
+        phase: 2,
+        run: async () => {
+          expect(completedBaseJobs).toBe(2);
+          execution.push("derived");
+          return "derived";
+        }
+      }
+    ]);
+
+    expect(execution).toEqual(["base-a", "base-b", "derived"]);
+    expect(results).toEqual(["base-a", "base-b", "derived"]);
   });
 });

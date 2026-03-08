@@ -77,8 +77,103 @@ export type UpsertResult = {
   updated: number;
 };
 
+const SOURCE_ABS_URL =
+  "https://www.abs.gov.au/about/data-services/application-programming-interfaces-apis/data-api-user-guide";
+const SOURCE_AEMO_URL =
+  "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem";
+const SOURCE_AER_URL = "https://www.aer.gov.au/energy-product-reference-data";
+const SOURCE_RBA_URL = "https://www.rba.gov.au/statistics/interest-rates/";
+const SOURCE_ABS_CPI_URL =
+  "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release";
+const SOURCE_EIA_URL = "https://www.eia.gov/opendata/documentation.php";
+const SOURCE_EUROSTAT_URL =
+  "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_pc_204_sims.htm";
+const SOURCE_ENTSOE_URL = "https://transparency.entsoe.eu/api";
+const SOURCE_WORLD_BANK_URL =
+  "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392-about-the-indicators-api-documentation";
+
+export const LIVE_SOURCE_CATALOG: SourceCatalogItem[] = [
+  {
+    sourceId: "abs_housing",
+    domain: "housing",
+    name: "Australian Bureau of Statistics",
+    url: SOURCE_ABS_URL,
+    expectedCadence: "monthly|quarterly"
+  },
+  {
+    sourceId: "aemo_wholesale",
+    domain: "energy",
+    name: "AEMO NEM Wholesale",
+    url: SOURCE_AEMO_URL,
+    expectedCadence: "5m"
+  },
+  {
+    sourceId: "aer_prd",
+    domain: "energy",
+    name: "AER Product Reference Data",
+    url: SOURCE_AER_URL,
+    expectedCadence: "daily"
+  },
+  {
+    sourceId: "rba_rates",
+    domain: "housing",
+    name: "RBA Interest Rates",
+    url: SOURCE_RBA_URL,
+    expectedCadence: "monthly"
+  },
+  {
+    sourceId: "abs_cpi",
+    domain: "macro",
+    name: "ABS CPI Electricity",
+    url: SOURCE_ABS_CPI_URL,
+    expectedCadence: "quarterly"
+  },
+  {
+    sourceId: "eia_electricity",
+    domain: "energy",
+    name: "US EIA Electricity",
+    url: SOURCE_EIA_URL,
+    expectedCadence: "hourly|monthly"
+  },
+  {
+    sourceId: "eurostat_retail",
+    domain: "energy",
+    name: "Eurostat Electricity Prices",
+    url: SOURCE_EUROSTAT_URL,
+    expectedCadence: "semiannual"
+  },
+  {
+    sourceId: "entsoe_wholesale",
+    domain: "energy",
+    name: "ENTSO-E Wholesale",
+    url: SOURCE_ENTSOE_URL,
+    expectedCadence: "hourly"
+  },
+  {
+    sourceId: "world_bank_normalization",
+    domain: "macro",
+    name: "World Bank Indicators API",
+    url: SOURCE_WORLD_BANK_URL,
+    expectedCadence: "annual"
+  }
+];
+
+const LIVE_SOURCE_CATALOG_BY_ID = new Map(
+  LIVE_SOURCE_CATALOG.map((item) => [item.sourceId, item] as const)
+);
+
+type ObservationRecencyFields = Pick<
+  LiveObservation,
+  "date" | "vintage" | "publishedAt" | "ingestedAt"
+> &
+  Partial<Pick<LiveObservation, "sourceName" | "sourceUrl">>;
+
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function compareDesc(left: string, right: string): number {
+  return right.localeCompare(left);
 }
 
 function observationKey(observation: LiveObservation): string {
@@ -105,18 +200,51 @@ function makeObservation(
   };
 }
 
-export function createSeedLiveStore(): LiveStore {
-  const sourceAbsUrl =
-    "https://www.abs.gov.au/about/data-services/application-programming-interfaces-apis/data-api-user-guide";
-  const sourceAemoUrl =
-    "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem";
-  const sourceAerUrl =
-    "https://www.aer.gov.au/energy-product-reference-data";
-  const sourceRbaUrl =
-    "https://www.rba.gov.au/statistics/interest-rates/";
-  const sourceAbsCpiUrl =
-    "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release";
+export function getSourceCatalogItems(sourceIds?: string[]): SourceCatalogItem[] {
+  if (!sourceIds) {
+    return LIVE_SOURCE_CATALOG.map((item) => ({ ...item }));
+  }
 
+  return sourceIds.map((sourceId) => {
+    const sourceItem = LIVE_SOURCE_CATALOG_BY_ID.get(sourceId);
+    if (!sourceItem) {
+      throw new Error(`Unknown source catalog item: ${sourceId}`);
+    }
+    return { ...sourceItem };
+  });
+}
+
+function mergeSourceCatalog(
+  sourceCatalog: SourceCatalogItem[]
+): SourceCatalogItem[] {
+  const byId = new Map(sourceCatalog.map((item) => [item.sourceId, { ...item }] as const));
+  for (const sourceItem of getSourceCatalogItems()) {
+    byId.set(sourceItem.sourceId, sourceItem);
+  }
+  return [...byId.values()].sort((a, b) => a.sourceId.localeCompare(b.sourceId));
+}
+
+export function compareObservationRecency<T extends ObservationRecencyFields>(
+  left: T,
+  right: T
+): number {
+  return (
+    compareDesc(left.date, right.date) ||
+    compareDesc(left.vintage, right.vintage) ||
+    compareDesc(left.publishedAt, right.publishedAt) ||
+    compareDesc(left.ingestedAt, right.ingestedAt) ||
+    compareDesc(left.sourceName ?? "", right.sourceName ?? "") ||
+    compareDesc(left.sourceUrl ?? "", right.sourceUrl ?? "")
+  );
+}
+
+export function pickLatestObservation<T extends ObservationRecencyFields>(
+  observations: T[]
+): T | null {
+  return [...observations].sort(compareObservationRecency)[0] ?? null;
+}
+
+export function createSeedLiveStore(): LiveStore {
   const observations: LiveObservation[] = [
     makeObservation({
       seriesId: "hvi.value.index",
@@ -125,7 +253,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 168.9,
       unit: "index",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2025-12-01T00:00:00Z"
     }),
     makeObservation({
@@ -135,7 +263,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 169.4,
       unit: "index",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-01T00:00:00Z"
     }),
     makeObservation({
@@ -145,7 +273,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 42580,
       unit: "count",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -155,7 +283,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 27_300_000_000,
       unit: "aud",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -165,7 +293,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 16950,
       unit: "count",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -175,7 +303,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 12_150_000_000,
       unit: "aud",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -185,7 +313,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 736000,
       unit: "aud",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -195,7 +323,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 6.08,
       unit: "%",
       sourceName: "RBA",
-      sourceUrl: sourceRbaUrl,
+      sourceUrl: SOURCE_RBA_URL,
       publishedAt: "2026-01-05T00:00:00Z"
     }),
     makeObservation({
@@ -205,7 +333,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 5.79,
       unit: "%",
       sourceName: "RBA",
-      sourceUrl: sourceRbaUrl,
+      sourceUrl: SOURCE_RBA_URL,
       publishedAt: "2026-01-05T00:00:00Z"
     }),
     makeObservation({
@@ -215,7 +343,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 172.4,
       unit: "index",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-01T00:00:00Z"
     }),
     makeObservation({
@@ -225,7 +353,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 10120,
       unit: "count",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -235,7 +363,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 7_230_000_000,
       unit: "aud",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -245,7 +373,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 4180,
       unit: "count",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -255,7 +383,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 3_150_000_000,
       unit: "aud",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -265,7 +393,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 756000,
       unit: "aud",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-02T00:00:00Z"
     }),
     makeObservation({
@@ -275,7 +403,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 6.16,
       unit: "%",
       sourceName: "RBA",
-      sourceUrl: sourceRbaUrl,
+      sourceUrl: SOURCE_RBA_URL,
       publishedAt: "2026-01-05T00:00:00Z"
     }),
     makeObservation({
@@ -285,7 +413,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 112.6,
       unit: "aud_mwh",
       sourceName: "AEMO",
-      sourceUrl: sourceAemoUrl,
+      sourceUrl: SOURCE_AEMO_URL,
       publishedAt: "2026-02-27T01:55:00Z"
     }),
     makeObservation({
@@ -295,7 +423,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 116.9,
       unit: "aud_mwh",
       sourceName: "AEMO",
-      sourceUrl: sourceAemoUrl,
+      sourceUrl: SOURCE_AEMO_URL,
       publishedAt: "2026-02-27T02:00:00Z"
     }),
     makeObservation({
@@ -305,7 +433,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 118,
       unit: "aud_mwh",
       sourceName: "AEMO",
-      sourceUrl: sourceAemoUrl,
+      sourceUrl: SOURCE_AEMO_URL,
       publishedAt: "2026-02-27T02:05:00Z"
     }),
     makeObservation({
@@ -315,7 +443,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 100,
       unit: "aud_mwh",
       sourceName: "AEMO",
-      sourceUrl: sourceAemoUrl,
+      sourceUrl: SOURCE_AEMO_URL,
       publishedAt: "2026-02-27T02:05:00Z"
     }),
     makeObservation({
@@ -325,7 +453,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 120,
       unit: "aud_mwh",
       sourceName: "AEMO",
-      sourceUrl: sourceAemoUrl,
+      sourceUrl: SOURCE_AEMO_URL,
       publishedAt: "2026-02-27T02:05:00Z"
     }),
     makeObservation({
@@ -335,7 +463,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 1940,
       unit: "aud",
       sourceName: "AER",
-      sourceUrl: sourceAerUrl,
+      sourceUrl: SOURCE_AER_URL,
       publishedAt: "2026-02-27T00:00:00Z"
     }),
     makeObservation({
@@ -345,7 +473,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 1885,
       unit: "aud",
       sourceName: "AER",
-      sourceUrl: sourceAerUrl,
+      sourceUrl: SOURCE_AER_URL,
       publishedAt: "2026-02-27T00:00:00Z"
     }),
     makeObservation({
@@ -355,7 +483,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 1868,
       unit: "aud",
       sourceName: "AER",
-      sourceUrl: sourceAerUrl,
+      sourceUrl: SOURCE_AER_URL,
       publishedAt: "2026-02-27T00:00:00Z"
     }),
     makeObservation({
@@ -365,7 +493,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 1821,
       unit: "aud",
       sourceName: "AER",
-      sourceUrl: sourceAerUrl,
+      sourceUrl: SOURCE_AER_URL,
       publishedAt: "2026-02-27T00:00:00Z"
     }),
     makeObservation({
@@ -375,7 +503,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 1985,
       unit: "aud",
       sourceName: "AER",
-      sourceUrl: sourceAerUrl,
+      sourceUrl: SOURCE_AER_URL,
       publishedAt: "2025-07-01T00:00:00Z"
     }),
     makeObservation({
@@ -385,7 +513,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 1890,
       unit: "aud",
       sourceName: "AER",
-      sourceUrl: sourceAerUrl,
+      sourceUrl: SOURCE_AER_URL,
       publishedAt: "2025-07-01T00:00:00Z"
     }),
     makeObservation({
@@ -395,7 +523,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 151.2,
       unit: "index",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-31T00:00:00Z"
     }),
     makeObservation({
@@ -405,7 +533,7 @@ export function createSeedLiveStore(): LiveStore {
       value: 148.6,
       unit: "index",
       sourceName: "ABS",
-      sourceUrl: sourceAbsUrl,
+      sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-31T00:00:00Z"
     })
   ];
@@ -415,43 +543,7 @@ export function createSeedLiveStore(): LiveStore {
     updatedAt: "2026-02-27T02:05:00Z",
     observations,
     rawSnapshots: [],
-    sources: [
-      {
-        sourceId: "abs_housing",
-        domain: "housing",
-        name: "Australian Bureau of Statistics",
-        url: sourceAbsUrl,
-        expectedCadence: "monthly|quarterly"
-      },
-      {
-        sourceId: "aemo_wholesale",
-        domain: "energy",
-        name: "AEMO NEM Wholesale",
-        url: sourceAemoUrl,
-        expectedCadence: "5m"
-      },
-      {
-        sourceId: "aer_prd",
-        domain: "energy",
-        name: "AER Product Reference Data",
-        url: sourceAerUrl,
-        expectedCadence: "daily"
-      },
-      {
-        sourceId: "rba_rates",
-        domain: "housing",
-        name: "RBA Interest Rates",
-        url: sourceRbaUrl,
-        expectedCadence: "monthly"
-      },
-      {
-        sourceId: "abs_cpi",
-        domain: "macro",
-        name: "ABS CPI Electricity",
-        url: sourceAbsCpiUrl,
-        expectedCadence: "quarterly"
-      }
-    ],
+    sources: getSourceCatalogItems(),
     sourceCursors: [],
     ingestionRuns: []
   };
@@ -511,13 +603,17 @@ export function readLiveStoreSync(
   }
 
   if (Array.isArray(parsed.rawSnapshots)) {
-    return parsed;
+    return {
+      ...parsed,
+      sources: mergeSourceCatalog(parsed.sources)
+    };
   }
 
   // Backfill stores created before raw snapshot support.
   return {
     ...parsed,
-    rawSnapshots: []
+    rawSnapshots: [],
+    sources: mergeSourceCatalog(parsed.sources)
   };
 }
 
@@ -571,6 +667,24 @@ export function setSourceCursor(
   const updatedAt = nowIso();
   store.sourceCursors.push({ sourceId, cursor, updatedAt });
   store.updatedAt = updatedAt;
+}
+
+export function upsertSourceCatalog(
+  store: LiveStore,
+  sourceCatalog: SourceCatalogItem[]
+): void {
+  if (sourceCatalog.length === 0) {
+    return;
+  }
+
+  const merged = mergeSourceCatalog([...store.sources, ...sourceCatalog]);
+  const changed = JSON.stringify(store.sources) !== JSON.stringify(merged);
+  if (!changed) {
+    return;
+  }
+
+  store.sources = merged;
+  store.updatedAt = nowIso();
 }
 
 export function appendIngestionRun(

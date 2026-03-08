@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -65,5 +65,68 @@ describe("syncEnergyRetailPlans", () => {
     expect(retailMeanObservation?.taxStatus).toBe("incl_tax");
     expect(retailMeanObservation?.consumptionBand).toBe("household_mid");
     expect(retailMeanObservation?.methodologyVersion).toBe("energy-retail-prd-v1");
+  });
+
+  test("derives live-mode dates and cursor from ingestion time instead of fixture constants", async () => {
+    const syncEnergyRetailPlans = await loadSyncEnergyRetailPlans();
+    expect(typeof syncEnergyRetailPlans).toBe("function");
+    if (typeof syncEnergyRetailPlans !== "function") {
+      return;
+    }
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-04T12:00:00Z"));
+
+    try {
+      const tempDir = mkdtempSync(path.join(os.tmpdir(), "aus-dash-retail-live-"));
+      const storePath = resolveLiveStorePath(path.join(tempDir, "live-store.json"));
+
+      await syncEnergyRetailPlans({
+        storePath,
+        sourceMode: "live",
+        fetchImpl: async () => ({
+          ok: true,
+          status: 200,
+          text: async () => "",
+          json: async () => ({
+            data: [
+              {
+                id: "plan-au-1",
+                attributes: {
+                  region_code: "NSW",
+                  customer_type: "residential",
+                  annual_bill_aud: 2100
+                }
+              },
+              {
+                id: "plan-au-2",
+                attributes: {
+                  region_code: "VIC",
+                  customer_type: "residential",
+                  annual_bill_aud: 1900
+                }
+              }
+            ]
+          })
+        })
+      });
+
+      const after = readLiveStoreSync(storePath);
+      const retailMeanObservation = after.observations
+        .filter(
+          (observation) =>
+            observation.seriesId === "energy.retail.offer.annual_bill_aud.mean" &&
+            observation.regionCode === "AU"
+        )
+        .sort((a, b) => b.date.localeCompare(a.date))[0];
+      const cursor = after.sourceCursors.find((item) => item.sourceId === "aer_prd");
+
+      expect(retailMeanObservation?.date).toBe("2026-03-04");
+      expect(retailMeanObservation?.publishedAt).toBe("2026-03-04T00:00:00Z");
+      expect(retailMeanObservation?.vintage).toBe("2026-03-04");
+      expect(cursor?.cursor).toBe("2026-03-04");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -1,11 +1,5 @@
 import {
-  appendIngestionRun,
-  createSeedLiveStore,
-  readLiveStoreSync,
-  setSourceCursor,
-  stageRawPayload,
-  upsertObservations,
-  writeLiveStoreSync
+  createSeedLiveStore
 } from "@aus-dash/shared";
 import {
   fetchAerRetailPlansSnapshot,
@@ -14,12 +8,8 @@ import {
 } from "../sources/live-source-clients";
 import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
-  appendIngestionRunInPostgres,
-  ensureSourceCatalogInPostgres,
-  setSourceCursorInPostgres,
-  stageRawPayloadInPostgres,
-  upsertObservationsInPostgres
-} from "../repositories/postgres-ingest-repository";
+  persistIngestArtifacts
+} from "../repositories/ingest-persistence";
 
 const AER_SOURCE_URL = "https://www.aer.gov.au/energy-product-reference-data";
 
@@ -160,45 +150,27 @@ export async function syncEnergyBenchmarkDmo(
   const observations = buildBenchmarkObservations(plans, ingestedAt);
   const cursor = dateOnly(ingestedAt);
 
-  let upsertResult: { inserted: number; updated: number };
-  if (ingestBackend === "postgres") {
-    await ensureSourceCatalogInPostgres(createSeedLiveStore().sources);
-    await stageRawPayloadInPostgres({
-      sourceId: "aer_prd",
-      payload: rawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    upsertResult = await upsertObservationsInPostgres(observations);
-    await setSourceCursorInPostgres("aer_prd", cursor);
-    await appendIngestionRunInPostgres({
+  const upsertResult = await persistIngestArtifacts({
+    backend: ingestBackend,
+    storePath: options.storePath,
+    sourceCatalog: createSeedLiveStore().sources,
+    rawSnapshots: [
+      {
+        sourceId: "aer_prd",
+        payload: rawPayload,
+        contentType: "application/json",
+        capturedAt: ingestedAt
+      }
+    ],
+    observations,
+    sourceCursors: [{ sourceId: "aer_prd", cursor }],
+    ingestionRun: {
       job: "sync-energy-benchmark-dmo-daily",
       status: "ok",
       startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-  } else {
-    const store = readLiveStoreSync(options.storePath);
-    stageRawPayload(store, {
-      sourceId: "aer_prd",
-      payload: rawPayload,
-      contentType: "application/json",
-      capturedAt: ingestedAt
-    });
-    upsertResult = upsertObservations(store, observations);
-    setSourceCursor(store, "aer_prd", cursor);
-    appendIngestionRun(store, {
-      job: "sync-energy-benchmark-dmo-daily",
-      status: "ok",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated
-    });
-    writeLiveStoreSync(store, options.storePath);
-  }
+      finishedAt: ingestedAt
+    }
+  });
 
   return {
     job: "sync-energy-benchmark-dmo",
@@ -206,6 +178,6 @@ export async function syncEnergyBenchmarkDmo(
     pointsIngested: observations.length,
     rowsInserted: upsertResult.inserted,
     rowsUpdated: upsertResult.updated,
-    syncedAt: new Date().toISOString()
+    syncedAt: ingestedAt
   };
 }
