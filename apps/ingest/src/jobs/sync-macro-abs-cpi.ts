@@ -11,6 +11,10 @@ import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
   persistIngestArtifacts
 } from "../repositories/ingest-persistence";
+import {
+  buildIngestRunAuditFields,
+  type IngestRunAuditOptions
+} from "./ingest-run-audit";
 
 const ABS_CPI_SOURCE_CATALOG: SourceCatalogItem = {
   sourceId: "abs_cpi",
@@ -44,7 +48,7 @@ export type SyncMacroAbsCpiResult = {
   syncedAt: string;
 };
 
-type SyncMacroAbsCpiOptions = {
+type SyncMacroAbsCpiOptions = IngestRunAuditOptions & {
   storePath?: string;
   sourceMode?: "fixture" | "live";
   absCpiEndpoint?: string;
@@ -112,7 +116,8 @@ export async function syncMacroAbsCpi(
       job: "sync-macro-abs-cpi-daily",
       status: "ok",
       startedAt,
-      finishedAt: ingestedAt
+      finishedAt: ingestedAt,
+      ...buildIngestRunAuditFields(options)
     }
   });
 

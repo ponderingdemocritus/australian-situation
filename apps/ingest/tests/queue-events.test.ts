@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { attachQueueEventsTelemetry } from "../src/queue/events";
 
 describe("queue events telemetry", () => {

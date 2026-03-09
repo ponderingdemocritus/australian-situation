@@ -12,13 +12,7 @@ import {
   type StageRawPayloadInput
 } from "@aus-dash/shared";
 import type { IngestBackend } from "./ingest-backend";
-import {
-  appendIngestionRunInPostgres,
-  ensureSourceCatalogInPostgres,
-  setSourceCursorInPostgres,
-  stageRawPayloadInPostgres,
-  upsertObservationsInPostgres
-} from "./postgres-ingest-repository";
+import { persistIngestArtifactsInPostgres } from "./postgres-ingest-repository";
 
 export type SourceCursorUpdate = {
   sourceId: string;
@@ -48,28 +42,13 @@ export async function persistIngestArtifacts(
   const sourceCursors = input.sourceCursors ?? [];
 
   if (input.backend === "postgres") {
-    await ensureSourceCatalogInPostgres(sourceCatalog);
-    for (const snapshot of rawSnapshots) {
-      await stageRawPayloadInPostgres(snapshot);
-    }
-
-    const upsertResult = await upsertObservationsInPostgres(input.observations);
-
-    for (const cursor of sourceCursors) {
-      await setSourceCursorInPostgres(cursor.sourceId, cursor.cursor);
-    }
-
-    await appendIngestionRunInPostgres({
-      job: input.ingestionRun.job,
-      status: input.ingestionRun.status,
-      startedAt: input.ingestionRun.startedAt,
-      finishedAt: input.ingestionRun.finishedAt,
-      rowsInserted: upsertResult.inserted,
-      rowsUpdated: upsertResult.updated,
-      errorSummary: input.ingestionRun.errorSummary
+    return persistIngestArtifactsInPostgres({
+      sourceCatalog,
+      rawSnapshots,
+      observations: input.observations,
+      sourceCursors,
+      ingestionRun: input.ingestionRun
     });
-
-    return upsertResult;
   }
 
   const store = readLiveStoreSync(input.storePath);
@@ -92,7 +71,11 @@ export async function persistIngestArtifacts(
     finishedAt: input.ingestionRun.finishedAt,
     rowsInserted: upsertResult.inserted,
     rowsUpdated: upsertResult.updated,
-    errorSummary: input.ingestionRun.errorSummary
+    errorSummary: input.ingestionRun.errorSummary,
+    bullJobId: input.ingestionRun.bullJobId,
+    queueName: input.ingestionRun.queueName,
+    attempt: input.ingestionRun.attempt,
+    runMode: input.ingestionRun.runMode
   });
   writeLiveStoreSync(store, input.storePath);
 

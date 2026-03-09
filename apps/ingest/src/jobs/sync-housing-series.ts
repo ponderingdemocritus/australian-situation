@@ -9,6 +9,10 @@ import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
   persistIngestArtifacts
 } from "../repositories/ingest-persistence";
+import {
+  buildIngestRunAuditFields,
+  type IngestRunAuditOptions
+} from "./ingest-run-audit";
 
 export type SyncResult = {
   job: "sync-housing-series";
@@ -18,7 +22,15 @@ export type SyncResult = {
   syncedAt: string;
 };
 
-type SyncHousingSeriesOptions = {
+type HousingFixtureRow = {
+  seriesId: string;
+  regionCode: string;
+  date: string;
+  value: number;
+  unit: string;
+};
+
+type SyncHousingSeriesOptions = IngestRunAuditOptions & {
   storePath?: string;
   sourceMode?: "fixture" | "live";
   absEndpoint?: string;
@@ -95,7 +107,7 @@ export async function syncHousingSeries(
   );
   const useLiveSource =
     options.sourceMode === "live" || process.env.AUS_DASH_INGEST_LIVE === "true";
-  let sourceRows = [...HOUSING_FIXTURE];
+  let sourceRows: HousingFixtureRow[] = [...HOUSING_FIXTURE];
   let rawPayload = JSON.stringify({ observations: HOUSING_FIXTURE });
   if (useLiveSource) {
     const liveSnapshot = await fetchAbsHousingSnapshot({
@@ -143,7 +155,8 @@ export async function syncHousingSeries(
       job: "sync-housing-abs-daily",
       status: "ok",
       startedAt,
-      finishedAt: ingestedAt
+      finishedAt: ingestedAt,
+      ...buildIngestRunAuditFields(options)
     }
   });
 

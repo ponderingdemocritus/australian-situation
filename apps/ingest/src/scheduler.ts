@@ -9,13 +9,16 @@ export type IngestionSchedule = {
 export const DEFAULT_JOB_SCHEDULES: IngestionSchedule[] = RECURRING_INGEST_JOBS.map(
   (job) => ({
     jobId: job.jobId,
-    cadence: "pattern" in job.schedule ? job.schedule.pattern : `every:${job.schedule.everyMs}`
+    cadence:
+      "pattern" in job.schedule && job.schedule.pattern
+        ? job.schedule.pattern
+        : `every:${job.schedule.everyMs}`
   })
 );
 
 type RunJobWithRetryOptions<T> = {
   jobId: string;
-  maxRetries: number;
+  maxRetries?: number;
   run: () => Promise<T>;
   onAlert?: (payload: {
     jobId: string;
@@ -36,7 +39,7 @@ function isTransientSourceError(error: unknown): boolean {
 export async function runJobWithRetry<T>(
   options: RunJobWithRetryOptions<T>
 ): Promise<T> {
-  const maxRetries = Math.max(1, options.maxRetries);
+  const maxRetries = Math.max(1, options.maxRetries ?? 1);
 
   for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
     try {

@@ -13,6 +13,10 @@ import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
   persistIngestArtifacts
 } from "../repositories/ingest-persistence";
+import {
+  buildIngestRunAuditFields,
+  type IngestRunAuditOptions
+} from "./ingest-run-audit";
 
 export type SyncEnergyRetailPlansResult = {
   job: "sync-energy-retail-plans";
@@ -75,7 +79,7 @@ function median(values: number[]): number {
   return sorted[middle];
 }
 
-type SyncEnergyRetailPlansOptions = {
+type SyncEnergyRetailPlansOptions = IngestRunAuditOptions & {
   storePath?: string;
   sourceMode?: "fixture" | "live";
   aerEndpoint?: string;
@@ -178,7 +182,8 @@ export async function syncEnergyRetailPlans(
       job: "sync-energy-retail-prd-hourly",
       status: "ok",
       startedAt,
-      finishedAt: ingestedAt
+      finishedAt: ingestedAt,
+      ...buildIngestRunAuditFields(options)
     }
   });
 

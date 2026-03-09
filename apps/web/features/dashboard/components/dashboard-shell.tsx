@@ -535,7 +535,7 @@ export function DashboardShell({
           throw new Error("invalid energy overview response");
         }
         setEnergyOverview(payload);
-      } catch (error) {
+      } catch {
         if (abortController.signal.aborted) {
           return;
         }
@@ -591,7 +591,7 @@ export function DashboardShell({
           throw new Error("invalid housing overview response");
         }
         setHousingOverview(payload);
-      } catch (error) {
+      } catch {
         if (abortController.signal.aborted) {
           return;
         }

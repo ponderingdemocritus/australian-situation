@@ -9,6 +9,10 @@ import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
   persistIngestArtifacts
 } from "../repositories/ingest-persistence";
+import {
+  buildIngestRunAuditFields,
+  type IngestRunAuditOptions
+} from "./ingest-run-audit";
 
 type WholesalePoint = {
   regionCode: string;
@@ -56,7 +60,7 @@ function computeDemandWeightedAudMwh(points: WholesalePoint[]): number {
   );
 }
 
-type SyncEnergyWholesaleOptions = {
+type SyncEnergyWholesaleOptions = IngestRunAuditOptions & {
   storePath?: string;
   sourceMode?: "fixture" | "live";
   aemoEndpoint?: string;
@@ -158,7 +162,8 @@ export async function syncEnergyWholesale(
       job: "sync-energy-wholesale-5m",
       status: "ok",
       startedAt,
-      finishedAt: ingestedAt
+      finishedAt: ingestedAt,
+      ...buildIngestRunAuditFields(options)
     }
   });
 

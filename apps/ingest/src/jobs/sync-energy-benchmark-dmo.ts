@@ -10,6 +10,10 @@ import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
   persistIngestArtifacts
 } from "../repositories/ingest-persistence";
+import {
+  buildIngestRunAuditFields,
+  type IngestRunAuditOptions
+} from "./ingest-run-audit";
 
 const AER_SOURCE_URL = "https://www.aer.gov.au/energy-product-reference-data";
 
@@ -117,7 +121,7 @@ export type SyncEnergyBenchmarkDmoResult = {
   syncedAt: string;
 };
 
-type SyncEnergyBenchmarkDmoOptions = {
+type SyncEnergyBenchmarkDmoOptions = IngestRunAuditOptions & {
   storePath?: string;
   sourceMode?: "fixture" | "live";
   aerEndpoint?: string;
@@ -168,7 +172,8 @@ export async function syncEnergyBenchmarkDmo(
       job: "sync-energy-benchmark-dmo-daily",
       status: "ok",
       startedAt,
-      finishedAt: ingestedAt
+      finishedAt: ingestedAt,
+      ...buildIngestRunAuditFields(options)
     }
   });
 

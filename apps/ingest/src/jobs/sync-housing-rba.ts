@@ -10,6 +10,10 @@ import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
   persistIngestArtifacts
 } from "../repositories/ingest-persistence";
+import {
+  buildIngestRunAuditFields,
+  type IngestRunAuditOptions
+} from "./ingest-run-audit";
 
 const RBA_SOURCE_URL = "https://www.rba.gov.au/statistics/interest-rates/";
 
@@ -60,7 +64,7 @@ export type SyncHousingRbaResult = {
   syncedAt: string;
 };
 
-type SyncHousingRbaOptions = {
+type SyncHousingRbaOptions = IngestRunAuditOptions & {
   storePath?: string;
   sourceMode?: "fixture" | "live";
   rbaEndpoint?: string;
@@ -121,7 +125,8 @@ export async function syncHousingRba(
       job: "sync-housing-rba-daily",
       status: "ok",
       startedAt,
-      finishedAt: ingestedAt
+      finishedAt: ingestedAt,
+      ...buildIngestRunAuditFields(options)
     }
   });
 

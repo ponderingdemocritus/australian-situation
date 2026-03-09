@@ -14,6 +14,10 @@ import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
   persistIngestArtifacts
 } from "../repositories/ingest-persistence";
+import {
+  buildIngestRunAuditFields,
+  type IngestRunAuditOptions
+} from "./ingest-run-audit";
 
 const GLOBAL_SOURCE_CATALOG = getSourceCatalogItems([
   "eia_electricity",
@@ -51,7 +55,7 @@ export type SyncEnergyRetailGlobalResult = {
   syncedAt: string;
 };
 
-type SyncEnergyRetailGlobalOptions = {
+type SyncEnergyRetailGlobalOptions = IngestRunAuditOptions & {
   storePath?: string;
   sourceMode?: "fixture" | "live";
   eiaEndpoint?: string;
@@ -146,7 +150,8 @@ export async function syncEnergyRetailGlobal(
       job: "sync-energy-retail-global-daily",
       status: "ok",
       startedAt,
-      finishedAt: new Date().toISOString()
+      finishedAt: new Date().toISOString(),
+      ...buildIngestRunAuditFields(options)
     }
   });
 

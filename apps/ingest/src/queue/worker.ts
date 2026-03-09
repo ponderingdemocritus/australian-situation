@@ -1,6 +1,7 @@
 import { SourceClientError } from "../sources/live-source-clients";
 import {
   INGEST_JOB_REGISTRY,
+  type IngestJobExecutionContext,
   type IngestJobDefinition,
   type IngestJobPayload
 } from "../jobs/job-registry";
@@ -116,7 +117,12 @@ export function buildRegistryBackedProcessor(
 
     try {
       const payload = (job.data ?? {}) as IngestJobPayload;
-      const execute = () => jobDefinition.processor(payload);
+      const context: IngestJobExecutionContext = {
+        bullJobId: String(job.id ?? ""),
+        queueName: job.queueName,
+        attempt: job.attemptsMade + 1
+      };
+      const execute = () => jobDefinition.processor(payload, context);
       const result = shouldSerializeStoreJob(payload)
         ? await runStoreSerially(execute)
         : await execute();

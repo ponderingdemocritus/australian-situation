@@ -18,6 +18,10 @@ import {
   listObservationsInPostgres,
 } from "../repositories/postgres-ingest-repository";
 import { persistIngestArtifacts } from "../repositories/ingest-persistence";
+import {
+  buildIngestRunAuditFields,
+  type IngestRunAuditOptions
+} from "./ingest-run-audit";
 
 const GLOBAL_SOURCE_CATALOG: SourceCatalogItem[] = getSourceCatalogItems([
   "world_bank_normalization"
@@ -358,7 +362,7 @@ export type SyncEnergyNormalizationResult = {
   syncedAt: string;
 };
 
-type SyncEnergyNormalizationOptions = {
+type SyncEnergyNormalizationOptions = IngestRunAuditOptions & {
   storePath?: string;
   sourceMode?: "fixture" | "live";
   worldBankEndpoint?: string;
@@ -397,7 +401,6 @@ export async function syncEnergyNormalization(
     .sort((a, b) => a.year.localeCompare(b.year))
     .at(-1)?.year;
 
-  let upsertResult: { inserted: number; updated: number };
   let comparisonDerivedCount = 0;
   const comparisonInputObservations =
     ingestBackend === "postgres"
@@ -415,7 +418,7 @@ export async function syncEnergyNormalization(
   const sourceCursors = latestYear
     ? [{ sourceId: "world_bank_normalization", cursor: latestYear }]
     : [];
-  upsertResult = await persistIngestArtifacts({
+  const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
     sourceCatalog: [...createSeedLiveStore().sources, ...GLOBAL_SOURCE_CATALOG],
@@ -433,7 +436,8 @@ export async function syncEnergyNormalization(
       job: "sync-energy-normalization-daily",
       status: "ok",
       startedAt,
-      finishedAt: new Date().toISOString()
+      finishedAt: new Date().toISOString(),
+      ...buildIngestRunAuditFields(options)
     }
   });
 

@@ -1,6 +1,16 @@
-import { Queue, type ConnectionOptions } from "bullmq";
+import { Queue } from "bullmq";
 
 type EnvLike = Record<string, string | undefined>;
+
+type RedisConnectionConfig = {
+  host: string;
+  port: number;
+  db: number;
+  maxRetriesPerRequest: null;
+  username?: string;
+  password?: string;
+  tls?: Record<string, never>;
+};
 
 export type QueueRuntimeConfig = {
   queueName: string;
@@ -8,9 +18,7 @@ export type QueueRuntimeConfig = {
   workerConcurrency: number;
   defaultJobAttempts: number;
   defaultBackoffMs: number;
-  redis: ConnectionOptions & {
-    maxRetriesPerRequest: null;
-  };
+  redis: RedisConnectionConfig;
 };
 
 function parsePositiveInt(value: string, envName: string): number {

@@ -10,9 +10,7 @@ import {
   getSeriesFromStore
 } from "./live-store-repository";
 import type {
-  LiveDataRepository,
-  GetEnergyRetailComparisonInput,
-  GetEnergyWholesaleComparisonInput
+  LiveDataRepository
 } from "./live-data-contract";
 import { createPostgresLiveDataRepository } from "./postgres-live-repository";
 
