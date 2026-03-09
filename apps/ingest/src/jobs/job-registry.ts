@@ -18,7 +18,16 @@ export type IngestJobPayload = {
   runMode?: "scheduled" | "manual" | "backfill";
 };
 
-export type IngestJobProcessor = (payload: IngestJobPayload) => Promise<unknown>;
+export type IngestJobExecutionContext = {
+  bullJobId?: string;
+  queueName?: string;
+  attempt?: number;
+};
+
+export type IngestJobProcessor = (
+  payload: IngestJobPayload,
+  context?: IngestJobExecutionContext
+) => Promise<unknown>;
 
 export type IngestJobSchedule =
   | {
@@ -47,7 +56,8 @@ function assertScheduleValid(job: IngestJobDefinition): void {
   }
 
   if ("pattern" in job.schedule) {
-    if (job.schedule.pattern.trim().length === 0) {
+    const { pattern } = job.schedule;
+    if (!pattern || pattern.trim().length === 0) {
       throw new Error(`job ${job.jobId} has an empty pattern schedule`);
     }
     return;
@@ -90,99 +100,135 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
     jobId: "sync-housing-abs-daily",
     phase: 1,
     schedule: { pattern: "0 2 * * *" },
-    processor: async (payload) =>
+    processor: async (payload, context) =>
       syncHousingSeries({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
-        ingestBackend: payload.ingestBackend
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
       })
   },
   {
     jobId: "sync-energy-wholesale-5m",
     phase: 1,
     schedule: { pattern: "*/5 * * * *" },
-    processor: async (payload) =>
+    processor: async (payload, context) =>
       syncEnergyWholesale({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
-        ingestBackend: payload.ingestBackend
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
       })
   },
   {
     jobId: "sync-energy-wholesale-global-hourly",
     phase: 1,
     schedule: { pattern: "5 * * * *" },
-    processor: async (payload) =>
+    processor: async (payload, context) =>
       syncEnergyWholesaleGlobal({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
-        ingestBackend: payload.ingestBackend
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
       })
   },
   {
     jobId: "sync-energy-retail-prd-hourly",
     phase: 1,
     schedule: { pattern: "0 * * * *" },
-    processor: async (payload) =>
+    processor: async (payload, context) =>
       syncEnergyRetailPlans({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
-        ingestBackend: payload.ingestBackend
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
       })
   },
   {
     jobId: "sync-energy-retail-global-daily",
     phase: 1,
     schedule: { pattern: "30 3 * * *" },
-    processor: async (payload) =>
+    processor: async (payload, context) =>
       syncEnergyRetailGlobal({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
-        ingestBackend: payload.ingestBackend
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
       })
   },
   {
     jobId: "sync-energy-normalization-daily",
     phase: 2,
     schedule: { pattern: "45 3 * * *" },
-    processor: async (payload) =>
+    processor: async (payload, context) =>
       syncEnergyNormalization({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
-        ingestBackend: payload.ingestBackend
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
       })
   },
   {
     jobId: "sync-energy-benchmark-dmo-daily",
     phase: 1,
     schedule: { pattern: "15 1 * * *" },
-    processor: async (payload) =>
+    processor: async (payload, context) =>
       syncEnergyBenchmarkDmo({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
-        ingestBackend: payload.ingestBackend
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
       })
   },
   {
     jobId: "sync-housing-rba-daily",
     phase: 1,
     schedule: { pattern: "30 2 * * *" },
-    processor: async (payload) =>
+    processor: async (payload, context) =>
       syncHousingRba({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
-        ingestBackend: payload.ingestBackend
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
       })
   },
   {
     jobId: "sync-macro-abs-cpi-daily",
     phase: 1,
     schedule: { pattern: "0 3 * * *" },
-    processor: async (payload) =>
+    processor: async (payload, context) =>
       syncMacroAbsCpi({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
-        ingestBackend: payload.ingestBackend
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
       })
   }
 ]);

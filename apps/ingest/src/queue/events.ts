@@ -11,9 +11,7 @@ type QueueEventsLogger = {
   error: (payload: Record<string, unknown>) => void;
 };
 
-type QueueEventsLike = {
-  on: (event: string, handler: (payload: EventPayload) => void) => void;
-};
+type QueueEventsLike = Pick<QueueEvents, "on">;
 
 function defaultLogger(): QueueEventsLogger {
   return {
@@ -62,38 +60,43 @@ export function attachQueueEventsTelemetry(
   const logger = options.logger ?? defaultLogger();
 
   queueEvents.on("completed", (payload) => {
+    const eventPayload = payload as EventPayload;
     logger.info({
       level: "info",
       type: "ingest.queue.completed",
       queueName: options.queueName,
-      jobId: readString(payload.jobId),
-      jobName: readString(payload.name) ?? readString(payload.jobName),
-      attempt: parseAttempt(payload.attemptsMade)
+      jobId: readString(eventPayload.jobId),
+      jobName: readString(eventPayload.name) ?? readString(eventPayload.jobName),
+      attempt: parseAttempt(eventPayload.attemptsMade)
     });
   });
 
   queueEvents.on("failed", (payload) => {
+    const eventPayload = payload as EventPayload;
     logger.error({
       level: "error",
       type: "ingest.queue.failed",
       queueName: options.queueName,
-      jobId: readString(payload.jobId),
-      jobName: readString(payload.name) ?? readString(payload.jobName),
-      attempt: parseAttempt(payload.attemptsMade),
-      classification: readString(payload.classification) ?? "retryable",
+      jobId: readString(eventPayload.jobId),
+      jobName: readString(eventPayload.name) ?? readString(eventPayload.jobName),
+      attempt: parseAttempt(eventPayload.attemptsMade),
+      classification: readString(eventPayload.classification) ?? "retryable",
       error:
-        readString(payload.failedReason) ?? readString(payload.reason) ?? "unknown queue failure"
+        readString(eventPayload.failedReason) ??
+        readString(eventPayload.reason) ??
+        "unknown queue failure"
     });
   });
 
   queueEvents.on("stalled", (payload) => {
+    const eventPayload = payload as EventPayload;
     logger.error({
       level: "error",
       type: "ingest.queue.stalled",
       queueName: options.queueName,
-      jobId: readString(payload.jobId),
-      jobName: readString(payload.name) ?? readString(payload.jobName),
-      attempt: parseAttempt(payload.attemptsMade)
+      jobId: readString(eventPayload.jobId),
+      jobName: readString(eventPayload.name) ?? readString(eventPayload.jobName),
+      attempt: parseAttempt(eventPayload.attemptsMade)
     });
   });
 }

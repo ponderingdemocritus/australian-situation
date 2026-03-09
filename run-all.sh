@@ -205,12 +205,12 @@ run_test() {
     esac
   done
 
-  echo "Running workspace tests..."
-  bun run test
+  echo "Running repo validation..."
+  bun run validate
 
   if [[ "$with_e2e" -eq 1 ]]; then
     echo "Running e2e tests..."
-    bun run test:e2e
+    bun run test:e2e:real
   fi
 }
 

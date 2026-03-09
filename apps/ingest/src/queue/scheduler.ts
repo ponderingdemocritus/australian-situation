@@ -10,9 +10,7 @@ export type SchedulerQueueClient = {
         jobId: string;
         runMode: "scheduled";
       };
-      opts: {
-        jobId: string;
-      };
+      opts?: Record<string, unknown>;
     }
   ) => Promise<unknown>;
 };
@@ -23,9 +21,6 @@ export function createSchedulerJobTemplate(jobId: string) {
     data: {
       jobId,
       runMode: "scheduled" as const
-    },
-    opts: {
-      jobId: `scheduled:${jobId}`
     }
   };
 }

@@ -12,25 +12,36 @@ import {
   type LiveObservation,
   type SourceCatalogItem
 } from "@aus-dash/shared";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 
-function parseDate(value: string): Date {
+function parseDate(value: string, fieldName: string): Date {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return new Date();
+    throw new Error(`Invalid ${fieldName}: ${value}`);
   }
   return parsed;
 }
 
-function parseOptionalDate(value: string | undefined): Date | null {
+function parseOptionalDate(value: string | undefined, fieldName: string): Date | null {
   if (!value) {
     return null;
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return null;
+    throw new Error(`Invalid ${fieldName}: ${value}`);
   }
   return parsed;
+}
+
+function observationConflictKey(
+  observation: Pick<LiveObservation, "seriesId" | "regionCode" | "date" | "vintage">
+): string {
+  return [
+    observation.seriesId,
+    observation.regionCode,
+    observation.date,
+    observation.vintage
+  ].join("|");
 }
 
 function parseNumeric(value: unknown): number {
@@ -49,8 +60,14 @@ export function mapObservationForPostgres(observation: LiveObservation) {
     market: observation.market ?? null,
     metricFamily: observation.metricFamily ?? null,
     date: observation.date,
-    intervalStartUtc: parseOptionalDate(observation.intervalStartUtc),
-    intervalEndUtc: parseOptionalDate(observation.intervalEndUtc),
+    intervalStartUtc: parseOptionalDate(
+      observation.intervalStartUtc,
+      `${observation.seriesId} intervalStartUtc`
+    ),
+    intervalEndUtc: parseOptionalDate(
+      observation.intervalEndUtc,
+      `${observation.seriesId} intervalEndUtc`
+    ),
     value: String(observation.value),
     unit: observation.unit,
     currency: observation.currency ?? null,
@@ -58,8 +75,8 @@ export function mapObservationForPostgres(observation: LiveObservation) {
     consumptionBand: observation.consumptionBand ?? null,
     sourceName: observation.sourceName,
     sourceUrl: observation.sourceUrl,
-    publishedAt: parseDate(observation.publishedAt),
-    ingestedAt: parseDate(observation.ingestedAt),
+    publishedAt: parseDate(observation.publishedAt, `${observation.seriesId} publishedAt`),
+    ingestedAt: parseDate(observation.ingestedAt, `${observation.seriesId} ingestedAt`),
     vintage: observation.vintage,
     isModeled: observation.isModeled,
     confidence: observation.confidence,
@@ -72,8 +89,8 @@ export function mapIngestionRunForPostgres(run: IngestionRun) {
     runId: run.runId,
     job: run.job,
     status: run.status,
-    startedAt: parseDate(run.startedAt),
-    finishedAt: parseDate(run.finishedAt),
+    startedAt: parseDate(run.startedAt, `${run.job} startedAt`),
+    finishedAt: parseDate(run.finishedAt, `${run.job} finishedAt`),
     rowsInserted: run.rowsInserted,
     rowsUpdated: run.rowsUpdated,
     errorSummary: run.errorSummary ?? null,
@@ -156,7 +173,7 @@ export async function stageRawPayloadInPostgres(input: {
     snapshotId,
     sourceId: input.sourceId,
     checksumSha256,
-    capturedAt: parseDate(input.capturedAt),
+    capturedAt: parseDate(input.capturedAt, `${input.sourceId} capturedAt`),
     contentType: input.contentType,
     payload: input.payload
   });
@@ -177,58 +194,79 @@ export async function stageRawPayloadInPostgres(input: {
 export async function upsertObservationsInPostgres(
   incoming: LiveObservation[]
 ): Promise<{ inserted: number; updated: number }> {
-  const db = getDb();
-  let inserted = 0;
-  let updated = 0;
-
-  for (const observation of incoming) {
-    const mapped = mapObservationForPostgres(observation);
-
-    const existing = await db
-      .select({
-        id: observations.id
-      })
-      .from(observations)
-      .where(
-        and(
-          eq(observations.seriesId, observation.seriesId),
-          eq(observations.regionCode, observation.regionCode),
-          eq(observations.date, observation.date),
-          eq(observations.vintage, observation.vintage)
-        )
-      )
-      .limit(1);
-
-    if (existing.length === 0) {
-      await db.insert(observations).values(mapped);
-      inserted += 1;
-      continue;
-    }
-
-    await db
-      .update(observations)
-      .set({
-        countryCode: mapped.countryCode,
-        market: mapped.market,
-        metricFamily: mapped.metricFamily,
-        intervalStartUtc: mapped.intervalStartUtc,
-        intervalEndUtc: mapped.intervalEndUtc,
-        value: mapped.value,
-        unit: mapped.unit,
-        currency: mapped.currency,
-        taxStatus: mapped.taxStatus,
-        consumptionBand: mapped.consumptionBand,
-        sourceName: mapped.sourceName,
-        sourceUrl: mapped.sourceUrl,
-        publishedAt: mapped.publishedAt,
-        ingestedAt: mapped.ingestedAt,
-        isModeled: mapped.isModeled,
-        confidence: mapped.confidence,
-        methodologyVersion: mapped.methodologyVersion
-      })
-      .where(eq(observations.id, existing[0]!.id));
-    updated += 1;
+  if (incoming.length === 0) {
+    return { inserted: 0, updated: 0 };
   }
+
+  const db = getDb();
+  const mappedIncoming = incoming.map((observation) => ({
+    original: observation,
+    mapped: mapObservationForPostgres(observation)
+  }));
+  const existingRows = await db
+    .select({
+      seriesId: observations.seriesId,
+      regionCode: observations.regionCode,
+      date: observations.date,
+      vintage: observations.vintage
+    })
+    .from(observations)
+    .where(
+      incoming.length === 1
+        ? and(
+            eq(observations.seriesId, incoming[0]!.seriesId),
+            eq(observations.regionCode, incoming[0]!.regionCode),
+            eq(observations.date, incoming[0]!.date),
+            eq(observations.vintage, incoming[0]!.vintage)
+          )
+        : or(
+            ...incoming.map((observation) =>
+              and(
+                eq(observations.seriesId, observation.seriesId),
+                eq(observations.regionCode, observation.regionCode),
+                eq(observations.date, observation.date),
+                eq(observations.vintage, observation.vintage)
+              )
+            )
+          )
+    );
+
+  const existingKeys = new Set(existingRows.map((row) => observationConflictKey(row)));
+  const inserted = mappedIncoming.filter(
+    ({ original }) => !existingKeys.has(observationConflictKey(original))
+  ).length;
+  const updated = mappedIncoming.length - inserted;
+
+  await db
+    .insert(observations)
+    .values(mappedIncoming.map(({ mapped }) => mapped))
+    .onConflictDoUpdate({
+      target: [
+        observations.seriesId,
+        observations.regionCode,
+        observations.date,
+        observations.vintage
+      ],
+      set: {
+        countryCode: sql.raw("excluded.country_code"),
+        market: sql.raw("excluded.market"),
+        metricFamily: sql.raw("excluded.metric_family"),
+        intervalStartUtc: sql.raw("excluded.interval_start_utc"),
+        intervalEndUtc: sql.raw("excluded.interval_end_utc"),
+        value: sql.raw("excluded.value"),
+        unit: sql.raw("excluded.unit"),
+        currency: sql.raw("excluded.currency"),
+        taxStatus: sql.raw("excluded.tax_status"),
+        consumptionBand: sql.raw("excluded.consumption_band"),
+        sourceName: sql.raw("excluded.source_name"),
+        sourceUrl: sql.raw("excluded.source_url"),
+        publishedAt: sql.raw("excluded.published_at"),
+        ingestedAt: sql.raw("excluded.ingested_at"),
+        isModeled: sql.raw("excluded.is_modeled"),
+        confidence: sql.raw("excluded.confidence"),
+        methodologyVersion: sql.raw("excluded.methodology_version")
+      }
+    });
 
   return { inserted, updated };
 }
@@ -328,6 +366,178 @@ export async function appendIngestionRunInPostgres(
   await db.insert(ingestionRuns).values(mapped);
 
   return ingestionRun;
+}
+
+export async function persistIngestArtifactsInPostgres(input: {
+  sourceCatalog: SourceCatalogItem[];
+  rawSnapshots: Array<{
+    sourceId: string;
+    payload: string;
+    contentType: string;
+    capturedAt: string;
+  }>;
+  observations: LiveObservation[];
+  sourceCursors: Array<{
+    sourceId: string;
+    cursor: string;
+  }>;
+  ingestionRun: Omit<IngestionRun, "runId" | "rowsInserted" | "rowsUpdated">;
+}): Promise<{ inserted: number; updated: number }> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    if (input.sourceCatalog.length > 0) {
+      await tx
+        .insert(sources)
+        .values(
+          input.sourceCatalog.map((sourceItem) => ({
+            sourceId: sourceItem.sourceId,
+            domain: sourceItem.domain,
+            name: sourceItem.name,
+            url: sourceItem.url,
+            expectedCadence: sourceItem.expectedCadence
+          }))
+        )
+        .onConflictDoUpdate({
+          target: sources.sourceId,
+          set: {
+            domain: sources.domain,
+            name: sources.name,
+            url: sources.url,
+            expectedCadence: sources.expectedCadence
+          }
+        });
+    }
+
+    for (const snapshot of input.rawSnapshots) {
+      const checksumSha256 = payloadChecksumSha256(snapshot.payload);
+      const existingSnapshot = await tx
+        .select({ snapshotId: rawSnapshots.snapshotId })
+        .from(rawSnapshots)
+        .where(
+          and(
+            eq(rawSnapshots.sourceId, snapshot.sourceId),
+            eq(rawSnapshots.checksumSha256, checksumSha256)
+          )
+        )
+        .limit(1);
+
+      if (existingSnapshot.length === 0) {
+        await tx.insert(rawSnapshots).values({
+          snapshotId: `${snapshot.sourceId}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+          sourceId: snapshot.sourceId,
+          checksumSha256,
+          capturedAt: parseDate(snapshot.capturedAt, `${snapshot.sourceId} capturedAt`),
+          contentType: snapshot.contentType,
+          payload: snapshot.payload
+        });
+      }
+    }
+
+    const mappedObservations = input.observations.map((observation) => ({
+      original: observation,
+      mapped: mapObservationForPostgres(observation)
+    }));
+    let inserted = 0;
+    let updated = 0;
+
+    if (mappedObservations.length > 0) {
+      const existingObservationRows = await tx
+        .select({
+          seriesId: observations.seriesId,
+          regionCode: observations.regionCode,
+          date: observations.date,
+          vintage: observations.vintage
+        })
+        .from(observations)
+        .where(
+          mappedObservations.length === 1
+            ? and(
+                eq(observations.seriesId, mappedObservations[0]!.original.seriesId),
+                eq(observations.regionCode, mappedObservations[0]!.original.regionCode),
+                eq(observations.date, mappedObservations[0]!.original.date),
+                eq(observations.vintage, mappedObservations[0]!.original.vintage)
+              )
+            : or(
+                ...mappedObservations.map(({ original }) =>
+                  and(
+                    eq(observations.seriesId, original.seriesId),
+                    eq(observations.regionCode, original.regionCode),
+                    eq(observations.date, original.date),
+                    eq(observations.vintage, original.vintage)
+                  )
+                )
+              )
+        );
+
+      const existingKeys = new Set(
+        existingObservationRows.map((row) => observationConflictKey(row))
+      );
+      inserted = mappedObservations.filter(
+        ({ original }) => !existingKeys.has(observationConflictKey(original))
+      ).length;
+      updated = mappedObservations.length - inserted;
+
+      await tx
+        .insert(observations)
+        .values(mappedObservations.map(({ mapped }) => mapped))
+        .onConflictDoUpdate({
+          target: [
+            observations.seriesId,
+            observations.regionCode,
+            observations.date,
+            observations.vintage
+          ],
+          set: {
+            countryCode: sql.raw("excluded.country_code"),
+            market: sql.raw("excluded.market"),
+            metricFamily: sql.raw("excluded.metric_family"),
+            intervalStartUtc: sql.raw("excluded.interval_start_utc"),
+            intervalEndUtc: sql.raw("excluded.interval_end_utc"),
+            value: sql.raw("excluded.value"),
+            unit: sql.raw("excluded.unit"),
+            currency: sql.raw("excluded.currency"),
+            taxStatus: sql.raw("excluded.tax_status"),
+            consumptionBand: sql.raw("excluded.consumption_band"),
+            sourceName: sql.raw("excluded.source_name"),
+            sourceUrl: sql.raw("excluded.source_url"),
+            publishedAt: sql.raw("excluded.published_at"),
+            ingestedAt: sql.raw("excluded.ingested_at"),
+            isModeled: sql.raw("excluded.is_modeled"),
+            confidence: sql.raw("excluded.confidence"),
+            methodologyVersion: sql.raw("excluded.methodology_version")
+          }
+        });
+    }
+
+    for (const cursor of input.sourceCursors) {
+      const updatedAt = new Date();
+      await tx
+        .insert(sourceCursors)
+        .values({
+          sourceId: cursor.sourceId,
+          cursor: cursor.cursor,
+          updatedAt
+        })
+        .onConflictDoUpdate({
+          target: sourceCursors.sourceId,
+          set: {
+            cursor: cursor.cursor,
+            updatedAt
+          }
+        });
+    }
+
+    const mappedRun = mapIngestionRunForPostgres({
+      runId: `${input.ingestionRun.job}-${Date.now()}`,
+      ...input.ingestionRun,
+      rowsInserted: inserted,
+      rowsUpdated: updated
+    });
+    await tx.insert(ingestionRuns).values(mappedRun);
+
+    return { inserted, updated };
+  });
 }
 
 export async function upsertIngestionRunInPostgres(run: IngestionRun): Promise<void> {
