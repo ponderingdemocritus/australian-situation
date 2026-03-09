@@ -93,8 +93,6 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: Run repo validation
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aus_dash
         run: bun run validate
 
       - name: Run Postgres validation
