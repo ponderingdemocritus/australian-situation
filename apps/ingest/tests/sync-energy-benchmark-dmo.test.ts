@@ -55,4 +55,37 @@ describe("syncEnergyBenchmarkDmo", () => {
     expect(benchmarkObservation).toBeTruthy();
     expect(benchmarkObservation?.value).toBeGreaterThan(0);
   });
+
+  test("writes modeled benchmark observations for each state and territory", async () => {
+    const syncEnergyBenchmarkDmo = await loadSyncEnergyBenchmarkDmo();
+    expect(typeof syncEnergyBenchmarkDmo).toBe("function");
+    if (typeof syncEnergyBenchmarkDmo !== "function") {
+      return;
+    }
+
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), "aus-dash-benchmark-dmo-regional-"));
+    const storePath = resolveLiveStorePath(path.join(tempDir, "live-store.json"));
+
+    await syncEnergyBenchmarkDmo({ storePath });
+
+    const after = readLiveStoreSync(storePath);
+    const regionalBenchmarks = after.observations.filter(
+      (observation) =>
+        observation.seriesId === "energy.benchmark.dmo.annual_bill_aud" &&
+        observation.regionCode !== "AU"
+    );
+
+    expect(regionalBenchmarks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ regionCode: "NSW", isModeled: true }),
+        expect.objectContaining({ regionCode: "VIC", isModeled: true }),
+        expect.objectContaining({ regionCode: "QLD", isModeled: true }),
+        expect.objectContaining({ regionCode: "SA", isModeled: true }),
+        expect.objectContaining({ regionCode: "WA", isModeled: true }),
+        expect.objectContaining({ regionCode: "TAS", isModeled: true }),
+        expect.objectContaining({ regionCode: "ACT", isModeled: true }),
+        expect.objectContaining({ regionCode: "NT", isModeled: true })
+      ])
+    );
+  });
 });

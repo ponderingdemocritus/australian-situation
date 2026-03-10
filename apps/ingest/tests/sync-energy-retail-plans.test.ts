@@ -129,4 +129,37 @@ describe("syncEnergyRetailPlans", () => {
       vi.useRealTimers();
     }
   });
+
+  test("persists regional retail aggregates for each residential market", async () => {
+    const syncEnergyRetailPlans = await loadSyncEnergyRetailPlans();
+    expect(typeof syncEnergyRetailPlans).toBe("function");
+    if (typeof syncEnergyRetailPlans !== "function") {
+      return;
+    }
+
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), "aus-dash-retail-regional-"));
+    const storePath = resolveLiveStorePath(path.join(tempDir, "live-store.json"));
+
+    await syncEnergyRetailPlans({ storePath });
+
+    const after = readLiveStoreSync(storePath);
+    const regionalMeans = after.observations.filter(
+      (observation) =>
+        observation.seriesId === "energy.retail.offer.annual_bill_aud.mean" &&
+        observation.regionCode !== "AU"
+    );
+
+    expect(regionalMeans).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ regionCode: "NSW", countryCode: "AU" }),
+        expect.objectContaining({ regionCode: "VIC", countryCode: "AU" }),
+        expect.objectContaining({ regionCode: "QLD", countryCode: "AU" }),
+        expect.objectContaining({ regionCode: "SA", countryCode: "AU" }),
+        expect.objectContaining({ regionCode: "WA", countryCode: "AU" }),
+        expect.objectContaining({ regionCode: "TAS", countryCode: "AU" }),
+        expect.objectContaining({ regionCode: "ACT", countryCode: "AU" }),
+        expect.objectContaining({ regionCode: "NT", countryCode: "AU" })
+      ])
+    );
+  });
 });

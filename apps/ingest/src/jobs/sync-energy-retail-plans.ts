@@ -1,5 +1,5 @@
 import {
-  createSeedLiveStore,
+  getSourceCatalogItems
 } from "@aus-dash/shared";
 import {
   type AerRetailPlan,
@@ -46,16 +46,58 @@ const PLAN_FIXTURE: AerRetailPlan[] = [
     annualBillAud: 2010
   },
   {
-    planId: "qld-smb-1",
-    regionCode: "QLD",
-    customerType: "small_business",
-    annualBillAud: 2380
-  },
-  {
     planId: "vic-resi-1",
     regionCode: "VIC",
     customerType: "residential",
     annualBillAud: 1825
+  },
+  {
+    planId: "vic-resi-2",
+    regionCode: "VIC",
+    customerType: "residential",
+    annualBillAud: 1911
+  },
+  {
+    planId: "qld-resi-1",
+    regionCode: "QLD",
+    customerType: "residential",
+    annualBillAud: 2015
+  },
+  {
+    planId: "sa-resi-1",
+    regionCode: "SA",
+    customerType: "residential",
+    annualBillAud: 2042
+  },
+  {
+    planId: "wa-resi-1",
+    regionCode: "WA",
+    customerType: "residential",
+    annualBillAud: 2148
+  },
+  {
+    planId: "tas-resi-1",
+    regionCode: "TAS",
+    customerType: "residential",
+    annualBillAud: 1887
+  },
+  {
+    planId: "act-resi-1",
+    regionCode: "ACT",
+    customerType: "residential",
+    annualBillAud: 1998
+  },
+  {
+    planId: "nt-resi-1",
+    regionCode: "NT",
+    customerType: "residential",
+    annualBillAud: 2236
+  },
+  {
+    planId: "qld-smb-1",
+    regionCode: "QLD",
+    customerType: "small_business",
+    annualBillAud: 2380
   }
 ];
 
@@ -77,6 +119,40 @@ function median(values: number[]): number {
     return (sorted[middle - 1] + sorted[middle]) / 2;
   }
   return sorted[middle];
+}
+
+function buildRetailObservation(input: {
+  seriesId: "energy.retail.offer.annual_bill_aud.mean" | "energy.retail.offer.annual_bill_aud.median";
+  regionCode: string;
+  observationDate: string;
+  intervalStartUtc: string;
+  intervalEndUtc: string;
+  value: number;
+  ingestedAt: string;
+}) {
+  return {
+    seriesId: input.seriesId,
+    regionCode: input.regionCode,
+    countryCode: "AU",
+    market: input.regionCode === "AU" ? "NEM" : input.regionCode,
+    metricFamily: "retail",
+    date: input.observationDate,
+    intervalStartUtc: input.intervalStartUtc,
+    intervalEndUtc: input.intervalEndUtc,
+    value: input.value,
+    unit: "aud",
+    currency: "AUD",
+    taxStatus: "incl_tax",
+    consumptionBand: "household_mid",
+    sourceName: "AER",
+    sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
+    publishedAt: input.intervalStartUtc,
+    ingestedAt: input.ingestedAt,
+    vintage: input.observationDate,
+    isModeled: false,
+    confidence: "official" as const,
+    methodologyVersion: "energy-retail-prd-v1"
+  };
 }
 
 type SyncEnergyRetailPlansOptions = IngestRunAuditOptions & {
@@ -115,59 +191,59 @@ export async function syncEnergyRetailPlans(
   const annualBills = residentialPlans.map((plan) => plan.annualBillAud);
   const annualBillAudMean = mean(annualBills);
   const annualBillAudMedian = median(annualBills);
+  const annualBillsByRegion = new Map<string, number[]>();
+  for (const plan of residentialPlans) {
+    const existing = annualBillsByRegion.get(plan.regionCode) ?? [];
+    existing.push(plan.annualBillAud);
+    annualBillsByRegion.set(plan.regionCode, existing);
+  }
 
   const observations = [
-    {
+    buildRetailObservation({
       seriesId: "energy.retail.offer.annual_bill_aud.mean",
       regionCode: "AU",
-      countryCode: "AU",
-      market: "NEM",
-      metricFamily: "retail",
-      date: observationDate,
+      observationDate,
       intervalStartUtc,
       intervalEndUtc,
       value: annualBillAudMean,
-      unit: "aud",
-      currency: "AUD",
-      taxStatus: "incl_tax",
-      consumptionBand: "household_mid",
-      sourceName: "AER",
-      sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
-      publishedAt: intervalStartUtc,
-      ingestedAt,
-      vintage: observationDate,
-      isModeled: false,
-      confidence: "official" as const,
-      methodologyVersion: "energy-retail-prd-v1"
-    },
-    {
+      ingestedAt
+    }),
+    buildRetailObservation({
       seriesId: "energy.retail.offer.annual_bill_aud.median",
       regionCode: "AU",
-      countryCode: "AU",
-      market: "NEM",
-      metricFamily: "retail",
-      date: observationDate,
+      observationDate,
       intervalStartUtc,
       intervalEndUtc,
       value: annualBillAudMedian,
-      unit: "aud",
-      currency: "AUD",
-      taxStatus: "incl_tax",
-      consumptionBand: "household_mid",
-      sourceName: "AER",
-      sourceUrl: "https://www.aer.gov.au/energy-product-reference-data",
-      publishedAt: intervalStartUtc,
-      ingestedAt,
-      vintage: observationDate,
-      isModeled: false,
-      confidence: "official" as const,
-      methodologyVersion: "energy-retail-prd-v1"
-    }
+      ingestedAt
+    }),
+    ...[...annualBillsByRegion.entries()]
+      .sort(([leftRegion], [rightRegion]) => leftRegion.localeCompare(rightRegion))
+      .flatMap(([regionCode, regionalBills]) => [
+        buildRetailObservation({
+          seriesId: "energy.retail.offer.annual_bill_aud.mean",
+          regionCode,
+          observationDate,
+          intervalStartUtc,
+          intervalEndUtc,
+          value: mean(regionalBills),
+          ingestedAt
+        }),
+        buildRetailObservation({
+          seriesId: "energy.retail.offer.annual_bill_aud.median",
+          regionCode,
+          observationDate,
+          intervalStartUtc,
+          intervalEndUtc,
+          value: median(regionalBills),
+          ingestedAt
+        })
+      ])
   ];
   const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
-    sourceCatalog: createSeedLiveStore().sources,
+    sourceCatalog: getSourceCatalogItems(),
     rawSnapshots: [
       {
         sourceId: "aer_prd",

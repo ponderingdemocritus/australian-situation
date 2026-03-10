@@ -1,5 +1,9 @@
 import { getDb, ingestionRuns, observations, rawSnapshots, sourceCursors, sources } from "@aus-dash/db";
-import { createSeedLiveStore, type LiveObservation } from "@aus-dash/shared";
+import {
+  createSeedLiveStore,
+  getSourceCatalogItems,
+  type LiveObservation
+} from "@aus-dash/shared";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { persistIngestArtifacts } from "../src/repositories/ingest-persistence";
 import { buildRegistryBackedProcessor } from "../src/queue/worker";
@@ -129,5 +133,47 @@ describeIfDatabase("postgres ingest persistence", () => {
     expect((await db.select().from(rawSnapshots)).length).toBe(0);
     expect((await db.select().from(observations)).length).toBe(0);
     expect((await db.select().from(ingestionRuns)).length).toBe(0);
+  });
+
+  test("deduplicates repeated source catalog rows before postgres upsert", async () => {
+    const canonicalAbsCpi = getSourceCatalogItems(["abs_cpi"])[0]!;
+
+    await expect(
+      persistIngestArtifacts({
+        backend: "postgres",
+        sourceCatalog: [
+          canonicalAbsCpi,
+          {
+            ...canonicalAbsCpi,
+            name: "ABS CPI Registry",
+            expectedCadence: "daily"
+          }
+        ],
+        observations: [createObservation()],
+        ingestionRun: {
+          job: "sync-macro-abs-cpi-daily",
+          status: "ok",
+          startedAt: "2026-02-27T02:00:00Z",
+          finishedAt: "2026-02-27T02:05:00Z"
+        }
+      })
+    ).resolves.toEqual({ inserted: 1, updated: 0 });
+
+    const db = getDb();
+    const sourceRows = await db
+      .select({
+        sourceId: sources.sourceId,
+        name: sources.name,
+        expectedCadence: sources.expectedCadence
+      })
+      .from(sources);
+
+    expect(sourceRows).toEqual([
+      {
+        sourceId: "abs_cpi",
+        name: "ABS CPI Registry",
+        expectedCadence: "daily"
+      }
+    ]);
   });
 });

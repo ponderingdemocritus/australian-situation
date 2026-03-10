@@ -7,7 +7,10 @@ import {
   fetchAbsHousingSnapshot,
   fetchAbsCpiSnapshot,
   fetchAerRetailPlansSnapshot,
+  fetchAemoNemSourceMixSnapshot,
+  fetchAemoWemSourceMixSnapshot,
   fetchAemoWholesaleSnapshot,
+  fetchDccEeewGenerationMixSnapshot,
   fetchEiaElectricitySnapshot,
   fetchEntsoeWholesaleSnapshot,
   fetchEurostatRetailSnapshot,
@@ -81,6 +84,138 @@ describe("live source clients", () => {
       transient: true,
       status: 503
     } satisfies Partial<SourceClientError>);
+  });
+
+  test("maps DCCEEW generation mix payload into canonical annual source mix points", async () => {
+    const snapshot = await fetchDccEeewGenerationMixSnapshot({
+      endpoint: "https://example.test/dcceew",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            year: "2024",
+            data: [
+              {
+                region_code: "AU",
+                source_key: "coal",
+                generation_gwh: 170245,
+                share_pct: 46.8
+              },
+              {
+                region_code: "NT",
+                source_key: "gas",
+                generation_gwh: 4512,
+                share_pct: 84.2
+              }
+            ]
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("dcceew_generation_mix");
+    expect(snapshot.points).toEqual([
+      {
+        regionCode: "AU",
+        period: "2024",
+        sourceKey: "coal",
+        generationGwh: 170245,
+        sharePct: 46.8
+      },
+      {
+        regionCode: "NT",
+        period: "2024",
+        sourceKey: "gas",
+        generationGwh: 4512,
+        sharePct: 84.2
+      }
+    ]);
+  });
+
+  test("maps AEMO NEM source mix payload into canonical operational mix points", async () => {
+    const snapshot = await fetchAemoNemSourceMixSnapshot({
+      endpoint: "https://example.test/aemo-nem-mix",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            interval_start_utc: "2026-02-27T02:00:00Z",
+            data: [
+              {
+                region_code: "NSW",
+                source_key: "coal",
+                generation_mw: 5610,
+                share_pct: 68.5
+              },
+              {
+                region_code: "SA",
+                source_key: "other_renewables",
+                generation_mw: 842,
+                share_pct: 71.2
+              }
+            ]
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("aemo_nem_source_mix");
+    expect(snapshot.points).toEqual([
+      {
+        regionCode: "NSW",
+        timestamp: "2026-02-27T02:00:00Z",
+        sourceKey: "coal",
+        generationMw: 5610,
+        sharePct: 68.5
+      },
+      {
+        regionCode: "SA",
+        timestamp: "2026-02-27T02:00:00Z",
+        sourceKey: "other_renewables",
+        generationMw: 842,
+        sharePct: 71.2
+      }
+    ]);
+  });
+
+  test("maps AEMO WEM source mix payload into canonical operational mix points", async () => {
+    const snapshot = await fetchAemoWemSourceMixSnapshot({
+      endpoint: "https://example.test/aemo-wem-mix",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            interval_start_utc: "2026-02-27T02:00:00Z",
+            data: [
+              {
+                region_code: "WA",
+                source_key: "gas",
+                generation_mw: 1184,
+                share_pct: 62.1
+              },
+              {
+                region_code: "WA",
+                source_key: "coal",
+                generation_mw: 408,
+                share_pct: 21.4
+              }
+            ]
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("aemo_wem_source_mix");
+    expect(snapshot.points).toEqual([
+      {
+        regionCode: "WA",
+        timestamp: "2026-02-27T02:00:00Z",
+        sourceKey: "gas",
+        generationMw: 1184,
+        sharePct: 62.1
+      },
+      {
+        regionCode: "WA",
+        timestamp: "2026-02-27T02:00:00Z",
+        sourceKey: "coal",
+        generationMw: 408,
+        sharePct: 21.4
+      }
+    ]);
   });
 
   test("maps AER PRD payload into plan rows", async () => {

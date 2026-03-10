@@ -1,5 +1,5 @@
 import {
-  createSeedLiveStore
+  getSourceCatalogItems
 } from "@aus-dash/shared";
 import {
   fetchAerRetailPlansSnapshot,
@@ -35,6 +35,36 @@ const DMO_PLAN_FIXTURE: AerRetailPlan[] = [
     regionCode: "QLD",
     customerType: "residential",
     annualBillAud: 2015
+  },
+  {
+    planId: "dmo-sa-1",
+    regionCode: "SA",
+    customerType: "residential",
+    annualBillAud: 2080
+  },
+  {
+    planId: "dmo-wa-1",
+    regionCode: "WA",
+    customerType: "residential",
+    annualBillAud: 2190
+  },
+  {
+    planId: "dmo-tas-1",
+    regionCode: "TAS",
+    customerType: "residential",
+    annualBillAud: 1930
+  },
+  {
+    planId: "dmo-act-1",
+    regionCode: "ACT",
+    customerType: "residential",
+    annualBillAud: 2035
+  },
+  {
+    planId: "dmo-nt-1",
+    regionCode: "NT",
+    customerType: "residential",
+    annualBillAud: 2290
   }
 ];
 
@@ -157,7 +187,7 @@ export async function syncEnergyBenchmarkDmo(
   const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
-    sourceCatalog: createSeedLiveStore().sources,
+    sourceCatalog: getSourceCatalogItems(),
     rawSnapshots: [
       {
         sourceId: "aer_prd",

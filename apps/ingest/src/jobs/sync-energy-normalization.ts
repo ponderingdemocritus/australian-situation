@@ -1,11 +1,9 @@
 import {
   compareObservationRecency,
-  createSeedLiveStore,
   getSourceCatalogItems,
   type LiveObservation,
   pickLatestObservation,
-  readLiveStoreSync,
-  type SourceCatalogItem
+  readLiveStoreSync
 } from "@aus-dash/shared";
 import {
   fetchWorldBankNormalizationSnapshot,
@@ -22,10 +20,6 @@ import {
   buildIngestRunAuditFields,
   type IngestRunAuditOptions
 } from "./ingest-run-audit";
-
-const GLOBAL_SOURCE_CATALOG: SourceCatalogItem[] = getSourceCatalogItems([
-  "world_bank_normalization"
-]);
 
 const WORLD_BANK_FIXTURE: WorldBankNormalizationPoint[] = [
   {
@@ -421,7 +415,7 @@ export async function syncEnergyNormalization(
   const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
-    sourceCatalog: [...createSeedLiveStore().sources, ...GLOBAL_SOURCE_CATALOG],
+    sourceCatalog: getSourceCatalogItems(),
     rawSnapshots: [
       {
         sourceId: "world_bank_normalization",

@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { mergeSourceCatalogItems } from "@aus-dash/shared";
 import { describeRoute, validator } from "hono-openapi";
 import type { LiveDataRepository } from "../repositories/live-data-contract";
 import {
@@ -45,7 +46,11 @@ export function registerMetadataRoutes(
     }),
     async (c) => {
       const repository = createRepository();
-      return c.json(await repository.getMetadataSources());
+      const response = await repository.getMetadataSources();
+      return c.json({
+        ...response,
+        sources: mergeSourceCatalogItems(response.sources)
+      });
     }
   );
 }

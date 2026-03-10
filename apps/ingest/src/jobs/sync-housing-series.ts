@@ -1,5 +1,5 @@
 import {
-  createSeedLiveStore,
+  getSourceCatalogItems
 } from "@aus-dash/shared";
 import {
   fetchAbsHousingSnapshot,
@@ -140,7 +140,7 @@ export async function syncHousingSeries(
   const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
-    sourceCatalog: createSeedLiveStore().sources,
+    sourceCatalog: getSourceCatalogItems(),
     rawSnapshots: [
       {
         sourceId: "abs_housing",

@@ -100,4 +100,34 @@ describe("syncEnergyWholesale", () => {
     expect(result.latest.audMwh).toBe(125);
     expect(result.latest.cKwh).toBe(12.5);
   });
+
+  test("persists regional wholesale observations alongside the AU aggregate", async () => {
+    const syncEnergyWholesale = await loadSyncEnergyWholesale();
+    expect(typeof syncEnergyWholesale).toBe("function");
+    if (typeof syncEnergyWholesale !== "function") {
+      return;
+    }
+
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), "aus-dash-wholesale-regional-"));
+    const storePath = resolveLiveStorePath(path.join(tempDir, "live-store.json"));
+
+    await syncEnergyWholesale({ storePath });
+
+    const after = readLiveStoreSync(storePath);
+    const latestRegionalPoints = after.observations.filter(
+      (observation) =>
+        observation.seriesId === "energy.wholesale.rrp.region_aud_mwh" &&
+        observation.date === "2026-02-27T02:00:00Z"
+    );
+
+    expect(latestRegionalPoints).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ regionCode: "NSW", value: 120 }),
+        expect.objectContaining({ regionCode: "VIC", value: 100 }),
+        expect.objectContaining({ regionCode: "QLD", value: 140 }),
+        expect.objectContaining({ regionCode: "SA", value: 138 }),
+        expect.objectContaining({ regionCode: "TAS", value: 104 })
+      ])
+    );
+  });
 });

@@ -4,7 +4,9 @@ import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import {
   appendIngestionRun,
+  dedupeSourceCatalogItems,
   getSourceCatalogItems,
+  getSourceReferences,
   readLiveStoreSync,
   resolveLiveStorePath,
   setSourceCursor,
@@ -197,5 +199,36 @@ describe("live store", () => {
       ])
     );
     expect(reread.sources).toHaveLength(getSourceCatalogItems().length);
+  });
+
+  test("deduplicates source catalog items by source id using the latest metadata", () => {
+    const canonical = getSourceCatalogItems(["abs_cpi"])[0]!;
+
+    expect(
+      dedupeSourceCatalogItems([
+        canonical,
+        {
+          ...canonical,
+          name: "ABS CPI Registry",
+          expectedCadence: "daily"
+        }
+      ])
+    ).toEqual([
+      expect.objectContaining({
+        sourceId: "abs_cpi",
+        name: "ABS CPI Registry",
+        expectedCadence: "daily"
+      })
+    ]);
+  });
+
+  test("builds joinable source references from canonical registry ids", () => {
+    expect(getSourceReferences(["aer_prd"])).toEqual([
+      expect.objectContaining({
+        sourceId: "aer_prd",
+        name: "AER Product Reference Data",
+        url: "https://www.aer.gov.au/energy-product-reference-data"
+      })
+    ]);
   });
 });

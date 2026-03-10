@@ -2,10 +2,38 @@ export const REGIONS = ["AU", "NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT
 
 export type RegionCode = (typeof REGIONS)[number];
 
+export const STATE_REGIONS = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"] as const;
+
+export type StateRegionCode = (typeof STATE_REGIONS)[number];
+
 export const DEFAULT_REGION: RegionCode = "AU";
+
+export type SourceRef = {
+  sourceId: string;
+  name: string;
+  url: string;
+};
+
+export type EnergySourceMixRow = {
+  sourceKey: string;
+  label: string;
+  sharePct: number;
+};
+
+export type EnergySourceMixView = {
+  viewId: "annual_official" | "operational_nem_wem";
+  title: string;
+  coverageLabel: string;
+  updatedAt: string;
+  sourceRefs: SourceRef[];
+  rows: EnergySourceMixRow[];
+};
 
 export type EnergyOverviewResponse = {
   region: string;
+  methodSummary: string | null;
+  sourceRefs: SourceRef[];
+  sourceMixViews: EnergySourceMixView[];
   panels: {
     liveWholesale: {
       valueAudMwh: number;
@@ -81,6 +109,19 @@ export type MethodologyMetadataResponse = {
   requiredDimensions: string[];
 };
 
+export type MetadataSource = {
+  sourceId: string;
+  domain: "housing" | "energy" | "macro";
+  name: string;
+  url: string;
+  expectedCadence: string;
+};
+
+export type MetadataSourcesResponse = {
+  generatedAt: string;
+  sources: MetadataSource[];
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -130,13 +171,120 @@ function parseComparisonRows(value: unknown): Array<{
   return rows;
 }
 
+function parseSourceRefs(value: unknown): SourceRef[] | null {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const sourceRefs: SourceRef[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) {
+      return null;
+    }
+    if (
+      typeof item.sourceId !== "string" ||
+      typeof item.name !== "string" ||
+      typeof item.url !== "string"
+    ) {
+      return null;
+    }
+
+    sourceRefs.push({
+      sourceId: item.sourceId,
+      name: item.name,
+      url: item.url
+    });
+  }
+
+  return sourceRefs;
+}
+
+function parseSourceMixRows(value: unknown): EnergySourceMixRow[] | null {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const rows: EnergySourceMixRow[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) {
+      return null;
+    }
+    if (
+      typeof item.sourceKey !== "string" ||
+      typeof item.label !== "string" ||
+      !isFiniteNumber(item.sharePct)
+    ) {
+      return null;
+    }
+
+    rows.push({
+      sourceKey: item.sourceKey,
+      label: item.label,
+      sharePct: item.sharePct
+    });
+  }
+
+  return rows;
+}
+
+function parseSourceMixViews(value: unknown): EnergySourceMixView[] | null {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const views: EnergySourceMixView[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) {
+      return null;
+    }
+
+    const sourceRefs = parseSourceRefs(item.sourceRefs);
+    const rows = parseSourceMixRows(item.rows);
+    if (
+      sourceRefs === null ||
+      rows === null ||
+      (item.viewId !== "annual_official" && item.viewId !== "operational_nem_wem") ||
+      typeof item.title !== "string" ||
+      typeof item.coverageLabel !== "string" ||
+      typeof item.updatedAt !== "string"
+    ) {
+      return null;
+    }
+
+    views.push({
+      viewId: item.viewId,
+      title: item.title,
+      coverageLabel: item.coverageLabel,
+      updatedAt: item.updatedAt,
+      sourceRefs,
+      rows
+    });
+  }
+
+  return views;
+}
+
 export function parseEnergyOverviewResponse(payload: unknown): EnergyOverviewResponse | null {
   if (!isRecord(payload)) {
     return null;
   }
 
-  const { region, panels, freshness } = payload;
+  const { region, panels, freshness, methodSummary } = payload;
+  const sourceRefs = parseSourceRefs(payload.sourceRefs);
+  const sourceMixViews = parseSourceMixViews(payload.sourceMixViews);
   if (typeof region !== "string" || !isRecord(panels) || !isRecord(freshness)) {
+    return null;
+  }
+  if (sourceRefs === null || sourceMixViews === null) {
     return null;
   }
 
@@ -177,6 +325,9 @@ export function parseEnergyOverviewResponse(payload: unknown): EnergyOverviewRes
 
   return {
     region,
+    methodSummary: typeof methodSummary === "string" ? methodSummary : null,
+    sourceRefs,
+    sourceMixViews,
     panels: {
       liveWholesale: {
         valueAudMwh: liveWholesale.valueAudMwh,
@@ -334,5 +485,46 @@ export function parseMethodologyMetadataResponse(
     methodologyVersion: payload.methodologyVersion,
     description: payload.description,
     requiredDimensions: payload.requiredDimensions
+  };
+}
+
+export function parseMetadataSourcesResponse(
+  payload: unknown
+): MetadataSourcesResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  if (typeof payload.generatedAt !== "string" || !Array.isArray(payload.sources)) {
+    return null;
+  }
+
+  const sources: MetadataSource[] = [];
+  for (const item of payload.sources) {
+    if (!isRecord(item)) {
+      return null;
+    }
+    if (
+      typeof item.sourceId !== "string" ||
+      (item.domain !== "housing" && item.domain !== "energy" && item.domain !== "macro") ||
+      typeof item.name !== "string" ||
+      typeof item.url !== "string" ||
+      typeof item.expectedCadence !== "string"
+    ) {
+      return null;
+    }
+
+    sources.push({
+      sourceId: item.sourceId,
+      domain: item.domain,
+      name: item.name,
+      url: item.url,
+      expectedCadence: item.expectedCadence
+    });
+  }
+
+  return {
+    generatedAt: payload.generatedAt,
+    sources
   };
 }

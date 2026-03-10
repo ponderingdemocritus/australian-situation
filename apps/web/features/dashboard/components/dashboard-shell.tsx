@@ -1,15 +1,20 @@
 "use client";
 
+import { PieBreakdownChart, type PieBreakdownDatum } from "@aus-dash/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_REGION,
   REGIONS,
+  STATE_REGIONS,
   type ComparisonBasis,
   type EnergyOverviewResponse,
+  type EnergySourceMixView,
   type HousingOverviewResponse,
+  type MetadataSourcesResponse,
   type MethodologyMetadataResponse,
   parseEnergyOverviewResponse,
   parseHousingOverviewResponse,
+  parseMetadataSourcesResponse,
   parseMethodologyMetadataResponse,
   parseRetailComparisonResponse,
   parseWholesaleComparisonResponse,
@@ -46,6 +51,15 @@ type DataHealthRow = {
   value: string;
   positive: boolean;
 };
+
+type ProvenanceRow = {
+  sourceId: string;
+  detail: string;
+};
+
+type RegionEnergyOverviewMap = Partial<Record<RegionCode, EnergyOverviewResponse | null>>;
+
+type SourceMixViewMode = "annual_official" | "operational_nem_wem";
 
 type FeedEntry = {
   action: string;
@@ -104,6 +118,16 @@ const HOUSING_METRIC_COPY = {
     hint: "Number of investor housing loans"
   }
 } as const;
+
+const SOURCE_MIX_COLORS: Record<string, string> = {
+  coal: "#7dd3fc",
+  gas: "#38bdf8",
+  hydro: "#2dd4bf",
+  wind: "#86efac",
+  solar: "#facc15",
+  other_renewables: "#c4b5fd",
+  other: "#94a3b8"
+};
 
 type RetailComparisonByBasis = {
   nominal: RetailComparisonResponse | null;
@@ -203,6 +227,10 @@ function buildWholesaleComparisonUrl(): string {
 function buildMethodologyUrl(metric: string): string {
   const params = new URLSearchParams({ metric });
   return `${API_BASE_URL}/api/v1/metadata/methodology?${params.toString()}`;
+}
+
+function buildMetadataSourcesUrl(): string {
+  return `${API_BASE_URL}/api/metadata/sources`;
 }
 
 function formatComparisonValue(value: number, basis: ComparisonBasis): string {
@@ -415,6 +443,88 @@ function buildDataHealthRows(
   ];
 }
 
+function buildProvenanceRows(
+  energyOverview: EnergyOverviewResponse | null,
+  metadataSources: MetadataSourcesResponse | null
+): ProvenanceRow[] {
+  if (!energyOverview || energyOverview.sourceRefs.length === 0) {
+    return [];
+  }
+
+  const metadataById = new Map(
+    metadataSources?.sources.map((source) => [source.sourceId, source]) ?? []
+  );
+
+  return energyOverview.sourceRefs.map((sourceRef) => {
+    const metadata = metadataById.get(sourceRef.sourceId);
+    return {
+      sourceId: sourceRef.sourceId,
+      detail: [
+        metadata?.name ?? sourceRef.name,
+        metadata?.expectedCadence ?? "unknown cadence",
+        metadata?.domain ?? "unknown"
+      ].join(" · ")
+    };
+  });
+}
+
+function buildStateEnergyRows(
+  stateEnergyOverviews: RegionEnergyOverviewMap,
+  activeRegion: RegionCode
+) {
+  return STATE_REGIONS.map((stateRegion) => {
+    const overview = stateEnergyOverviews[stateRegion] ?? null;
+
+    return {
+      region: stateRegion,
+      annualBillLabel: overview
+        ? formatCurrency(overview.panels.retailAverage.annualBillAudMean)
+        : "--",
+      detail: overview
+        ? `RRP ${formatAudMwh(overview.panels.liveWholesale.valueAudMwh)}`
+        : "WAITING",
+      freshness: overview?.freshness.status.toUpperCase() ?? "WAITING",
+      isActive: activeRegion === stateRegion
+    };
+  });
+}
+
+function buildSelectedEnergyRow(region: RegionCode, overview: EnergyOverviewResponse | null) {
+  if (!overview) {
+    return null;
+  }
+
+  return {
+    region,
+    annualBillLabel: formatCurrency(overview.panels.retailAverage.annualBillAudMean),
+    detail: `RRP ${formatAudMwh(overview.panels.liveWholesale.valueAudMwh)}`,
+    freshness: overview.freshness.status.toUpperCase(),
+    isActive: true
+  };
+}
+
+function findSourceMixView(
+  overview: EnergyOverviewResponse | null,
+  viewId: SourceMixViewMode
+): EnergySourceMixView | null {
+  return overview?.sourceMixViews.find((view) => view.viewId === viewId) ?? null;
+}
+
+function getSourceMixColor(sourceKey: string): string {
+  return SOURCE_MIX_COLORS[sourceKey] ?? "#94a3b8";
+}
+
+function buildSourceMixChartData(view: EnergySourceMixView | null): PieBreakdownDatum[] {
+  return (
+    view?.rows.map((row) => ({
+      key: row.sourceKey,
+      label: row.label,
+      value: row.sharePct,
+      color: getSourceMixColor(row.sourceKey)
+    })) ?? []
+  );
+}
+
 function formatLogTime(timestamp: string): string {
   const parsed = Date.parse(timestamp);
   if (Number.isNaN(parsed)) {
@@ -432,6 +542,8 @@ type DashboardShellProps = {
   initialRetailComparisonPpp?: RetailComparisonResponse | null;
   initialWholesaleComparison?: WholesaleComparisonResponse | null;
   initialRetailMethodology?: MethodologyMetadataResponse | null;
+  initialMetadataSources?: MetadataSourcesResponse | null;
+  initialStateEnergyOverviews?: RegionEnergyOverviewMap;
 };
 
 export function DashboardShell({
@@ -441,7 +553,9 @@ export function DashboardShell({
   initialRetailComparisonNominal = null,
   initialRetailComparisonPpp = null,
   initialWholesaleComparison = null,
-  initialRetailMethodology = null
+  initialRetailMethodology = null,
+  initialMetadataSources = null,
+  initialStateEnergyOverviews = {}
 }: DashboardShellProps = {}) {
   const [region, setRegionState] = useState<RegionCode>(initialRegion);
   const [subject, setSubject] = useState<SubjectTab>(() => resolveInitialSubject());
@@ -475,6 +589,16 @@ export function DashboardShell({
     useState<WholesaleComparisonResponse | null>(initialWholesaleComparison);
   const [retailMethodology, setRetailMethodology] =
     useState<MethodologyMetadataResponse | null>(initialRetailMethodology);
+  const [metadataSources, setMetadataSources] =
+    useState<MetadataSourcesResponse | null>(initialMetadataSources);
+  const [stateEnergyOverviews, setStateEnergyOverviews] = useState<RegionEnergyOverviewMap>(
+    initialStateEnergyOverviews
+  );
+  const [sourceMixView, setSourceMixView] = useState<SourceMixViewMode>("annual_official");
+  const [stateEnergyLoading, setStateEnergyLoading] = useState(
+    !REGIONS.every((targetRegion) => targetRegion in initialStateEnergyOverviews)
+  );
+  const [stateEnergyError, setStateEnergyError] = useState<string | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(
     !(
       initialRetailComparisonNominal &&
@@ -493,6 +617,10 @@ export function DashboardShell({
       initialRetailComparisonPpp !== null &&
       initialWholesaleComparison !== null &&
       initialRetailMethodology !== null
+  );
+  const skipInitialMetadataSourcesFetch = useRef(initialMetadataSources !== null);
+  const skipInitialStateEnergyFetch = useRef(
+    REGIONS.every((targetRegion) => targetRegion in initialStateEnergyOverviews)
   );
   const lineCounterRef = useRef(1000);
   const latestEnergyFeedKeyRef = useRef<string | null>(null);
@@ -707,6 +835,101 @@ export function DashboardShell({
   }, []);
 
   useEffect(() => {
+    if (skipInitialMetadataSourcesFetch.current) {
+      skipInitialMetadataSourcesFetch.current = false;
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    async function loadMetadataSources() {
+      try {
+        const response = await fetch(buildMetadataSourcesUrl(), {
+          signal: abortController.signal,
+          cache: "no-store"
+        });
+        if (!response.ok) {
+          throw new Error(`metadata sources request failed with ${response.status}`);
+        }
+
+        const payload = parseMetadataSourcesResponse(await response.json());
+        if (!payload) {
+          throw new Error("invalid metadata sources response");
+        }
+
+        setMetadataSources(payload);
+      } catch {
+        if (!abortController.signal.aborted) {
+          setMetadataSources(null);
+        }
+      }
+    }
+
+    void loadMetadataSources();
+
+    return () => {
+      abortController.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (skipInitialStateEnergyFetch.current) {
+      skipInitialStateEnergyFetch.current = false;
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    async function loadStateEnergyOverviews() {
+      setStateEnergyLoading(true);
+      setStateEnergyError(null);
+
+      try {
+        const entries = await Promise.all(
+          REGIONS.map(async (targetRegion) => {
+            const response = await fetch(buildOverviewUrl("/api/energy/overview", targetRegion), {
+              signal: abortController.signal,
+              cache: "no-store"
+            });
+            if (!response.ok) {
+              return [targetRegion, null] as const;
+            }
+
+            return [
+              targetRegion,
+              parseEnergyOverviewResponse(await response.json())
+            ] as const;
+          })
+        );
+
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setStateEnergyOverviews(
+          Object.fromEntries(entries) as RegionEnergyOverviewMap
+        );
+      } catch {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setStateEnergyError("STATE_DATA_UNAVAILABLE");
+      } finally {
+        if (!abortController.signal.aborted) {
+          setStateEnergyLoading(false);
+        }
+      }
+    }
+
+    void loadStateEnergyOverviews();
+
+    return () => {
+      abortController.abort();
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -805,6 +1028,20 @@ export function DashboardShell({
   const energyRows = buildEnergyMetricRows(energyOverview);
   const housingRows = buildHousingMetricRows(housingOverview);
   const dataHealthRows = buildDataHealthRows(energyOverview, housingOverview);
+  const provenanceRows = buildProvenanceRows(energyOverview, metadataSources);
+  const stateEnergyRows = buildStateEnergyRows(stateEnergyOverviews, region);
+  const selectedSourceMixView = findSourceMixView(
+    energyOverview ?? stateEnergyOverviews[region] ?? null,
+    sourceMixView
+  );
+  const sourceMixChartData = buildSourceMixChartData(selectedSourceMixView);
+  const selectedStateEnergyRows = stateEnergyRows.filter((row) => row.region === region);
+  const visibleStateEnergyRows =
+    selectedStateEnergyRows.length > 0
+      ? selectedStateEnergyRows
+      : [
+          buildSelectedEnergyRow(region, energyOverview ?? stateEnergyOverviews[region] ?? null)
+        ].filter((row): row is NonNullable<typeof row> => row !== null);
   const activeRetailComparison = retailComparisons[comparisonBasis];
   const comparisonMethodologyVersion =
     activeRetailComparison?.methodologyVersion ??
@@ -1037,6 +1274,26 @@ export function DashboardShell({
                       {wholesaleComparison?.auPercentile ?? "--"}
                     </span>
                   </div>
+
+                  {energyOverview?.methodSummary ? (
+                    <div className="dashboard-warning-detail">{energyOverview.methodSummary}</div>
+                  ) : null}
+
+                  {provenanceRows.length > 0 ? (
+                    <>
+                      <div className="dashboard-subsection-header">
+                        <span>PROVENANCE</span>
+                        <span className="dashboard-text-dim">{provenanceRows.length} sources</span>
+                      </div>
+
+                      {provenanceRows.map((row) => (
+                        <div key={row.sourceId} className="dashboard-sector-row">
+                          <span className="dashboard-metric-label">{row.sourceId}</span>
+                          <span className="dashboard-text-primary">{row.detail}</span>
+                        </div>
+                      ))}
+                    </>
+                  ) : null}
                 </>
               ) : null}
 
@@ -1115,9 +1372,127 @@ export function DashboardShell({
               </span>
             </div>
 
-            <div className="dashboard-region-sync" aria-live="polite">
-              <span>Housing region: {region}</span>
-              <span>Energy region: {region}</span>
+            <div
+              className="dashboard-map-detail-scroll"
+              role="region"
+              aria-label="State data panels"
+            >
+              <div className="dashboard-region-sync" aria-live="polite">
+                <span>Housing region: {region}</span>
+                <span>Energy region: {region}</span>
+              </div>
+
+              <section className="dashboard-state-energy-panel" aria-label="State by state energy">
+                <div className="dashboard-subsection-header">
+                  <span>STATE_BY_STATE_ENERGY</span>
+                  <span className="dashboard-text-dim">
+                    {region} · {stateEnergyLoading ? "SYNCING" : "annual bill"}
+                  </span>
+                </div>
+
+                {stateEnergyError ? (
+                  <div className="dashboard-warning-state">{stateEnergyError}</div>
+                ) : null}
+
+                {visibleStateEnergyRows.map((row) => (
+                  <button
+                    key={row.region}
+                    type="button"
+                    className="dashboard-state-energy-row"
+                    data-active={row.isActive}
+                    onClick={() => setRegion(row.region)}
+                  >
+                    <span className="dashboard-metric-label">{row.region}</span>
+                    <span className="dashboard-state-energy-value">{row.annualBillLabel}</span>
+                    <span className="dashboard-state-energy-detail">{row.detail}</span>
+                    <span
+                      className={[
+                        "dashboard-state-energy-status",
+                        row.freshness === "FRESH" ? "dashboard-text-green" : "dashboard-text-dim"
+                      ].join(" ")}
+                    >
+                      {row.freshness}
+                    </span>
+                  </button>
+                ))}
+              </section>
+
+              <section
+                className="dashboard-state-energy-panel"
+                aria-label="State by state source mix"
+              >
+                <div className="dashboard-subsection-header">
+                  <span>STATE_BY_STATE_SOURCE_MIX</span>
+                  <span className="dashboard-text-dim">
+                    {region} ·{" "}
+                    {sourceMixView === "annual_official"
+                      ? "official annual"
+                      : "operational NEM + WA"}
+                  </span>
+                </div>
+
+                <div className="dashboard-source-mix-toggle" aria-label="Source mix view">
+                  <button
+                    type="button"
+                    className="dashboard-source-mix-button"
+                    data-active={sourceMixView === "annual_official"}
+                    onClick={() => setSourceMixView("annual_official")}
+                  >
+                    Official annual
+                  </button>
+                  <button
+                    type="button"
+                    className="dashboard-source-mix-button"
+                    data-active={sourceMixView === "operational_nem_wem"}
+                    onClick={() => setSourceMixView("operational_nem_wem")}
+                  >
+                    Operational NEM + WA
+                  </button>
+                </div>
+
+                {stateEnergyError ? (
+                  <div className="dashboard-warning-state">{stateEnergyError}</div>
+                ) : null}
+
+                {sourceMixChartData.length > 0 ? (
+                  <div className="dashboard-source-mix-card">
+                    <div className="dashboard-source-mix-card-header">
+                      <span className="dashboard-metric-label">{region}</span>
+                      <span
+                        className={
+                          sourceMixView === "annual_official"
+                            ? "dashboard-text-dim"
+                            : "dashboard-text-green"
+                        }
+                      >
+                        {sourceMixView === "annual_official"
+                          ? selectedSourceMixView?.updatedAt ?? "WAITING"
+                          : "LIVE"}
+                      </span>
+                    </div>
+
+                    <PieBreakdownChart
+                      ariaLabel={`${region} source mix chart`}
+                      data={sourceMixChartData}
+                      centerLabel={region}
+                      className="dashboard-source-mix-breakdown"
+                      chartClassName="dashboard-source-mix-chart"
+                      legendClassName="dashboard-source-mix-legend"
+                      legendItemClassName="dashboard-source-mix-legend-item"
+                      legendLabelClassName="dashboard-source-mix-legend-label"
+                      legendValueClassName="dashboard-source-mix-legend-value"
+                    />
+
+                    <div className="dashboard-source-mix-meta">
+                      <span className="dashboard-state-energy-detail">
+                        {selectedSourceMixView?.coverageLabel ?? "WAITING"}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="dashboard-warning-detail">No source mix breakdown available.</div>
+                )}
+              </section>
             </div>
           </section>
 

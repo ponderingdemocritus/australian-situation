@@ -7,6 +7,7 @@ import {
   sources
 } from "@aus-dash/db";
 import {
+  dedupeSourceCatalogItems,
   payloadChecksumSha256,
   type IngestionRun,
   type LiveObservation,
@@ -104,12 +105,14 @@ export function mapIngestionRunForPostgres(run: IngestionRun) {
 export async function ensureSourceCatalogInPostgres(
   sourceCatalog: SourceCatalogItem[]
 ): Promise<void> {
-  if (sourceCatalog.length === 0) {
+  const dedupedSourceCatalog = dedupeSourceCatalogItems(sourceCatalog);
+
+  if (dedupedSourceCatalog.length === 0) {
     return;
   }
 
   const db = getDb();
-  for (const sourceItem of sourceCatalog) {
+  for (const sourceItem of dedupedSourceCatalog) {
     await db
       .insert(sources)
       .values({
@@ -384,13 +387,14 @@ export async function persistIngestArtifactsInPostgres(input: {
   ingestionRun: Omit<IngestionRun, "runId" | "rowsInserted" | "rowsUpdated">;
 }): Promise<{ inserted: number; updated: number }> {
   const db = getDb();
+  const dedupedSourceCatalog = dedupeSourceCatalogItems(input.sourceCatalog);
 
   return db.transaction(async (tx) => {
-    if (input.sourceCatalog.length > 0) {
+    if (dedupedSourceCatalog.length > 0) {
       await tx
         .insert(sources)
         .values(
-          input.sourceCatalog.map((sourceItem) => ({
+          dedupedSourceCatalog.map((sourceItem) => ({
             sourceId: sourceItem.sourceId,
             domain: sourceItem.domain,
             name: sourceItem.name,
@@ -401,10 +405,10 @@ export async function persistIngestArtifactsInPostgres(input: {
         .onConflictDoUpdate({
           target: sources.sourceId,
           set: {
-            domain: sources.domain,
-            name: sources.name,
-            url: sources.url,
-            expectedCadence: sources.expectedCadence
+            domain: sql.raw("excluded.domain"),
+            name: sql.raw("excluded.name"),
+            url: sql.raw("excluded.url"),
+            expectedCadence: sql.raw("excluded.expected_cadence")
           }
         });
     }

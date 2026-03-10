@@ -1,5 +1,5 @@
 import {
-  createSeedLiveStore
+  getSourceCatalogItems
 } from "@aus-dash/shared";
 import {
   fetchRbaRatesSnapshot,
@@ -110,7 +110,7 @@ export async function syncHousingRba(
   const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
-    sourceCatalog: createSeedLiveStore().sources,
+    sourceCatalog: getSourceCatalogItems(),
     rawSnapshots: [
       {
         sourceId: "rba_rates",

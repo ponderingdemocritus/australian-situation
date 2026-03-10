@@ -15,6 +15,19 @@ function getEconomicPanel() {
 function createEnergyPayload(region: string) {
   return {
     region,
+    methodSummary: "Combines wholesale, retail, benchmark, and CPI source data.",
+    sourceRefs: [
+      {
+        sourceId: "aemo_wholesale",
+        name: "AEMO NEM Wholesale",
+        url: "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem"
+      },
+      {
+        sourceId: "aer_prd",
+        name: "AER Product Reference Data",
+        url: "https://www.aer.gov.au/energy-product-reference-data"
+      }
+    ],
     panels: {
       liveWholesale: {
         valueAudMwh: 118,
@@ -97,6 +110,28 @@ function createMethodologyPayload() {
   };
 }
 
+function createMetadataSourcesPayload() {
+  return {
+    generatedAt: "2026-02-27T02:00:00Z",
+    sources: [
+      {
+        sourceId: "aemo_wholesale",
+        domain: "energy",
+        name: "AEMO NEM Wholesale",
+        url: "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem",
+        expectedCadence: "5m"
+      },
+      {
+        sourceId: "aer_prd",
+        domain: "energy",
+        name: "AER Product Reference Data",
+        url: "https://www.aer.gov.au/energy-product-reference-data",
+        expectedCadence: "daily"
+      }
+    ]
+  };
+}
+
 describe("dashboard server prefetch", () => {
   beforeEach(() => {
     fetchMock.mockReset();
@@ -140,6 +175,13 @@ describe("dashboard server prefetch", () => {
           json: async () => createMethodologyPayload()
         };
       }
+      if (url.includes("/api/metadata/sources")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => createMetadataSourcesPayload()
+        };
+      }
 
       return {
         ok: true,
@@ -169,5 +211,19 @@ describe("dashboard server prefetch", () => {
 
     expect(screen.queryByText("SYNCING...")).toBeNull();
     expect(screen.queryByText("COMPARISON_SYNCING...")).toBeNull();
+  });
+
+  test("renders provenance catalog rows joined from source refs and metadata sources", async () => {
+    await renderHomePage();
+
+    screen.getByRole("tab", { name: "Energy" }).click();
+    const panel = getEconomicPanel();
+    await waitFor(() => {
+      expect(panel.getByText("PROVENANCE")).toBeDefined();
+      expect(panel.getByText("aemo_wholesale")).toBeDefined();
+      expect(panel.getByText("AEMO NEM Wholesale · 5m · energy")).toBeDefined();
+      expect(panel.getByText("aer_prd")).toBeDefined();
+      expect(panel.getByText("AER Product Reference Data · daily · energy")).toBeDefined();
+    });
   });
 });
