@@ -123,6 +123,11 @@ The generated contract is the source of truth:
 
 Use the generated docs instead of maintaining endpoint tables by hand in `README.md`.
 
+Comparison semantics:
+
+- Energy comparison ranks are ascending by price. Rank `1` is the cheapest observation in the comparison set.
+- China comparison entries are proxy-based. Retail uses a Beijing residential tariff proxy and wholesale uses an NEA annual market-price proxy.
+
 ## Data Backends
 
 API backend is selected via `AUS_DASH_DATA_BACKEND`:

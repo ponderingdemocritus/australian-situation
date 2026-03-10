@@ -34,7 +34,7 @@ function listCountriesForSeries(
 }
 
 describe("energy comparison completeness gate", () => {
-  test("produces AU, US, and DE comparable rows for dashboard comparison endpoints", async () => {
+  test("produces retail comparison rows for AU, US, DE, ID, and CN plus wholesale rows for AU, US, DE, and CN", async () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), "aus-dash-energy-compare-gate-"));
     const storePath = resolveLiveStorePath(path.join(tempDir, "live-store.json"));
 
@@ -52,7 +52,7 @@ describe("energy comparison completeness gate", () => {
         consumptionBand: "household_mid"
       }
     );
-    expect(nominalRetailCountries).toEqual(["AU", "DE", "US"]);
+    expect(nominalRetailCountries).toEqual(["AU", "CN", "DE", "ID", "US"]);
 
     const pppRetailCountries = listCountriesForSeries(
       storePath,
@@ -62,12 +62,12 @@ describe("energy comparison completeness gate", () => {
         consumptionBand: "household_mid"
       }
     );
-    expect(pppRetailCountries).toEqual(["AU", "DE", "US"]);
+    expect(pppRetailCountries).toEqual(["AU", "CN", "DE", "ID", "US"]);
 
     const wholesaleCountries = listCountriesForSeries(
       storePath,
       "energy.wholesale.spot.country.usd_mwh"
     );
-    expect(wholesaleCountries).toEqual(["AU", "DE", "US"]);
+    expect(wholesaleCountries).toEqual(["AU", "CN", "DE", "US"]);
   });
 });

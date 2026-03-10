@@ -295,18 +295,12 @@ describe("state-by-state source mix panel", () => {
     await renderHomePage("WA");
 
     await waitFor(() => {
-      const panel = within(screen.getByLabelText("State by state source mix"));
-      expect(panel.getByText("STATE_BY_STATE_SOURCE_MIX")).toBeDefined();
+      const panel = within(screen.getByText("Electricity mix by source").closest("section") as HTMLElement);
+      expect(panel.getByText("Electricity mix by source")).toBeDefined();
       expect(panel.getByText("WA official annual mix")).toBeDefined();
       expect(panel.getByLabelText("WA source mix chart")).toBeDefined();
-      expect(panel.getByText("Gas")).toBeDefined();
-      expect(panel.getByText("62%")).toBeDefined();
-      expect(panel.getByText("Coal")).toBeDefined();
-      expect(panel.getByText("21%")).toBeDefined();
-      expect(panel.getByText("Wind")).toBeDefined();
-      expect(panel.getByText("9%")).toBeDefined();
-      expect(panel.getByText("Solar")).toBeDefined();
-      expect(panel.getByText("8%")).toBeDefined();
+      expect(panel.queryByText("Gas")).toBeNull();
+      expect(panel.queryByText("Coal")).toBeNull();
       expect(panel.queryByText("AU")).toBeNull();
       expect(panel.queryByText("NT")).toBeNull();
     });
@@ -314,16 +308,11 @@ describe("state-by-state source mix panel", () => {
     screen.getByRole("button", { name: "Operational NEM + WA" }).click();
 
     await waitFor(() => {
-      const panel = within(screen.getByLabelText("State by state source mix"));
+      const panel = within(screen.getByText("Electricity mix by source").closest("section") as HTMLElement);
       expect(panel.getByText("WA WEM operational mix")).toBeDefined();
-      expect(panel.getByText("Gas")).toBeDefined();
-      expect(panel.getByText("62%")).toBeDefined();
-      expect(panel.getByText("Solar")).toBeDefined();
-      expect(panel.getByText("21%")).toBeDefined();
-      expect(panel.getByText("Wind")).toBeDefined();
-      expect(panel.getByText("10%")).toBeDefined();
-      expect(panel.getByText("Coal")).toBeDefined();
-      expect(panel.getByText("7%")).toBeDefined();
+      expect(panel.getByLabelText("WA source mix chart")).toBeDefined();
+      expect(panel.queryByText("Gas")).toBeNull();
+      expect(panel.queryByText("Coal")).toBeNull();
       expect(panel.queryByText("AU")).toBeNull();
       expect(panel.queryByText("NT")).toBeNull();
     });

@@ -241,12 +241,12 @@ describe("GET /api/v1/energy/compare/*", () => {
       basis: "nominal",
       taxStatus: "incl_tax",
       consumptionBand: "household_mid",
-      auRank: 1,
+      auRank: 3,
       methodologyVersion: "energy-comparison-v1",
       rows: expect.arrayContaining([
-        expect.objectContaining({ countryCode: "AU", value: 0.32, rank: 1 }),
-        expect.objectContaining({ countryCode: "US", value: 0.18 }),
-        expect.objectContaining({ countryCode: "DE", value: 0.3 })
+        expect.objectContaining({ countryCode: "AU", value: 0.32, rank: 3 }),
+        expect.objectContaining({ countryCode: "US", value: 0.18, rank: 1 }),
+        expect.objectContaining({ countryCode: "DE", value: 0.3, rank: 2 })
       ]),
       comparisons: expect.arrayContaining([
         expect.objectContaining({ peerCountryCode: "US", gapPct: expect.any(Number) }),
@@ -269,13 +269,13 @@ describe("GET /api/v1/energy/compare/*", () => {
     expect(body).toMatchObject({
       country: "AU",
       peers: ["US", "DE"],
-      auRank: 1,
-      auPercentile: 100,
+      auRank: 3,
+      auPercentile: 0,
       methodologyVersion: "energy-comparison-v1",
       rows: expect.arrayContaining([
-        expect.objectContaining({ countryCode: "AU", value: 120, rank: 1 }),
-        expect.objectContaining({ countryCode: "US", value: 70 }),
-        expect.objectContaining({ countryCode: "DE", value: 95 })
+        expect.objectContaining({ countryCode: "AU", value: 120, rank: 3 }),
+        expect.objectContaining({ countryCode: "US", value: 70, rank: 1 }),
+        expect.objectContaining({ countryCode: "DE", value: 95, rank: 2 })
       ])
     });
   });

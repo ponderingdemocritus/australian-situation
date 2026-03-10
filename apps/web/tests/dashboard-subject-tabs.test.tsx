@@ -5,7 +5,7 @@ import { renderHomePage } from "./render-home-page";
 const fetchMock = vi.fn();
 
 function getEconomicPanel() {
-  const panel = screen.getByText("Economic Feed").closest("section");
+  const panel = screen.getByText("Key indicators").closest("section");
   if (!panel) {
     throw new Error("Economic panel not found");
   }
@@ -61,11 +61,11 @@ function createRetailPayload(basis: "nominal" | "ppp") {
     basis,
     taxStatus: "incl_tax",
     consumptionBand: "household_mid",
-    auRank: 1,
+    auRank: 2,
     methodologyVersion: "energy-comparison-v1",
     rows: [
-      { countryCode: "AU", value: basis === "nominal" ? 0.32 : 0.29, rank: 1 },
-      { countryCode: "DE", value: basis === "nominal" ? 0.3 : 0.27, rank: 2 }
+      { countryCode: "DE", value: basis === "nominal" ? 0.3 : 0.27, rank: 1 },
+      { countryCode: "AU", value: basis === "nominal" ? 0.32 : 0.29, rank: 2 }
     ],
     comparisons: []
   };
@@ -75,12 +75,12 @@ function createWholesalePayload() {
   return {
     country: "AU",
     peers: ["DE"],
-    auRank: 1,
-    auPercentile: 100,
+    auRank: 2,
+    auPercentile: 0,
     methodologyVersion: "energy-comparison-v1",
     rows: [
-      { countryCode: "AU", value: 120, rank: 1 },
-      { countryCode: "DE", value: 95, rank: 2 }
+      { countryCode: "DE", value: 95, rank: 1 },
+      { countryCode: "AU", value: 120, rank: 2 }
     ],
     comparisons: []
   };
@@ -171,29 +171,31 @@ describe("dashboard subject tabs", () => {
     await renderHomePage();
 
     await waitFor(() => {
-      const panel = getEconomicPanel();
-      expect(panel.getByText("AU_VS_GLOBAL_COMPARISON")).toBeDefined();
+      expect(screen.getByText("Electricity snapshot")).toBeDefined();
+      expect(screen.getByText("Australia compared with peers")).toBeDefined();
+      expect(screen.getByText("Browse areas")).toBeDefined();
+      expect(screen.getByText("Electricity prices, bills, and the energy mix.")).toBeDefined();
     });
 
     const panel = getEconomicPanel();
-    expect(panel.queryByText("HOUSING_OVERVIEW")).toBeNull();
-    expect(screen.getByRole("tab", { name: "Energy" }).getAttribute("aria-selected")).toBe(
+    expect(panel.queryByText("Housing snapshot")).toBeNull();
+    expect(screen.getByRole("tab", { name: /Energy/ }).getAttribute("aria-selected")).toBe(
       "true"
     );
   });
 
-  test("activates Housing tab from URL subject query and hides comparison section", async () => {
+  test("activates Housing tab from URL subject query and removes energy-only sections", async () => {
     window.history.replaceState({}, "", "/?subject=housing");
     await renderHomePage();
 
     await waitFor(() => {
-      const panel = getEconomicPanel();
-      expect(panel.getByText("HOUSING_OVERVIEW")).toBeDefined();
+      expect(screen.getByText("Housing snapshot")).toBeDefined();
     });
 
-    const panel = getEconomicPanel();
-    expect(panel.queryByText("AU_VS_GLOBAL_COMPARISON")).toBeNull();
-    expect(screen.getByRole("tab", { name: "Housing" }).getAttribute("aria-selected")).toBe(
+    expect(screen.queryByText("Australia compared with peers")).toBeNull();
+    expect(screen.queryByText("State electricity snapshot")).toBeNull();
+    expect(screen.queryByText("Electricity mix by source")).toBeNull();
+    expect(screen.getByRole("tab", { name: /Housing/ }).getAttribute("aria-selected")).toBe(
       "true"
     );
   });
@@ -203,10 +205,10 @@ describe("dashboard subject tabs", () => {
     await renderHomePage();
 
     await waitFor(() => {
-      expect(getEconomicPanel().getByText("AU_VS_GLOBAL_COMPARISON")).toBeDefined();
+      expect(screen.getByText("Australia compared with peers")).toBeDefined();
     });
 
-    expect(screen.getByRole("tab", { name: "Energy" }).getAttribute("aria-selected")).toBe(
+    expect(screen.getByRole("tab", { name: /Energy/ }).getAttribute("aria-selected")).toBe(
       "true"
     );
   });
@@ -214,17 +216,17 @@ describe("dashboard subject tabs", () => {
   test("updates URL and panel content when tabs are clicked", async () => {
     await renderHomePage();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Housing" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Housing/ }));
 
     await waitFor(() => {
-      expect(getEconomicPanel().getByText("HOUSING_OVERVIEW")).toBeDefined();
+      expect(screen.getByText("Housing snapshot")).toBeDefined();
     });
     expect(window.location.search).toContain("subject=housing");
 
-    fireEvent.click(screen.getByRole("tab", { name: "Energy" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Energy/ }));
 
     await waitFor(() => {
-      expect(getEconomicPanel().getByText("AU_VS_GLOBAL_COMPARISON")).toBeDefined();
+      expect(screen.getByText("Australia compared with peers")).toBeDefined();
     });
     expect(window.location.search).toContain("subject=energy");
   });
@@ -235,20 +237,33 @@ describe("dashboard subject tabs", () => {
     const tablist = screen.getByRole("tablist", { name: "Subject" });
     expect(tablist).toBeDefined();
 
-    const housingTab = screen.getByRole("tab", { name: "Housing" });
+    const housingTab = screen.getByRole("tab", { name: /Housing/ });
     fireEvent.keyDown(housingTab, { key: "Enter" });
 
     await waitFor(() => {
       expect(housingTab.getAttribute("aria-selected")).toBe("true");
-      expect(getEconomicPanel().getByText("HOUSING_OVERVIEW")).toBeDefined();
+      expect(screen.getByText("Housing snapshot")).toBeDefined();
     });
 
-    const energyTab = screen.getByRole("tab", { name: "Energy" });
+    const energyTab = screen.getByRole("tab", { name: /Energy/ });
     fireEvent.keyDown(energyTab, { key: " " });
 
     await waitFor(() => {
       expect(energyTab.getAttribute("aria-selected")).toBe("true");
-      expect(getEconomicPanel().getByText("AU_VS_GLOBAL_COMPARISON")).toBeDefined();
+      expect(screen.getByText("Australia compared with peers")).toBeDefined();
+    });
+  });
+
+  test("filters the area directory as the user types", async () => {
+    await renderHomePage();
+
+    const search = screen.getByPlaceholderText("Search areas");
+    fireEvent.change(search, { target: { value: "hous" } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: /Housing/ })).toBeDefined();
+      expect(screen.queryByRole("tab", { name: /Energy/ })).toBeNull();
+      expect(screen.getByText("Home values, lending, and mortgage pressure.")).toBeDefined();
     });
   });
 });

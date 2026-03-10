@@ -7,19 +7,29 @@ describe("HomePage", () => {
     cleanup();
   });
 
-  test("renders top breadcrumb path", async () => {
+  test("renders a readable page title and summary", async () => {
     await renderHomePage();
-    expect(screen.getByText("australia_live / econ")).toBeDefined();
+    expect(screen.getByText("Australia situation dashboard")).toBeDefined();
+    expect(
+      screen.getByText("Track energy prices and housing pressure in plain language.")
+    ).toBeDefined();
   });
 
-  test("renders geospatial map callout", async () => {
+  test("renders a plain-language region section", async () => {
     await renderHomePage();
-    expect(screen.getByText("Australia / Geospatial")).toBeDefined();
+    expect(screen.getByText("Choose a region")).toBeDefined();
   });
 
-  test("renders live feed panel and command input", async () => {
+  test("renders a scalable area directory with search", async () => {
     await renderHomePage();
-    expect(screen.getByText("Live Feed")).toBeDefined();
-    expect(screen.getByPlaceholderText("Filter logs or execute command...")).toBeDefined();
+    expect(screen.getByText("Browse areas")).toBeDefined();
+    expect(screen.getByPlaceholderText("Search areas")).toBeDefined();
+  });
+
+  test("removes console-only UI affordances", async () => {
+    await renderHomePage();
+    expect(screen.queryByText("australia_live / econ")).toBeNull();
+    expect(screen.queryByText("Live Feed")).toBeNull();
+    expect(screen.queryByPlaceholderText("Filter logs or execute command...")).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ type PieBreakdownChartProps = {
   centerLabel?: string
   className?: string
   chartClassName?: string
+  hideLegend?: boolean
   legendClassName?: string
   legendItemClassName?: string
   legendLabelClassName?: string
@@ -30,6 +31,7 @@ export function PieBreakdownChart({
   centerLabel = "share",
   className,
   chartClassName,
+  hideLegend = false,
   legendClassName,
   legendItemClassName,
   legendLabelClassName,
@@ -95,28 +97,30 @@ export function PieBreakdownChart({
         </RechartsPieChart>
       </ChartContainer>
 
-      <div className={cn("grid gap-2", legendClassName)}>
-        {data.map((item) => (
-          <div
-            key={item.key}
-            className={cn(
-              "flex items-center justify-between rounded-md border border-border/60 bg-background/40 px-3 py-2",
-              legendItemClassName
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: item.color }}
-              />
-              <span className={cn("text-sm text-foreground", legendLabelClassName)}>{item.label}</span>
+      {hideLegend ? null : (
+        <div className={cn("grid gap-2", legendClassName)}>
+          {data.map((item) => (
+            <div
+              key={item.key}
+              className={cn(
+                "flex items-center justify-between rounded-md border border-border/60 bg-background/40 px-3 py-2",
+                legendItemClassName
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className={cn("text-sm text-foreground", legendLabelClassName)}>{item.label}</span>
+              </div>
+              <span className={cn("font-mono text-sm text-muted-foreground", legendValueClassName)}>
+                {Math.round(item.value)}%
+              </span>
             </div>
-            <span className={cn("font-mono text-sm text-muted-foreground", legendValueClassName)}>
-              {Math.round(item.value)}%
-            </span>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -57,16 +57,42 @@ const WORLD_BANK_FIXTURE: WorldBankNormalizationPoint[] = [
     year: "2025",
     indicatorCode: "PA.NUS.PPP",
     value: 0.83
+  },
+  {
+    countryCode: "IDN",
+    year: "2025",
+    indicatorCode: "PA.NUS.FCRF",
+    value: 15855.4482866711
+  },
+  {
+    countryCode: "IDN",
+    year: "2025",
+    indicatorCode: "PA.NUS.PPP",
+    value: 4747.90857563225
+  },
+  {
+    countryCode: "CHN",
+    year: "2025",
+    indicatorCode: "PA.NUS.FCRF",
+    value: 7.19749110789917
+  },
+  {
+    countryCode: "CHN",
+    year: "2025",
+    indicatorCode: "PA.NUS.PPP",
+    value: 3.5325492491585
   }
 ];
 
 const DEFAULT_AU_HOUSEHOLD_USAGE_KWH = 6000;
-const TARGET_COMPARISON_COUNTRIES = new Set(["AU", "US", "DE"]);
+const TARGET_COMPARISON_COUNTRIES = new Set(["AU", "US", "DE", "ID", "CN"]);
 
 const ISO3_TO_ISO2_COUNTRY: Record<string, string> = {
   AUS: "AU",
   USA: "US",
-  DEU: "DE"
+  DEU: "DE",
+  IDN: "ID",
+  CHN: "CN"
 };
 
 const COMPARISON_INPUT_SERIES_IDS = [
@@ -201,15 +227,15 @@ function deriveComparisonObservations(
       value: observation.value / fx.value,
       unit: "usd_kwh",
       currency: "USD",
-      taxStatus: observation.taxStatus ?? "incl_tax",
+      taxStatus: "incl_tax",
       consumptionBand: observation.consumptionBand ?? "household_mid",
       sourceName: `${observation.sourceName} (FX normalized)`,
       sourceUrl: observation.sourceUrl,
       publishedAt: observation.publishedAt,
       ingestedAt: options.ingestedAt,
       vintage: options.vintage,
-      isModeled: true,
-      confidence: "derived",
+      isModeled: observation.taxStatus !== "incl_tax" ? true : observation.isModeled,
+      confidence: observation.taxStatus !== "incl_tax" ? "derived" : observation.confidence,
       methodologyVersion: "energy-comparison-v1"
     });
   }

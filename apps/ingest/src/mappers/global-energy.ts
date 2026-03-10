@@ -1,8 +1,11 @@
 import type { LiveObservation } from "@aus-dash/shared";
 import type {
+  BeijingResidentialTariffPoint,
   EiaRetailPricePoint,
   EiaWholesalePricePoint,
   EntsoeWholesalePoint,
+  NeaChinaWholesaleProxyPoint,
+  PlnRetailTariffPoint,
   EurostatRetailPricePoint,
   WorldBankNormalizationPoint
 } from "../sources/live-source-clients";
@@ -15,7 +18,9 @@ type MapperOptions = {
 const ISO3_TO_ISO2_COUNTRY: Record<string, string> = {
   AUS: "AU",
   USA: "US",
-  DEU: "DE"
+  DEU: "DE",
+  IDN: "ID",
+  CHN: "CN"
 };
 
 function toPublishedAtFromPeriod(period: string, fallback: string): string {
@@ -155,6 +160,86 @@ export function mapEurostatRetailPointsToObservations(
     isModeled: false,
     confidence: "official",
     methodologyVersion: "energy-global-eurostat-v1"
+  }));
+}
+
+export function mapPlnRetailPointsToObservations(
+  points: PlnRetailTariffPoint[],
+  options: MapperOptions
+): LiveObservation[] {
+  return points.map((point) => ({
+    seriesId: "energy.retail.price.country.local_kwh",
+    regionCode: point.countryCode,
+    countryCode: point.countryCode,
+    market: "PLN",
+    metricFamily: "retail",
+    date: point.period,
+    value: point.priceLocalKwh,
+    unit: "local_kwh",
+    currency: point.currency,
+    taxStatus: point.taxStatus,
+    consumptionBand: point.consumptionBand,
+    sourceName: "PLN",
+    sourceUrl: "https://web.pln.co.id/cms/media/2025/12/tarif-listrik/",
+    publishedAt: toPublishedAtFromPeriod(point.period, options.ingestedAt),
+    ingestedAt: options.ingestedAt,
+    vintage: options.vintage,
+    isModeled: false,
+    confidence: "official",
+    methodologyVersion: "energy-global-pln-v1"
+  }));
+}
+
+export function mapBeijingResidentialTariffPointsToObservations(
+  points: BeijingResidentialTariffPoint[],
+  options: MapperOptions
+): LiveObservation[] {
+  return points.map((point) => ({
+    seriesId: "energy.retail.price.country.local_kwh",
+    regionCode: point.countryCode,
+    countryCode: point.countryCode,
+    market: "CN_BEIJING_PROXY",
+    metricFamily: "retail",
+    date: point.period,
+    value: point.priceLocalKwh,
+    unit: "local_kwh",
+    currency: point.currency,
+    taxStatus: point.taxStatus,
+    consumptionBand: point.consumptionBand,
+    sourceName: "Beijing residential tariff proxy",
+    sourceUrl:
+      "https://fgw.beijing.gov.cn/bmcx/djcx/jzldj/202110/t20211025_2520169.htm",
+    publishedAt: toPublishedAtFromPeriod(point.period, options.ingestedAt),
+    ingestedAt: options.ingestedAt,
+    vintage: options.vintage,
+    isModeled: true,
+    confidence: "derived",
+    methodologyVersion: "energy-global-cn-retail-proxy-v1"
+  }));
+}
+
+export function mapNeaChinaWholesaleProxyPointsToObservations(
+  points: NeaChinaWholesaleProxyPoint[],
+  options: MapperOptions
+): LiveObservation[] {
+  return points.map((point) => ({
+    seriesId: "energy.wholesale.spot.country.local_mwh",
+    regionCode: point.countryCode,
+    countryCode: point.countryCode,
+    market: "CN_NEA_PROXY",
+    metricFamily: "wholesale",
+    date: point.period,
+    value: point.priceCnyKwh * 1000,
+    unit: "cny_mwh",
+    currency: "CNY",
+    sourceName: "NEA wholesale proxy",
+    sourceUrl: "https://fjb.nea.gov.cn/dtyw/gjnyjdt/202309/t20230915_83144.html",
+    publishedAt: toPublishedAtFromYear(point.period, options.ingestedAt),
+    ingestedAt: options.ingestedAt,
+    vintage: options.vintage,
+    isModeled: true,
+    confidence: "derived",
+    methodologyVersion: "energy-global-cn-wholesale-proxy-v1"
   }));
 }
 

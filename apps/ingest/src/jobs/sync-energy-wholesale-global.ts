@@ -6,9 +6,15 @@ import {
   fetchEntsoeWholesaleSnapshot,
   type EiaWholesalePricePoint,
   type EntsoeWholesalePoint,
+  fetchNeaChinaWholesaleProxySnapshot,
+  type NeaChinaWholesaleProxyPoint,
   type SourceFetch
 } from "../sources/live-source-clients";
-import { mapEiaWholesalePointsToObservations, mapEntsoeWholesalePointsToObservations } from "../mappers/global-energy";
+import {
+  mapEiaWholesalePointsToObservations,
+  mapEntsoeWholesalePointsToObservations,
+  mapNeaChinaWholesaleProxyPointsToObservations
+} from "../mappers/global-energy";
 import { resolveIngestBackend } from "../repositories/ingest-backend";
 import {
   persistIngestArtifacts
@@ -38,6 +44,14 @@ const ENTSOE_WHOLESALE_FIXTURE: EntsoeWholesalePoint[] = [
   }
 ];
 
+const NEA_CHINA_WHOLESALE_PROXY_FIXTURE: NeaChinaWholesaleProxyPoint[] = [
+  {
+    countryCode: "CN",
+    period: "2022",
+    priceCnyKwh: 0.449
+  }
+];
+
 export type SyncEnergyWholesaleGlobalResult = {
   job: "sync-energy-wholesale-global";
   status: "ok";
@@ -52,8 +66,10 @@ type SyncEnergyWholesaleGlobalOptions = IngestRunAuditOptions & {
   sourceMode?: "fixture" | "live";
   eiaEndpoint?: string;
   entsoeEndpoint?: string;
+  neaChinaEndpoint?: string;
   eiaFetchImpl?: SourceFetch;
   entsoeFetchImpl?: SourceFetch;
+  neaChinaFetchImpl?: SourceFetch;
   ingestBackend?: "store" | "postgres";
 };
 
@@ -71,11 +87,16 @@ export async function syncEnergyWholesaleGlobal(
 
   let eiaPoints = EIA_WHOLESALE_FIXTURE;
   let entsoePoints = ENTSOE_WHOLESALE_FIXTURE;
+  let neaChinaPoints = NEA_CHINA_WHOLESALE_PROXY_FIXTURE;
   let eiaRawPayload = JSON.stringify({ wholesale: EIA_WHOLESALE_FIXTURE });
   let entsoeRawPayload = JSON.stringify({ data: ENTSOE_WHOLESALE_FIXTURE });
+  let neaChinaRawPayload = JSON.stringify({
+    source: "nea_china_wholesale_proxy",
+    points: NEA_CHINA_WHOLESALE_PROXY_FIXTURE
+  });
 
   if (useLiveSource) {
-    const [eiaSnapshot, entsoeSnapshot] = await Promise.all([
+    const [eiaSnapshot, entsoeSnapshot, neaChinaSnapshot] = await Promise.all([
       fetchEiaElectricitySnapshot({
         endpoint: options.eiaEndpoint,
         fetchImpl: options.eiaFetchImpl
@@ -83,12 +104,18 @@ export async function syncEnergyWholesaleGlobal(
       fetchEntsoeWholesaleSnapshot({
         endpoint: options.entsoeEndpoint,
         fetchImpl: options.entsoeFetchImpl
+      }),
+      fetchNeaChinaWholesaleProxySnapshot({
+        endpoint: options.neaChinaEndpoint,
+        fetchImpl: options.neaChinaFetchImpl
       })
     ]);
     eiaPoints = eiaSnapshot.wholesalePoints;
     entsoePoints = entsoeSnapshot.points;
+    neaChinaPoints = neaChinaSnapshot.points;
     eiaRawPayload = eiaSnapshot.rawPayload;
     entsoeRawPayload = entsoeSnapshot.rawPayload;
+    neaChinaRawPayload = neaChinaSnapshot.rawPayload;
   }
 
   const observations = [
@@ -97,6 +124,10 @@ export async function syncEnergyWholesaleGlobal(
       vintage: observationVintage
     }),
     ...mapEntsoeWholesalePointsToObservations(entsoePoints, {
+      ingestedAt,
+      vintage: observationVintage
+    }),
+    ...mapNeaChinaWholesaleProxyPointsToObservations(neaChinaPoints, {
       ingestedAt,
       vintage: observationVintage
     })
@@ -108,6 +139,7 @@ export async function syncEnergyWholesaleGlobal(
   const latestEntsoe = [...entsoePoints]
     .sort((a, b) => a.intervalStartUtc.localeCompare(b.intervalStartUtc))
     .at(-1);
+  const latestNeaChina = [...neaChinaPoints].sort((a, b) => a.period.localeCompare(b.period)).at(-1);
 
   const sourceCursors = [];
   if (latestEia) {
@@ -120,6 +152,12 @@ export async function syncEnergyWholesaleGlobal(
     sourceCursors.push({
       sourceId: "entsoe_wholesale",
       cursor: latestEntsoe.intervalStartUtc
+    });
+  }
+  if (latestNeaChina) {
+    sourceCursors.push({
+      sourceId: "nea_china_wholesale_proxy",
+      cursor: latestNeaChina.period
     });
   }
 
@@ -138,6 +176,12 @@ export async function syncEnergyWholesaleGlobal(
         sourceId: "entsoe_wholesale",
         payload: entsoeRawPayload,
         contentType: "application/json",
+        capturedAt: ingestedAt
+      },
+      {
+        sourceId: "nea_china_wholesale_proxy",
+        payload: neaChinaRawPayload,
+        contentType: "text/html",
         capturedAt: ingestedAt
       }
     ],

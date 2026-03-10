@@ -5,7 +5,7 @@ import { renderHomePage } from "./render-home-page";
 const fetchMock = vi.fn();
 
 function getEconomicPanel() {
-  const panel = screen.getByText("Economic Feed").closest("section");
+  const panel = screen.getByText("Key indicators").closest("section");
   if (!panel) {
     throw new Error("Economic panel not found");
   }
@@ -74,12 +74,12 @@ function createRetailComparisonPayload(basis: "nominal" | "ppp") {
     basis,
     taxStatus: "incl_tax",
     consumptionBand: "household_mid",
-    auRank: 1,
+    auRank: 3,
     methodologyVersion: "energy-comparison-v1",
     rows: [
-      { countryCode: "AU", value: basis === "nominal" ? 0.32 : 0.29, rank: 1 },
+      { countryCode: "US", value: basis === "nominal" ? 0.18 : 0.21, rank: 1 },
       { countryCode: "DE", value: basis === "nominal" ? 0.3 : 0.27, rank: 2 },
-      { countryCode: "US", value: basis === "nominal" ? 0.18 : 0.21, rank: 3 }
+      { countryCode: "AU", value: basis === "nominal" ? 0.32 : 0.29, rank: 3 }
     ],
     comparisons: []
   };
@@ -89,13 +89,13 @@ function createWholesaleComparisonPayload() {
   return {
     country: "AU",
     peers: ["US", "DE"],
-    auRank: 1,
-    auPercentile: 100,
+    auRank: 3,
+    auPercentile: 0,
     methodologyVersion: "energy-comparison-v1",
     rows: [
-      { countryCode: "AU", value: 120, rank: 1 },
+      { countryCode: "US", value: 70, rank: 1 },
       { countryCode: "DE", value: 95, rank: 2 },
-      { countryCode: "US", value: 70, rank: 3 }
+      { countryCode: "AU", value: 120, rank: 3 }
     ],
     comparisons: []
   };
@@ -204,26 +204,39 @@ describe("dashboard server prefetch", () => {
     expect(panel.getByText("118.0 AUD/MWh")).toBeDefined();
     expect(panel.getByText("0.320 USD/kWh")).toBeDefined();
 
-    screen.getByRole("tab", { name: "Housing" }).click();
+    screen.getByRole("tab", { name: /Housing/ }).click();
     await waitFor(() => {
       expect(panel.getByText("169.4")).toBeDefined();
     });
 
-    expect(screen.queryByText("SYNCING...")).toBeNull();
-    expect(screen.queryByText("COMPARISON_SYNCING...")).toBeNull();
+    expect(screen.queryByText("Loading energy data...")).toBeNull();
+    expect(screen.queryByText("Loading comparison data...")).toBeNull();
   });
 
   test("renders provenance catalog rows joined from source refs and metadata sources", async () => {
     await renderHomePage();
 
-    screen.getByRole("tab", { name: "Energy" }).click();
+    screen.getByRole("tab", { name: /Energy/ }).click();
     const panel = getEconomicPanel();
     await waitFor(() => {
-      expect(panel.getByText("PROVENANCE")).toBeDefined();
-      expect(panel.getByText("aemo_wholesale")).toBeDefined();
-      expect(panel.getByText("AEMO NEM Wholesale · 5m · energy")).toBeDefined();
-      expect(panel.getByText("aer_prd")).toBeDefined();
-      expect(panel.getByText("AER Product Reference Data · daily · energy")).toBeDefined();
+      expect(panel.getByText("Data sources")).toBeDefined();
+      expect(panel.getByText("AEMO NEM Wholesale")).toBeDefined();
+      expect(panel.getByText("5m · energy")).toBeDefined();
+      expect(panel.getByText("AER Product Reference Data")).toBeDefined();
+      expect(panel.getByText("daily · energy")).toBeDefined();
     });
+  });
+
+  test("prefetches retail comparison data with Indonesia and China included in the peer list", async () => {
+    await renderHomePage();
+
+    const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(
+      calledUrls.some(
+        (url) =>
+          url.includes("/api/v1/energy/compare/retail") &&
+          url.includes("peers=US,DE,ID,CN")
+      )
+    ).toBe(true);
   });
 });

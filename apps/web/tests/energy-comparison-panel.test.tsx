@@ -5,7 +5,7 @@ import { renderHomePage } from "./render-home-page";
 const fetchMock = vi.fn();
 
 function getEconomicPanel() {
-  const panel = screen.getByText("Economic Feed").closest("section");
+  const panel = screen.getByText("Key indicators").closest("section");
   if (!panel) {
     throw new Error("Economic panel not found");
   }
@@ -56,12 +56,12 @@ function createRetailPayload(basis: "nominal" | "ppp") {
     basis,
     taxStatus: "incl_tax",
     consumptionBand: "household_mid",
-    auRank: 1,
+    auRank: 3,
     methodologyVersion: "energy-comparison-v1",
     rows: [
-      { countryCode: "AU", value: basis === "nominal" ? 0.32 : 0.29, rank: 1 },
+      { countryCode: "US", value: basis === "nominal" ? 0.18 : 0.21, rank: 1 },
       { countryCode: "DE", value: basis === "nominal" ? 0.3 : 0.27, rank: 2 },
-      { countryCode: "US", value: basis === "nominal" ? 0.18 : 0.21, rank: 3 }
+      { countryCode: "AU", value: basis === "nominal" ? 0.32 : 0.29, rank: 3 }
     ],
     comparisons: []
   };
@@ -71,13 +71,13 @@ function createWholesalePayload() {
   return {
     country: "AU",
     peers: ["US", "DE"],
-    auRank: 1,
-    auPercentile: 100,
+    auRank: 3,
+    auPercentile: 0,
     methodologyVersion: "energy-comparison-v1",
     rows: [
-      { countryCode: "AU", value: 120, rank: 1 },
+      { countryCode: "US", value: 70, rank: 1 },
       { countryCode: "DE", value: 95, rank: 2 },
-      { countryCode: "US", value: 70, rank: 3 }
+      { countryCode: "AU", value: 120, rank: 3 }
     ],
     comparisons: []
   };
@@ -168,9 +168,9 @@ describe("dashboard energy comparison panel", () => {
 
     await waitFor(() => {
       const panel = getEconomicPanel();
-      expect(panel.getByText("AU_VS_GLOBAL_COMPARISON")).toBeDefined();
-      expect(panel.getByText("DE")).toBeDefined();
-      expect(panel.getByText("US")).toBeDefined();
+      expect(panel.getByText("Australia compared with peers")).toBeDefined();
+      expect(panel.getByText("Germany")).toBeDefined();
+      expect(panel.getByText("United States")).toBeDefined();
       expect(panel.getByText("0.320 USD/kWh")).toBeDefined();
     });
   });
@@ -198,10 +198,10 @@ describe("dashboard energy comparison panel", () => {
 
     await waitFor(() => {
       const panel = getEconomicPanel();
-      expect(panel.getByText("incl_tax")).toBeDefined();
-      expect(panel.getByText("household_mid")).toBeDefined();
-      expect(panel.getByText("energy-comparison-v1")).toBeDefined();
-      expect(panel.getByText("AU_WHOLESALE_PERCENTILE")).toBeDefined();
+      expect(panel.getByText("Incl Tax")).toBeDefined();
+      expect(panel.getByText("Household Mid")).toBeDefined();
+      expect(panel.getByText("Energy Comparison V1")).toBeDefined();
+      expect(panel.getByText("Wholesale price percentile")).toBeDefined();
     });
   });
 

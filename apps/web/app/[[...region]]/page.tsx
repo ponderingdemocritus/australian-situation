@@ -66,6 +66,9 @@ async function fetchInitialStateEnergyOverviews(): Promise<
   return Object.fromEntries(entries) as Record<RegionCode, EnergyOverviewResponse | null>;
 }
 
+const RETAIL_COMPARISON_PEERS = "US,DE,ID,CN";
+const WHOLESALE_COMPARISON_PEERS = "US,DE,CN";
+
 export default async function RegionPage({ params }: PageProps) {
   const { region: segments } = await params;
 
@@ -104,15 +107,15 @@ export default async function RegionPage({ params }: PageProps) {
       parseHousingOverviewResponse
     ),
     fetchInitialOverview<RetailComparisonResponse>(
-      "/api/v1/energy/compare/retail?country=AU&peers=US,DE&basis=nominal&tax_status=incl_tax&consumption_band=household_mid",
+      `/api/v1/energy/compare/retail?country=AU&peers=${RETAIL_COMPARISON_PEERS}&basis=nominal&tax_status=incl_tax&consumption_band=household_mid`,
       parseRetailComparisonResponse
     ),
     fetchInitialOverview<RetailComparisonResponse>(
-      "/api/v1/energy/compare/retail?country=AU&peers=US,DE&basis=ppp&tax_status=incl_tax&consumption_band=household_mid",
+      `/api/v1/energy/compare/retail?country=AU&peers=${RETAIL_COMPARISON_PEERS}&basis=ppp&tax_status=incl_tax&consumption_band=household_mid`,
       parseRetailComparisonResponse
     ),
     fetchInitialOverview<WholesaleComparisonResponse>(
-      "/api/v1/energy/compare/wholesale?country=AU&peers=US,DE",
+      `/api/v1/energy/compare/wholesale?country=AU&peers=${WHOLESALE_COMPARISON_PEERS}`,
       parseWholesaleComparisonResponse
     ),
     fetchInitialOverview<MethodologyMetadataResponse>(

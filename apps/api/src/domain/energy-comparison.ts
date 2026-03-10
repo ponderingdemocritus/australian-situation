@@ -13,8 +13,8 @@ export function rankComparableObservations(
   rows: ComparableObservation[]
 ): RankedComparableObservation[] {
   const sorted = [...rows].sort((a, b) => {
-    if (b.value !== a.value) {
-      return b.value - a.value;
+    if (a.value !== b.value) {
+      return a.value - b.value;
     }
     return a.countryCode.localeCompare(b.countryCode);
   });

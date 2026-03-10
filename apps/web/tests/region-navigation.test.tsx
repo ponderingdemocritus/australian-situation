@@ -33,7 +33,7 @@ describe("Region URL navigation", () => {
 
     replaceStateSpy.mockClear();
 
-    screen.getByRole("tab", { name: "Housing" }).click();
+    screen.getByRole("tab", { name: /Housing/ }).click();
 
     await waitFor(() => {
       expect(replaceStateSpy).toHaveBeenCalledWith(
@@ -49,7 +49,7 @@ describe("Region URL navigation", () => {
   test("popstate event updates region state", () => {
     render(<DashboardShell initialRegion="AU" />);
 
-    expect(screen.getByText("Housing region: AU")).toBeDefined();
+    expect(screen.getByText("Selected region: Australia")).toBeDefined();
 
     Object.defineProperty(window, "location", {
       writable: true,
@@ -58,24 +58,24 @@ describe("Region URL navigation", () => {
 
     fireEvent(window, new PopStateEvent("popstate"));
 
-    expect(screen.getByText("Housing region: VIC")).toBeDefined();
-    expect(screen.getByText("Energy region: VIC")).toBeDefined();
+    expect(screen.getByText("Selected region: Victoria")).toBeDefined();
   });
 
   test("renders with specific initial region", () => {
     render(<DashboardShell initialRegion="SA" />);
 
-    expect(screen.getByText("Housing region: SA")).toBeDefined();
-    expect(screen.getByText("Energy region: SA")).toBeDefined();
+    expect(screen.getByText("Selected region: South Australia")).toBeDefined();
   });
 
-  test("AU region pushes root URL", () => {
+  test("AU region pushes root URL", async () => {
     const pushStateSpy = vi.spyOn(window.history, "pushState");
     render(<DashboardShell initialRegion="NSW" />);
 
     fireEvent.change(screen.getByLabelText("Region"), { target: { value: "AU" } });
 
-    expect(pushStateSpy).toHaveBeenCalledWith({}, "", "/?subject=energy");
+    await waitFor(() => {
+      expect(pushStateSpy).toHaveBeenCalledWith({}, "", "/?subject=energy");
+    });
     pushStateSpy.mockRestore();
   });
 });
