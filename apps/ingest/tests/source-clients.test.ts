@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
+  type BeijingResidentialTariffPoint,
   type EntsoeWholesalePoint,
+  type NeaChinaWholesaleProxyPoint,
   type EurostatRetailPricePoint,
+  type PlnRetailTariffPoint,
   type WorldBankNormalizationPoint,
   SourceClientError,
   fetchAbsHousingSnapshot,
@@ -10,10 +13,13 @@ import {
   fetchAemoNemSourceMixSnapshot,
   fetchAemoWemSourceMixSnapshot,
   fetchAemoWholesaleSnapshot,
+  fetchBeijingResidentialTariffSnapshot,
   fetchDccEeewGenerationMixSnapshot,
   fetchEiaElectricitySnapshot,
   fetchEntsoeWholesaleSnapshot,
   fetchEurostatRetailSnapshot,
+  fetchNeaChinaWholesaleProxySnapshot,
+  fetchPlnRetailTariffSnapshot,
   fetchRbaRatesSnapshot,
   fetchWorldBankNormalizationSnapshot
 } from "../src/sources/live-source-clients";
@@ -276,6 +282,123 @@ describe("live source clients", () => {
         date: "2025-12-31",
         value: 169.4,
         unit: "index"
+      }
+    ]);
+  });
+
+  test("maps PLN household tariff JSON into canonical retail tariff points", async () => {
+    const snapshot = await fetchPlnRetailTariffSnapshot({
+      endpoint: "https://example.test/pln.json",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            date: "2025-12-12T14:00:08",
+            content: {
+              rendered: `
+                <h3>1. Tarif Listrik Rumah Tangga</h3>
+                <table>
+                  <tbody>
+                    <tr><td><b>Golongan</b></td><td><b>Daya Listrik</b></td><td><b>Tarif (Rp/kWh)</b></td></tr>
+                    <tr><td><b>R-1 (Subsidi)</b></td><td>900 VA</td><td>Rp605/kWh</td></tr>
+                    <tr><td><b>R-1 (Non-Subsidi)</b></td><td>1.300 VA – 2.200 VA</td><td>Rp1.444,70/kWh</td></tr>
+                    <tr><td><b>R-2</b></td><td>3.500 VA – 5.500 VA</td><td>Rp1.699,53/kWh</td></tr>
+                  </tbody>
+                </table>
+              `
+            },
+            link: "https://web.pln.co.id/cms/media/2025/12/tarif-listrik/"
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("pln_tariff");
+    expect(snapshot.points satisfies PlnRetailTariffPoint[]).toEqual([
+      {
+        countryCode: "ID",
+        period: "2025-12-12",
+        tariffClass: "R-1 (Subsidi)",
+        customerType: "residential",
+        consumptionBand: "household_low",
+        taxStatus: "mixed",
+        currency: "IDR",
+        priceLocalKwh: 605
+      },
+      {
+        countryCode: "ID",
+        period: "2025-12-12",
+        tariffClass: "R-1 (Non-Subsidi)",
+        customerType: "residential",
+        consumptionBand: "household_mid",
+        taxStatus: "mixed",
+        currency: "IDR",
+        priceLocalKwh: 1444.7
+      },
+      {
+        countryCode: "ID",
+        period: "2025-12-12",
+        tariffClass: "R-2",
+        customerType: "residential",
+        consumptionBand: "household_high",
+        taxStatus: "mixed",
+        currency: "IDR",
+        priceLocalKwh: 1699.53
+      }
+    ]);
+  });
+
+  test("maps Beijing residential tariff HTML into a China retail proxy point", async () => {
+    const snapshot = await fetchBeijingResidentialTariffSnapshot({
+      endpoint: "https://example.test/beijing.html",
+      fetchImpl: async () =>
+        buildResponse({
+          text: `
+            <html>
+              <body>
+                <table>
+                  <tr><td>Residential electricity users</td><td>less than 1 kV</td><td>0.4883</td></tr>
+                </table>
+              </body>
+            </html>
+          `
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("beijing_residential_tariff");
+    expect(snapshot.points satisfies BeijingResidentialTariffPoint[]).toEqual([
+      {
+        countryCode: "CN",
+        period: "2021-10-25",
+        tariffClass: "Residential electricity users",
+        customerType: "residential",
+        consumptionBand: "household_mid",
+        taxStatus: "mixed",
+        currency: "CNY",
+        priceLocalKwh: 0.4883
+      }
+    ]);
+  });
+
+  test("maps NEA wholesale proxy HTML into a China annual wholesale proxy point", async () => {
+    const snapshot = await fetchNeaChinaWholesaleProxySnapshot({
+      endpoint: "https://example.test/nea.html",
+      fetchImpl: async () =>
+        buildResponse({
+          text: `
+            <html>
+              <body>
+                <p>2022年，全国燃煤发电机组市场平均交易价格为0.449元/千瓦时。</p>
+              </body>
+            </html>
+          `
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("nea_china_wholesale_proxy");
+    expect(snapshot.points satisfies NeaChinaWholesaleProxyPoint[]).toEqual([
+      {
+        countryCode: "CN",
+        period: "2022",
+        priceCnyKwh: 0.449
       }
     ]);
   });

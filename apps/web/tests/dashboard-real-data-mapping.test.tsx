@@ -80,28 +80,32 @@ describe("dashboard real data mapping", () => {
     vi.unstubAllGlobals();
   });
 
-  test("replaces stub sector block with real data health rows", async () => {
+  test("renders readable data status rows from the fetched payloads", async () => {
     await renderHomePage();
 
     await waitFor(() => {
-      expect(screen.getByText("DATA_HEALTH")).toBeDefined();
-      expect(screen.getByText("ENERGY_FRESHNESS")).toBeDefined();
-      expect(screen.getByText("HOUSING_COVERAGE")).toBeDefined();
-      expect(screen.getByText("missing 1")).toBeDefined();
+      expect(screen.getByText("How current is this data?")).toBeDefined();
+      expect(screen.getByText("Energy data freshness")).toBeDefined();
+      expect(screen.getByText("Housing coverage gaps")).toBeDefined();
+      expect(screen.getByText("1 missing")).toBeDefined();
     });
 
     expect(screen.queryByText("Sector Performance")).toBeNull();
   });
 
-  test("builds live feed rows from energy and housing API payloads", async () => {
+  test("uses fetched dates in the readable status panel instead of a live feed console", async () => {
     await renderHomePage();
 
     await waitFor(() => {
-      const liveFeed = within(screen.getByLabelText("Live feed logs"));
-      expect(liveFeed.getByText("ENERGY_OVERVIEW")).toBeDefined();
-      expect(liveFeed.getByText("HOUSING_OVERVIEW")).toBeDefined();
-      expect(liveFeed.getByText("118.0 AUD/MWh")).toBeDefined();
-      expect(liveFeed.getByText("metrics:4")).toBeDefined();
+      const statusPanel = within(
+        screen.getByText("How current is this data?").closest("section") as HTMLElement
+      );
+      expect(statusPanel.getByText("Latest energy update")).toBeDefined();
+      expect(statusPanel.getByText("27 Feb 2026, 1:00 pm")).toBeDefined();
+      expect(statusPanel.getByText("Latest housing update")).toBeDefined();
+      expect(statusPanel.getByText("31 Dec 2025")).toBeDefined();
     });
+
+    expect(screen.queryByText("Live Feed")).toBeNull();
   });
 });

@@ -5,7 +5,7 @@ import { renderHomePage } from "./render-home-page";
 const fetchMock = vi.fn();
 
 function getEconomicPanel() {
-  const panel = screen.getByText("Economic Feed").closest("section");
+  const panel = screen.getByText("Key indicators").closest("section");
   if (!panel) {
     throw new Error("Economic panel not found");
   }

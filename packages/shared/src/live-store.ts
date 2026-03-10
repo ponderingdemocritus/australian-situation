@@ -95,6 +95,11 @@ const SOURCE_EIA_URL = "https://www.eia.gov/opendata/documentation.php";
 const SOURCE_EUROSTAT_URL =
   "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_pc_204_sims.htm";
 const SOURCE_ENTSOE_URL = "https://transparency.entsoe.eu/api";
+const SOURCE_PLN_URL = "https://web.pln.co.id/cms/media/2025/12/tarif-listrik/";
+const SOURCE_BJ_TARIFF_URL =
+  "https://fgw.beijing.gov.cn/bmcx/djcx/jzldj/202110/t20211025_2520169.htm";
+const SOURCE_NEA_CHINA_WHOLESALE_URL =
+  "https://fjb.nea.gov.cn/dtyw/gjnyjdt/202309/t20230915_83144.html";
 const SOURCE_WORLD_BANK_URL =
   "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392-about-the-indicators-api-documentation";
 const SOURCE_DCCEEW_GENERATION_MIX_URL =
@@ -179,6 +184,27 @@ export const LIVE_SOURCE_CATALOG: SourceCatalogItem[] = [
     name: "ENTSO-E Wholesale",
     url: SOURCE_ENTSOE_URL,
     expectedCadence: "hourly"
+  },
+  {
+    sourceId: "pln_tariff",
+    domain: "energy",
+    name: "PLN Household Tariffs",
+    url: SOURCE_PLN_URL,
+    expectedCadence: "quarterly"
+  },
+  {
+    sourceId: "beijing_residential_tariff",
+    domain: "energy",
+    name: "Beijing Residential Tariff Proxy",
+    url: SOURCE_BJ_TARIFF_URL,
+    expectedCadence: "ad hoc"
+  },
+  {
+    sourceId: "nea_china_wholesale_proxy",
+    domain: "energy",
+    name: "NEA China Wholesale Proxy",
+    url: SOURCE_NEA_CHINA_WHOLESALE_URL,
+    expectedCadence: "annual"
   },
   {
     sourceId: "world_bank_normalization",

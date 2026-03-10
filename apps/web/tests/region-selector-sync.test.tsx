@@ -52,13 +52,11 @@ describe("Region selector sync", () => {
     await renderHomePage();
 
     const selector = screen.getByLabelText("Region");
-    expect(screen.getByText("Housing region: AU")).toBeDefined();
-    expect(screen.getByText("Energy region: AU")).toBeDefined();
+    expect(screen.getByText("Selected region: Australia")).toBeDefined();
 
     fireEvent.change(selector, { target: { value: "VIC" } });
 
-    expect(screen.getByText("Housing region: VIC")).toBeDefined();
-    expect(screen.getByText("Energy region: VIC")).toBeDefined();
+    expect(screen.getByText("Selected region: Victoria")).toBeDefined();
     expect(pushStateSpy).toHaveBeenCalledWith({}, "", "/VIC?subject=energy");
 
     pushStateSpy.mockRestore();
@@ -90,8 +88,7 @@ describe("Region selector sync", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Select region VIC" }));
 
-    expect(screen.getByText("Housing region: VIC")).toBeDefined();
-    expect(screen.getByText("Energy region: VIC")).toBeDefined();
+    expect(screen.getByText("Selected region: Victoria")).toBeDefined();
     expect(pushStateSpy).toHaveBeenCalledWith({}, "", "/VIC?subject=energy");
 
     pushStateSpy.mockRestore();

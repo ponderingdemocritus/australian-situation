@@ -104,23 +104,22 @@ describe("state-by-state energy panel", () => {
     await renderHomePage("WA");
 
     await waitFor(() => {
-      const panel = within(screen.getByLabelText("State by state energy"));
-      expect(panel.getByText("STATE_BY_STATE_ENERGY")).toBeDefined();
-      expect(panel.getByText("WA")).toBeDefined();
+      const panel = within(screen.getByText("State electricity snapshot").closest("section") as HTMLElement);
+      expect(panel.getByText("State electricity snapshot")).toBeDefined();
+      expect(panel.getByRole("button", { name: /Western Australia/i })).toBeDefined();
       expect(panel.getByText("$2,148")).toBeDefined();
-      expect(panel.queryByText("NSW")).toBeNull();
-      expect(panel.queryByText("VIC")).toBeNull();
-      expect(panel.queryByText("NT")).toBeNull();
+      expect(panel.queryByText("New South Wales")).toBeNull();
+      expect(panel.queryByText("Victoria")).toBeNull();
+      expect(panel.queryByText("Northern Territory")).toBeNull();
     });
   });
 
-  test("groups state data panels inside a dedicated scroll region", async () => {
+  test("shows the energy drill-down panels together in the secondary column", async () => {
     await renderHomePage();
 
     await waitFor(() => {
-      const detailRegion = within(screen.getByRole("region", { name: "State data panels" }));
-      expect(detailRegion.getByLabelText("State by state energy")).toBeDefined();
-      expect(detailRegion.getByLabelText("State by state source mix")).toBeDefined();
+      expect(screen.getByText("State electricity snapshot")).toBeDefined();
+      expect(screen.getByText("Electricity mix by source")).toBeDefined();
     });
   });
 
@@ -128,11 +127,11 @@ describe("state-by-state energy panel", () => {
     await renderHomePage("AU");
 
     await waitFor(() => {
-      const panel = within(screen.getByLabelText("State by state energy"));
-      expect(panel.getByText("AU")).toBeDefined();
+      const panel = within(screen.getByText("State electricity snapshot").closest("section") as HTMLElement);
+      expect(panel.getByRole("button", { name: /Australia/i })).toBeDefined();
       expect(panel.getByText("$2,019")).toBeDefined();
-      expect(panel.queryByText("NSW")).toBeNull();
-      expect(panel.queryByText("WA")).toBeNull();
+      expect(panel.queryByText("New South Wales")).toBeNull();
+      expect(panel.queryByText("Western Australia")).toBeNull();
     });
   });
 });

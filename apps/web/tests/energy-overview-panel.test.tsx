@@ -5,7 +5,7 @@ import { renderHomePage } from "./render-home-page";
 const fetchMock = vi.fn();
 
 function getEconomicPanel() {
-  const panel = screen.getByText("Economic Feed").closest("section");
+  const panel = screen.getByText("Key indicators").closest("section");
   if (!panel) {
     throw new Error("Economic panel not found");
   }
@@ -60,7 +60,7 @@ describe("Energy overview top-left panel", () => {
     vi.unstubAllGlobals();
   });
 
-  test("renders top-left ENERGY_OVERVIEW panel with fetched data", async () => {
+  test("renders readable energy summary content with fetched data", async () => {
     fetchMock.mockImplementation(async (input: string | URL | Request) => {
       const url = String(input);
       if (url.includes("/api/energy/overview?region=AU")) {
@@ -78,12 +78,13 @@ describe("Energy overview top-left panel", () => {
 
     await renderHomePage();
 
-    expect(getEconomicPanel().getByText("ENERGY_OVERVIEW")).toBeDefined();
+    expect(getEconomicPanel().getByText("Electricity snapshot")).toBeDefined();
     await waitFor(() => {
       const panel = getEconomicPanel();
-      expect(panel.getByText("LIVE_RRP")).toBeDefined();
+      expect(panel.getByText("Live wholesale price")).toBeDefined();
       expect(panel.getByText("118.0 AUD/MWh")).toBeDefined();
-      expect(panel.getByText("1985 AUD")).toBeDefined();
+      expect(panel.getByText("Average annual household bill")).toBeDefined();
+      expect(panel.getByText("1,985 AUD")).toBeDefined();
       expect(panel.getByText("2025-Q4")).toBeDefined();
     });
   });

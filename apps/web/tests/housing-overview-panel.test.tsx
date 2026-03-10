@@ -5,7 +5,7 @@ import { renderHomePage } from "./render-home-page";
 const fetchMock = vi.fn();
 
 function getEconomicPanel() {
-  const panel = screen.getByText("Economic Feed").closest("section");
+  const panel = screen.getByText("Key indicators").closest("section");
   if (!panel) {
     throw new Error("Economic panel not found");
   }
@@ -66,7 +66,7 @@ describe("Housing overview right panel", () => {
     vi.unstubAllGlobals();
   });
 
-  test("renders right-side HOUSING_OVERVIEW metrics from API", async () => {
+  test("renders readable housing summary content from API", async () => {
     fetchMock.mockImplementation(async (input: string | URL | Request) => {
       const url = String(input);
       if (url.includes("/api/housing/overview?region=AU")) {
@@ -84,16 +84,16 @@ describe("Housing overview right panel", () => {
 
     await renderHomePage();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Housing" }));
-    expect(getEconomicPanel().getByText("HOUSING_OVERVIEW")).toBeDefined();
+    fireEvent.click(screen.getByRole("tab", { name: /Housing/ }));
+    expect(getEconomicPanel().getByText("Housing snapshot")).toBeDefined();
 
     await waitFor(() => {
       const panel = getEconomicPanel();
-      expect(panel.getByText("HVI_INDEX")).toBeDefined();
+      expect(panel.getByText("Housing value index")).toBeDefined();
       expect(panel.getByText("169.4")).toBeDefined();
-      expect(panel.getByText("AVG_LOAN")).toBeDefined();
+      expect(panel.getByText("Average owner-occupier loan")).toBeDefined();
       expect(panel.getByText("$736,000")).toBeDefined();
-      expect(panel.getByText("OO_VARIABLE_RATE")).toBeDefined();
+      expect(panel.getByText("Owner-occupier variable rate")).toBeDefined();
       expect(panel.getByText("6.08%")).toBeDefined();
     });
   });
@@ -122,7 +122,7 @@ describe("Housing overview right panel", () => {
 
     await renderHomePage();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Housing" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Housing/ }));
     await waitFor(() => {
       expect(getEconomicPanel().getByText("169.4")).toBeDefined();
     });

@@ -14,7 +14,7 @@ async function loadSyncEnergyWholesaleGlobal() {
 }
 
 describe("syncEnergyWholesaleGlobal", () => {
-  test("ingests global wholesale observations from EIA and ENTSO-E fixtures", async () => {
+  test("ingests global wholesale observations from EIA, ENTSO-E, and China proxy fixtures", async () => {
     const syncEnergyWholesaleGlobal = await loadSyncEnergyWholesaleGlobal();
     expect(typeof syncEnergyWholesaleGlobal).toBe("function");
     if (typeof syncEnergyWholesaleGlobal !== "function") {
@@ -47,10 +47,18 @@ describe("syncEnergyWholesaleGlobal", () => {
       after.sourceCursors.find((cursor) => cursor.sourceId === "entsoe_wholesale")
     ).toBeTruthy();
     expect(
+      after.sourceCursors.find((cursor) => cursor.sourceId === "nea_china_wholesale_proxy")
+    ).toBeTruthy();
+    expect(
       after.rawSnapshots.find((snapshot) => snapshot.sourceId === "eia_electricity")
     ).toBeTruthy();
     expect(
       after.rawSnapshots.find((snapshot) => snapshot.sourceId === "entsoe_wholesale")
+    ).toBeTruthy();
+    expect(
+      after.rawSnapshots.find(
+        (snapshot) => snapshot.sourceId === "nea_china_wholesale_proxy"
+      )
     ).toBeTruthy();
 
     const hasUsWholesale = after.observations.some(
@@ -65,8 +73,15 @@ describe("syncEnergyWholesaleGlobal", () => {
         observation.countryCode === "DE" &&
         observation.market === "ENTSOE"
     );
+    const hasChinaWholesaleProxy = after.observations.some(
+      (observation) =>
+        observation.seriesId === "energy.wholesale.spot.country.local_mwh" &&
+        observation.countryCode === "CN" &&
+        observation.market === "CN_NEA_PROXY"
+    );
 
     expect(hasUsWholesale).toBe(true);
     expect(hasEuWholesale).toBe(true);
+    expect(hasChinaWholesaleProxy).toBe(true);
   });
 });

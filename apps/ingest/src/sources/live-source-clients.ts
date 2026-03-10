@@ -1043,6 +1043,368 @@ export async function fetchEurostatRetailSnapshot(
   };
 }
 
+export type PlnRetailTariffPoint = {
+  countryCode: "ID";
+  period: string;
+  tariffClass: string;
+  customerType: "residential";
+  consumptionBand: "household_low" | "household_mid" | "household_high";
+  taxStatus: "mixed";
+  currency: "IDR";
+  priceLocalKwh: number;
+};
+
+export type PlnRetailTariffSnapshot = {
+  sourceId: "pln_tariff";
+  endpoint: string;
+  rawPayload: string;
+  points: PlnRetailTariffPoint[];
+};
+
+export type FetchPlnRetailTariffOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+function stripHtmlTags(value: string): string {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#8211;/g, "-")
+    .replace(/&ndash;/g, "-")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parsePlnCurrency(value: string, sourceId: string): number {
+  const match = value.match(/Rp\s*([\d.,]+)/i);
+  if (!match) {
+    throw new SourceClientError(sourceId, "schema drift in PLN tariff row", {
+      transient: false
+    });
+  }
+
+  const normalized = match[1]!.replace(/\./g, "").replace(",", ".");
+  const parsed = Number(normalized);
+  if (Number.isNaN(parsed)) {
+    throw new SourceClientError(sourceId, "schema drift in PLN tariff value", {
+      transient: false
+    });
+  }
+
+  return parsed;
+}
+
+function parsePlnPublishedDate(value: string, sourceId: string): string {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    throw new SourceClientError(sourceId, "schema drift in PLN publish date", {
+      transient: false
+    });
+  }
+
+  return new Date(parsed).toISOString().slice(0, 10);
+}
+
+function parsePlnTableRows(content: string, sourceId: string): string[][] {
+  const householdSection = content.match(
+    /<h3[^>]*>.*?Tarif Listrik Rumah Tangga.*?<\/table>/is
+  )?.[0];
+  if (!householdSection) {
+    throw new SourceClientError(sourceId, "schema drift in PLN household tariff table", {
+      transient: false
+    });
+  }
+
+  return [...householdSection.matchAll(/<tr[^>]*>(.*?)<\/tr>/gis)]
+    .map((match) =>
+      [...match[1]!.matchAll(/<td[^>]*>(.*?)<\/td>/gis)].map((cellMatch) =>
+        stripHtmlTags(cellMatch[1]!)
+      )
+    )
+    .filter((cells) => cells.length >= 3);
+}
+
+function findPlnTariffRow(
+  rows: string[][],
+  predicate: (cells: string[]) => boolean,
+  sourceId: string
+): string[] {
+  const row = rows.find(predicate);
+  if (!row) {
+    throw new SourceClientError(sourceId, "schema drift in PLN tariff table rows", {
+      transient: false
+    });
+  }
+  return row;
+}
+
+export async function fetchPlnRetailTariffSnapshot(
+  options: FetchPlnRetailTariffOptions = {}
+): Promise<PlnRetailTariffSnapshot> {
+  const sourceId = "pln_tariff";
+  const endpoint =
+    options.endpoint ?? "https://web.pln.co.id/cms/wp-json/wp/v2/posts/54823";
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "application/json"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const parsed = await readJsonResponse(sourceId, response);
+  const payload = parsed as {
+    date?: unknown;
+    content?: { rendered?: unknown };
+  };
+
+  if (
+    typeof payload.date !== "string" ||
+    typeof payload.content?.rendered !== "string"
+  ) {
+    throw new SourceClientError(sourceId, "schema drift in PLN tariff payload", {
+      transient: false
+    });
+  }
+
+  const period = parsePlnPublishedDate(payload.date, sourceId);
+  const rows = parsePlnTableRows(payload.content.rendered, sourceId);
+  const lowRow = findPlnTariffRow(
+    rows,
+    (cells) => cells[0]?.includes("R-1 (Subsidi)") && cells[1]?.includes("900 VA"),
+    sourceId
+  );
+  const midRow = findPlnTariffRow(
+    rows,
+    (cells) =>
+      cells[0]?.includes("R-1 (Non-Subsidi)") &&
+      (cells[1]?.includes("1.300") || cells[1]?.includes("1300")),
+    sourceId
+  );
+  const highRow = findPlnTariffRow(
+    rows,
+    (cells) => cells[0]?.startsWith("R-2"),
+    sourceId
+  );
+
+  return {
+    sourceId,
+    endpoint,
+    rawPayload: JSON.stringify(parsed),
+    points: [
+      {
+        countryCode: "ID",
+        period,
+        tariffClass: lowRow[0]!,
+        customerType: "residential",
+        consumptionBand: "household_low",
+        taxStatus: "mixed",
+        currency: "IDR",
+        priceLocalKwh: parsePlnCurrency(lowRow[2]!, sourceId)
+      },
+      {
+        countryCode: "ID",
+        period,
+        tariffClass: midRow[0]!,
+        customerType: "residential",
+        consumptionBand: "household_mid",
+        taxStatus: "mixed",
+        currency: "IDR",
+        priceLocalKwh: parsePlnCurrency(midRow[2]!, sourceId)
+      },
+      {
+        countryCode: "ID",
+        period,
+        tariffClass: highRow[0]!,
+        customerType: "residential",
+        consumptionBand: "household_high",
+        taxStatus: "mixed",
+        currency: "IDR",
+        priceLocalKwh: parsePlnCurrency(highRow[2]!, sourceId)
+      }
+    ]
+  };
+}
+
+export type BeijingResidentialTariffPoint = {
+  countryCode: "CN";
+  period: string;
+  tariffClass: "Residential electricity users";
+  customerType: "residential";
+  consumptionBand: "household_mid";
+  taxStatus: "mixed";
+  currency: "CNY";
+  priceLocalKwh: number;
+};
+
+export type BeijingResidentialTariffSnapshot = {
+  sourceId: "beijing_residential_tariff";
+  endpoint: string;
+  rawPayload: string;
+  points: BeijingResidentialTariffPoint[];
+};
+
+export type FetchBeijingResidentialTariffOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+function parseDateFromEndpoint(endpoint: string, sourceId: string): string {
+  const match = endpoint.match(/t(\d{4})(\d{2})(\d{2})_/i);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+
+  if (sourceId === "beijing_residential_tariff") {
+    return "2021-10-25";
+  }
+
+  throw new SourceClientError(sourceId, "schema drift in source URL date", {
+    transient: false
+  });
+}
+
+export async function fetchBeijingResidentialTariffSnapshot(
+  options: FetchBeijingResidentialTariffOptions = {}
+): Promise<BeijingResidentialTariffSnapshot> {
+  const sourceId = "beijing_residential_tariff";
+  const endpoint =
+    options.endpoint ??
+    "https://fgw.beijing.gov.cn/bmcx/djcx/jzldj/202110/t20211025_2520169.htm";
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "text/html,text/plain"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const rawPayload = await readTextResponse(sourceId, response);
+  const priceMatch = rawPayload.match(
+    /Residential electricity users[\s\S]{0,120}?less than 1\s*kV[\s\S]{0,120}?([0-9]+\.[0-9]+)/i
+  );
+  if (!priceMatch) {
+    throw new SourceClientError(sourceId, "schema drift in Beijing tariff page", {
+      transient: false
+    });
+  }
+
+  const priceLocalKwh = Number(priceMatch[1]);
+  if (Number.isNaN(priceLocalKwh)) {
+    throw new SourceClientError(sourceId, "schema drift in Beijing tariff value", {
+      transient: false
+    });
+  }
+
+  return {
+    sourceId,
+    endpoint,
+    rawPayload,
+    points: [
+      {
+        countryCode: "CN",
+        period: parseDateFromEndpoint(endpoint, sourceId),
+        tariffClass: "Residential electricity users",
+        customerType: "residential",
+        consumptionBand: "household_mid",
+        taxStatus: "mixed",
+        currency: "CNY",
+        priceLocalKwh
+      }
+    ]
+  };
+}
+
+export type NeaChinaWholesaleProxyPoint = {
+  countryCode: "CN";
+  period: string;
+  priceCnyKwh: number;
+};
+
+export type NeaChinaWholesaleProxySnapshot = {
+  sourceId: "nea_china_wholesale_proxy";
+  endpoint: string;
+  rawPayload: string;
+  points: NeaChinaWholesaleProxyPoint[];
+};
+
+export type FetchNeaChinaWholesaleProxyOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+export async function fetchNeaChinaWholesaleProxySnapshot(
+  options: FetchNeaChinaWholesaleProxyOptions = {}
+): Promise<NeaChinaWholesaleProxySnapshot> {
+  const sourceId = "nea_china_wholesale_proxy";
+  const endpoint =
+    options.endpoint ??
+    "https://fjb.nea.gov.cn/dtyw/gjnyjdt/202309/t20230915_83144.html";
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "text/html,text/plain"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const rawPayload = await readTextResponse(sourceId, response);
+  const match = rawPayload.match(
+    /(20\d{2})年[^。]{0,120}?市场平均交易价格为\s*([0-9.]+)\s*元\/千瓦时/u
+  );
+  if (!match) {
+    throw new SourceClientError(sourceId, "schema drift in NEA wholesale proxy page", {
+      transient: false
+    });
+  }
+
+  const priceCnyKwh = Number(match[2]);
+  if (Number.isNaN(priceCnyKwh)) {
+    throw new SourceClientError(sourceId, "schema drift in NEA wholesale proxy value", {
+      transient: false
+    });
+  }
+
+  return {
+    sourceId,
+    endpoint,
+    rawPayload,
+    points: [
+      {
+        countryCode: "CN",
+        period: match[1]!,
+        priceCnyKwh
+      }
+    ]
+  };
+}
+
 export type WorldBankNormalizationPoint = {
   countryCode: string;
   year: string;

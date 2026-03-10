@@ -14,7 +14,7 @@ async function loadSyncEnergyRetailGlobal() {
 }
 
 describe("syncEnergyRetailGlobal", () => {
-  test("ingests global retail observations from EIA and Eurostat fixtures", async () => {
+  test("ingests global retail observations from EIA, Eurostat, PLN, and China proxy fixtures", async () => {
     const syncEnergyRetailGlobal = await loadSyncEnergyRetailGlobal();
     expect(typeof syncEnergyRetailGlobal).toBe("function");
     if (typeof syncEnergyRetailGlobal !== "function") {
@@ -47,10 +47,24 @@ describe("syncEnergyRetailGlobal", () => {
       after.sourceCursors.find((cursor) => cursor.sourceId === "eurostat_retail")
     ).toBeTruthy();
     expect(
+      after.sourceCursors.find((cursor) => cursor.sourceId === "pln_tariff")
+    ).toBeTruthy();
+    expect(
+      after.sourceCursors.find((cursor) => cursor.sourceId === "beijing_residential_tariff")
+    ).toBeTruthy();
+    expect(
       after.rawSnapshots.find((snapshot) => snapshot.sourceId === "eia_electricity")
     ).toBeTruthy();
     expect(
       after.rawSnapshots.find((snapshot) => snapshot.sourceId === "eurostat_retail")
+    ).toBeTruthy();
+    expect(
+      after.rawSnapshots.find((snapshot) => snapshot.sourceId === "pln_tariff")
+    ).toBeTruthy();
+    expect(
+      after.rawSnapshots.find(
+        (snapshot) => snapshot.sourceId === "beijing_residential_tariff"
+      )
     ).toBeTruthy();
 
     const hasUsRetail = after.observations.some(
@@ -66,10 +80,32 @@ describe("syncEnergyRetailGlobal", () => {
         observation.market === "EUROSTAT" &&
         observation.taxStatus === "incl_tax"
     );
+    const hasIndonesiaRetail = after.observations.some(
+      (observation) =>
+        observation.seriesId === "energy.retail.price.country.local_kwh" &&
+        observation.countryCode === "ID" &&
+        observation.market === "PLN" &&
+        observation.taxStatus === "mixed" &&
+        observation.consumptionBand === "household_mid"
+    );
+    const hasChinaRetailProxy = after.observations.some(
+      (observation) =>
+        observation.seriesId === "energy.retail.price.country.local_kwh" &&
+        observation.countryCode === "CN" &&
+        observation.market === "CN_BEIJING_PROXY" &&
+        observation.taxStatus === "mixed" &&
+        observation.consumptionBand === "household_mid"
+    );
 
     expect(hasUsRetail).toBe(true);
     expect(hasEuRetail).toBe(true);
+    expect(hasIndonesiaRetail).toBe(true);
+    expect(hasChinaRetailProxy).toBe(true);
     expect(after.sources.find((source) => source.sourceId === "eia_electricity")).toBeTruthy();
     expect(after.sources.find((source) => source.sourceId === "eurostat_retail")).toBeTruthy();
+    expect(after.sources.find((source) => source.sourceId === "pln_tariff")).toBeTruthy();
+    expect(
+      after.sources.find((source) => source.sourceId === "beijing_residential_tariff")
+    ).toBeTruthy();
   });
 });
