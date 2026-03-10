@@ -51,4 +51,37 @@ describe("syncMacroAbsCpi", () => {
     );
     expect(hasCpi).toBe(true);
   });
+
+  test("ingests CPI observations for every state and territory", async () => {
+    const syncMacroAbsCpi = await loadSyncMacroAbsCpi();
+    expect(typeof syncMacroAbsCpi).toBe("function");
+    if (typeof syncMacroAbsCpi !== "function") {
+      return;
+    }
+
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), "aus-dash-cpi-regional-"));
+    const storePath = resolveLiveStorePath(path.join(tempDir, "live-store.json"));
+
+    await syncMacroAbsCpi({ storePath });
+
+    const after = readLiveStoreSync(storePath);
+    const regionalCpi = after.observations.filter(
+      (observation) =>
+        observation.seriesId === "energy.cpi.electricity.index" &&
+        observation.regionCode !== "AU"
+    );
+
+    expect(regionalCpi).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ regionCode: "NSW" }),
+        expect.objectContaining({ regionCode: "VIC" }),
+        expect.objectContaining({ regionCode: "QLD" }),
+        expect.objectContaining({ regionCode: "SA" }),
+        expect.objectContaining({ regionCode: "WA" }),
+        expect.objectContaining({ regionCode: "TAS" }),
+        expect.objectContaining({ regionCode: "ACT" }),
+        expect.objectContaining({ regionCode: "NT" })
+      ])
+    );
+  });
 });

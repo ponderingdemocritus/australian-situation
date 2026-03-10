@@ -16,6 +16,7 @@ export const HEALTH_RESPONSE_SCHEMA = v.object({
 });
 
 export const SOURCE_REF_SCHEMA = v.object({
+  sourceId: v.string(),
   name: v.string(),
   url: v.string()
 });
@@ -81,10 +82,26 @@ export const ENERGY_RETAIL_AVERAGE_RESPONSE_SCHEMA = v.object({
   freshness: FRESHNESS_SCHEMA
 });
 
+export const ENERGY_SOURCE_MIX_ROW_SCHEMA = v.object({
+  sourceKey: v.string(),
+  label: v.string(),
+  sharePct: v.number()
+});
+
+export const ENERGY_SOURCE_MIX_VIEW_SCHEMA = v.object({
+  viewId: v.string(),
+  title: v.string(),
+  coverageLabel: v.string(),
+  updatedAt: v.string(),
+  sourceRefs: v.array(SOURCE_REF_SCHEMA),
+  rows: v.array(ENERGY_SOURCE_MIX_ROW_SCHEMA)
+});
+
 export const ENERGY_OVERVIEW_RESPONSE_SCHEMA = v.object({
   region: v.string(),
   methodSummary: v.string(),
   sourceRefs: v.array(SOURCE_REF_SCHEMA),
+  sourceMixViews: v.array(ENERGY_SOURCE_MIX_VIEW_SCHEMA),
   panels: v.object({
     liveWholesale: v.object({
       valueAudMwh: v.number(),

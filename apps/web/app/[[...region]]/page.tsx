@@ -3,6 +3,7 @@ import { DashboardShell } from "../../features/dashboard/components/dashboard-sh
 import {
   DEFAULT_REGION,
   REGIONS,
+  parseMetadataSourcesResponse,
   parseMethodologyMetadataResponse,
   parseRetailComparisonResponse,
   parseWholesaleComparisonResponse,
@@ -10,6 +11,7 @@ import {
   parseHousingOverviewResponse,
   type EnergyOverviewResponse,
   type HousingOverviewResponse,
+  type MetadataSourcesResponse,
   type MethodologyMetadataResponse,
   type RegionCode,
   type RetailComparisonResponse,
@@ -48,6 +50,22 @@ type PageProps = {
   params: Promise<{ region?: string[] }>;
 };
 
+async function fetchInitialStateEnergyOverviews(): Promise<
+  Record<RegionCode, EnergyOverviewResponse | null>
+> {
+  const entries = await Promise.all(
+    REGIONS.map(async (targetRegion) => [
+      targetRegion,
+      await fetchInitialOverview<EnergyOverviewResponse>(
+        `/api/energy/overview?region=${targetRegion}`,
+        parseEnergyOverviewResponse
+      )
+    ])
+  );
+
+  return Object.fromEntries(entries) as Record<RegionCode, EnergyOverviewResponse | null>;
+}
+
 export default async function RegionPage({ params }: PageProps) {
   const { region: segments } = await params;
 
@@ -73,7 +91,9 @@ export default async function RegionPage({ params }: PageProps) {
     initialRetailComparisonNominal,
     initialRetailComparisonPpp,
     initialWholesaleComparison,
-    initialRetailMethodology
+    initialRetailMethodology,
+    initialMetadataSources,
+    initialStateEnergyOverviews
   ] = await Promise.all([
     fetchInitialOverview<EnergyOverviewResponse>(
       `/api/energy/overview?region=${region}`,
@@ -98,7 +118,12 @@ export default async function RegionPage({ params }: PageProps) {
     fetchInitialOverview<MethodologyMetadataResponse>(
       "/api/v1/metadata/methodology?metric=energy.compare.retail",
       parseMethodologyMetadataResponse
-    )
+    ),
+    fetchInitialOverview<MetadataSourcesResponse>(
+      "/api/metadata/sources",
+      parseMetadataSourcesResponse
+    ),
+    fetchInitialStateEnergyOverviews()
   ]);
 
   return (
@@ -110,6 +135,8 @@ export default async function RegionPage({ params }: PageProps) {
       initialRetailComparisonPpp={initialRetailComparisonPpp}
       initialWholesaleComparison={initialWholesaleComparison}
       initialRetailMethodology={initialRetailMethodology}
+      initialMetadataSources={initialMetadataSources}
+      initialStateEnergyOverviews={initialStateEnergyOverviews}
     />
   );
 }

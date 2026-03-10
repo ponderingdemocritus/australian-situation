@@ -1,5 +1,9 @@
 import { syncEnergyBenchmarkDmo } from "./sync-energy-benchmark-dmo";
 import { syncEnergyNormalization } from "./sync-energy-normalization";
+import {
+  syncEnergySourceMixOfficial,
+  syncEnergySourceMixOperational
+} from "./sync-energy-source-mix";
 import { syncEnergyRetailGlobal } from "./sync-energy-retail-global";
 import { syncEnergyRetailPlans } from "./sync-energy-retail-plans";
 import { syncEnergyWholesale } from "./sync-energy-wholesale";
@@ -127,11 +131,41 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
       })
   },
   {
+    jobId: "sync-energy-source-mix-operational-5m",
+    phase: 1,
+    schedule: { pattern: "2-57/5 * * * *" },
+    processor: async (payload, context) =>
+      syncEnergySourceMixOperational({
+        storePath: payload.storePath,
+        sourceMode: payload.sourceMode,
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
+      })
+  },
+  {
     jobId: "sync-energy-wholesale-global-hourly",
     phase: 1,
     schedule: { pattern: "5 * * * *" },
     processor: async (payload, context) =>
       syncEnergyWholesaleGlobal({
+        storePath: payload.storePath,
+        sourceMode: payload.sourceMode,
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
+      })
+  },
+  {
+    jobId: "sync-energy-source-mix-official-daily",
+    phase: 1,
+    schedule: { pattern: "20 4 * * *" },
+    processor: async (payload, context) =>
+      syncEnergySourceMixOfficial({
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
         ingestBackend: payload.ingestBackend,

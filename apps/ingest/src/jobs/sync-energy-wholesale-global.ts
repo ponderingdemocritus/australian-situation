@@ -1,5 +1,4 @@
 import {
-  createSeedLiveStore,
   getSourceCatalogItems
 } from "@aus-dash/shared";
 import {
@@ -18,11 +17,6 @@ import {
   buildIngestRunAuditFields,
   type IngestRunAuditOptions
 } from "./ingest-run-audit";
-
-const GLOBAL_SOURCE_CATALOG = getSourceCatalogItems([
-  "eia_electricity",
-  "entsoe_wholesale"
-]);
 
 const EIA_WHOLESALE_FIXTURE: EiaWholesalePricePoint[] = [
   {
@@ -132,7 +126,7 @@ export async function syncEnergyWholesaleGlobal(
   const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
-    sourceCatalog: [...createSeedLiveStore().sources, ...GLOBAL_SOURCE_CATALOG],
+    sourceCatalog: getSourceCatalogItems(),
     rawSnapshots: [
       {
         sourceId: "eia_electricity",

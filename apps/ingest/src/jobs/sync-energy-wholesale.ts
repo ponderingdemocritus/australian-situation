@@ -1,5 +1,5 @@
 import {
-  createSeedLiveStore
+  getSourceCatalogItems
 } from "@aus-dash/shared";
 import {
   fetchAemoWholesaleSnapshot,
@@ -144,10 +144,32 @@ export async function syncEnergyWholesale(
     confidence: "official" as const,
     methodologyVersion: "energy-wholesale-v1"
   }));
+  const regionalObservations = sourcePoints.map((point) => ({
+    seriesId: "energy.wholesale.rrp.region_aud_mwh",
+    regionCode: point.regionCode,
+    countryCode: "AU",
+    market: point.regionCode,
+    metricFamily: "wholesale",
+    date: point.timestamp,
+    intervalStartUtc: point.timestamp,
+    intervalEndUtc: point.timestamp,
+    value: point.rrpAudMwh,
+    unit: "aud_mwh",
+    currency: "AUD",
+    sourceName: "AEMO",
+    sourceUrl:
+      "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem",
+    publishedAt: point.timestamp,
+    ingestedAt,
+    vintage: observationVintage,
+    isModeled: false,
+    confidence: "official" as const,
+    methodologyVersion: "energy-wholesale-v1"
+  }));
   const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
-    sourceCatalog: createSeedLiveStore().sources,
+    sourceCatalog: getSourceCatalogItems(),
     rawSnapshots: [
       {
         sourceId: "aemo_wholesale",
@@ -156,7 +178,7 @@ export async function syncEnergyWholesale(
         capturedAt: ingestedAt
       }
     ],
-    observations,
+    observations: [...observations, ...regionalObservations],
     sourceCursors: [{ sourceId: "aemo_wholesale", cursor: latest.timestamp }],
     ingestionRun: {
       job: "sync-energy-wholesale-5m",

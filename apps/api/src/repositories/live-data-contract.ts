@@ -6,6 +6,7 @@ export type Cadence = "5m" | "daily" | "monthly" | "quarterly";
 export type FreshnessStatus = "fresh" | "stale" | "degraded";
 
 export type SourceRef = {
+  sourceId: string;
   name: string;
   url: string;
 };
@@ -71,10 +72,26 @@ export type EnergyRetailAverageResponse = {
   freshness: Freshness;
 };
 
+export type EnergySourceMixRow = {
+  sourceKey: string;
+  label: string;
+  sharePct: number;
+};
+
+export type EnergySourceMixView = {
+  viewId: "annual_official" | "operational_nem_wem";
+  title: string;
+  coverageLabel: string;
+  updatedAt: string;
+  sourceRefs: SourceRef[];
+  rows: EnergySourceMixRow[];
+};
+
 export type EnergyOverviewResponse = {
   region: string;
   methodSummary: string;
   sourceRefs: SourceRef[];
+  sourceMixViews: EnergySourceMixView[];
   panels: {
     liveWholesale: {
       valueAudMwh: number;
@@ -116,7 +133,7 @@ export type MetadataFreshnessResponse = {
 
 export type MetadataSource = {
   sourceId: string;
-  domain: string;
+  domain: "housing" | "energy" | "macro";
   name: string;
   url: string;
   expectedCadence: string;

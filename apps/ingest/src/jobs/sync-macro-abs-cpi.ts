@@ -1,6 +1,5 @@
 import {
-  createSeedLiveStore,
-  type SourceCatalogItem,
+  getSourceCatalogItems
 } from "@aus-dash/shared";
 import {
   fetchAbsCpiSnapshot,
@@ -16,13 +15,7 @@ import {
   type IngestRunAuditOptions
 } from "./ingest-run-audit";
 
-const ABS_CPI_SOURCE_CATALOG: SourceCatalogItem = {
-  sourceId: "abs_cpi",
-  domain: "macro",
-  name: "ABS CPI Electricity",
-  url: "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release",
-  expectedCadence: "quarterly"
-};
+const ABS_CPI_SOURCE_URL = getSourceCatalogItems(["abs_cpi"])[0]!.url;
 
 const ABS_CPI_FIXTURE: AbsCpiObservation[] = [
   {
@@ -32,9 +25,51 @@ const ABS_CPI_FIXTURE: AbsCpiObservation[] = [
     unit: "index"
   },
   {
+    regionCode: "NSW",
+    date: "2025-Q4",
+    value: 152.8,
+    unit: "index"
+  },
+  {
     regionCode: "VIC",
     date: "2025-Q4",
     value: 148.6,
+    unit: "index"
+  },
+  {
+    regionCode: "QLD",
+    date: "2025-Q4",
+    value: 149.9,
+    unit: "index"
+  },
+  {
+    regionCode: "SA",
+    date: "2025-Q4",
+    value: 153.1,
+    unit: "index"
+  },
+  {
+    regionCode: "WA",
+    date: "2025-Q4",
+    value: 147.4,
+    unit: "index"
+  },
+  {
+    regionCode: "TAS",
+    date: "2025-Q4",
+    value: 146.8,
+    unit: "index"
+  },
+  {
+    regionCode: "ACT",
+    date: "2025-Q4",
+    value: 150.5,
+    unit: "index"
+  },
+  {
+    regionCode: "NT",
+    date: "2025-Q4",
+    value: 156.2,
     unit: "index"
   }
 ];
@@ -88,7 +123,7 @@ export async function syncMacroAbsCpi(
     value: point.value,
     unit: point.unit,
     sourceName: "ABS CPI",
-    sourceUrl: ABS_CPI_SOURCE_CATALOG.url,
+    sourceUrl: ABS_CPI_SOURCE_URL,
     publishedAt: ingestedAt,
     ingestedAt,
     vintage: ingestedAt.slice(0, 10),
@@ -101,7 +136,7 @@ export async function syncMacroAbsCpi(
   const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
-    sourceCatalog: [...createSeedLiveStore().sources, ABS_CPI_SOURCE_CATALOG],
+    sourceCatalog: getSourceCatalogItems(),
     rawSnapshots: [
       {
         sourceId: "abs_cpi",

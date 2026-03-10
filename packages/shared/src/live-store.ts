@@ -36,6 +36,8 @@ export type SourceCatalogItem = {
   expectedCadence: string;
 };
 
+export type SourceReference = Pick<SourceCatalogItem, "sourceId" | "name" | "url">;
+
 export type SourceCursor = {
   sourceId: string;
   cursor: string;
@@ -95,6 +97,10 @@ const SOURCE_EUROSTAT_URL =
 const SOURCE_ENTSOE_URL = "https://transparency.entsoe.eu/api";
 const SOURCE_WORLD_BANK_URL =
   "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392-about-the-indicators-api-documentation";
+const SOURCE_DCCEEW_GENERATION_MIX_URL =
+  "https://www.energy.gov.au/energy-data/australian-electricity-generation-fuel-mix";
+const SOURCE_AEMO_WEM_URL =
+  "https://www.aemo.com.au/energy-systems/electricity/wholesale-electricity-market-wem/data-wem/data-dashboard-wem";
 
 export const LIVE_SOURCE_CATALOG: SourceCatalogItem[] = [
   {
@@ -117,6 +123,27 @@ export const LIVE_SOURCE_CATALOG: SourceCatalogItem[] = [
     name: "AER Product Reference Data",
     url: SOURCE_AER_URL,
     expectedCadence: "daily"
+  },
+  {
+    sourceId: "dcceew_generation_mix",
+    domain: "energy",
+    name: "DCCEEW Australian electricity generation fuel mix",
+    url: SOURCE_DCCEEW_GENERATION_MIX_URL,
+    expectedCadence: "annual"
+  },
+  {
+    sourceId: "aemo_nem_source_mix",
+    domain: "energy",
+    name: "AEMO NEM fuel mix dashboard",
+    url: SOURCE_AEMO_URL,
+    expectedCadence: "5m"
+  },
+  {
+    sourceId: "aemo_wem_source_mix",
+    domain: "energy",
+    name: "AEMO WEM fuel mix dashboard",
+    url: SOURCE_AEMO_WEM_URL,
+    expectedCadence: "5m"
   },
   {
     sourceId: "rba_rates",
@@ -165,6 +192,331 @@ export const LIVE_SOURCE_CATALOG: SourceCatalogItem[] = [
 const LIVE_SOURCE_CATALOG_BY_ID = new Map(
   LIVE_SOURCE_CATALOG.map((item) => [item.sourceId, item] as const)
 );
+
+export const ENERGY_SOURCE_MIX_KEYS = [
+  "coal",
+  "gas",
+  "hydro",
+  "oil",
+  "other_renewables"
+] as const;
+
+export type EnergySourceMixKey = (typeof ENERGY_SOURCE_MIX_KEYS)[number];
+
+export type AnnualSourceMixPoint = {
+  regionCode: string;
+  period: string;
+  sourceKey: EnergySourceMixKey;
+  generationGwh: number;
+  sharePct: number;
+};
+
+export type OperationalSourceMixPoint = {
+  regionCode: string;
+  timestamp: string;
+  sourceKey: EnergySourceMixKey;
+  generationMw: number;
+  sharePct: number;
+};
+
+export const OFFICIAL_SOURCE_MIX_PERIOD = "2024";
+export const OPERATIONAL_SOURCE_MIX_TIMESTAMP = "2026-02-27T02:00:00Z";
+
+const OFFICIAL_SOURCE_MIX_SHARES: Record<
+  string,
+  Record<EnergySourceMixKey, number>
+> = {
+  AU: {
+    coal: 47,
+    gas: 18,
+    hydro: 6,
+    oil: 1,
+    other_renewables: 28
+  },
+  NSW: {
+    coal: 68,
+    gas: 4,
+    hydro: 7,
+    oil: 0,
+    other_renewables: 21
+  },
+  VIC: {
+    coal: 63,
+    gas: 6,
+    hydro: 5,
+    oil: 0,
+    other_renewables: 26
+  },
+  QLD: {
+    coal: 73,
+    gas: 10,
+    hydro: 1,
+    oil: 0,
+    other_renewables: 16
+  },
+  SA: {
+    coal: 0,
+    gas: 21,
+    hydro: 0,
+    oil: 1,
+    other_renewables: 78
+  },
+  WA: {
+    coal: 23,
+    gas: 62,
+    hydro: 0,
+    oil: 2,
+    other_renewables: 13
+  },
+  TAS: {
+    coal: 0,
+    gas: 0,
+    hydro: 79,
+    oil: 0,
+    other_renewables: 21
+  },
+  NT: {
+    coal: 0,
+    gas: 84,
+    hydro: 0,
+    oil: 8,
+    other_renewables: 8
+  }
+};
+
+const OFFICIAL_SOURCE_MIX_TOTALS_GWH: Record<string, number> = {
+  AU: 364_000,
+  NSW: 71_000,
+  VIC: 50_000,
+  QLD: 59_000,
+  SA: 14_000,
+  WA: 19_000,
+  TAS: 11_000,
+  NT: 2_000
+};
+
+export const OFFICIAL_SOURCE_MIX_FIXTURE: AnnualSourceMixPoint[] = Object.entries(
+  OFFICIAL_SOURCE_MIX_SHARES
+).flatMap(([regionCode, shares]) =>
+  ENERGY_SOURCE_MIX_KEYS.map((sourceKey) => ({
+    regionCode,
+    period: OFFICIAL_SOURCE_MIX_PERIOD,
+    sourceKey,
+    generationGwh: Number(
+      ((OFFICIAL_SOURCE_MIX_TOTALS_GWH[regionCode] * shares[sourceKey]) / 100).toFixed(2)
+    ),
+    sharePct: shares[sourceKey]
+  }))
+);
+
+const NEM_OPERATIONAL_MIX_GENERATION_MW: Record<
+  string,
+  Record<EnergySourceMixKey, number>
+> = {
+  NSW: {
+    coal: 5520,
+    gas: 560,
+    hydro: 400,
+    oil: 0,
+    other_renewables: 1520
+  },
+  VIC: {
+    coal: 2900,
+    gas: 300,
+    hydro: 200,
+    oil: 0,
+    other_renewables: 1600
+  },
+  QLD: {
+    coal: 4560,
+    gas: 780,
+    hydro: 60,
+    oil: 0,
+    other_renewables: 600
+  },
+  SA: {
+    coal: 0,
+    gas: 180,
+    hydro: 0,
+    oil: 0,
+    other_renewables: 820
+  },
+  TAS: {
+    coal: 0,
+    gas: 0,
+    hydro: 648,
+    oil: 0,
+    other_renewables: 152
+  }
+};
+
+export const NEM_OPERATIONAL_SOURCE_MIX_FIXTURE: OperationalSourceMixPoint[] = Object.entries(
+  NEM_OPERATIONAL_MIX_GENERATION_MW
+).flatMap(([regionCode, mix]) => {
+  const totalGenerationMw = ENERGY_SOURCE_MIX_KEYS.reduce(
+    (sum, sourceKey) => sum + mix[sourceKey],
+    0
+  );
+
+  return ENERGY_SOURCE_MIX_KEYS.map((sourceKey) => ({
+    regionCode,
+    timestamp: OPERATIONAL_SOURCE_MIX_TIMESTAMP,
+    sourceKey,
+    generationMw: mix[sourceKey],
+    sharePct: totalGenerationMw > 0 ? Number(((mix[sourceKey] / totalGenerationMw) * 100).toFixed(1)) : 0
+  }));
+});
+
+const WEM_OPERATIONAL_MIX_GENERATION_MW: Record<EnergySourceMixKey, number> = {
+  coal: 420,
+  gas: 1240,
+  hydro: 0,
+  oil: 80,
+  other_renewables: 260
+};
+
+export const WEM_OPERATIONAL_SOURCE_MIX_FIXTURE: OperationalSourceMixPoint[] = (() => {
+  const totalGenerationMw = ENERGY_SOURCE_MIX_KEYS.reduce(
+    (sum, sourceKey) => sum + WEM_OPERATIONAL_MIX_GENERATION_MW[sourceKey],
+    0
+  );
+
+  return ENERGY_SOURCE_MIX_KEYS.map((sourceKey) => ({
+    regionCode: "WA",
+    timestamp: OPERATIONAL_SOURCE_MIX_TIMESTAMP,
+    sourceKey,
+    generationMw: WEM_OPERATIONAL_MIX_GENERATION_MW[sourceKey],
+    sharePct:
+      totalGenerationMw > 0
+        ? Number(
+            ((WEM_OPERATIONAL_MIX_GENERATION_MW[sourceKey] / totalGenerationMw) * 100).toFixed(1)
+          )
+        : 0
+  }));
+})();
+
+function buildOperationalAggregateFixture(
+  points: OperationalSourceMixPoint[]
+): OperationalSourceMixPoint[] {
+  const generationBySource = new Map<EnergySourceMixKey, number>();
+  for (const sourceKey of ENERGY_SOURCE_MIX_KEYS) {
+    generationBySource.set(sourceKey, 0);
+  }
+
+  for (const point of points) {
+    generationBySource.set(
+      point.sourceKey,
+      (generationBySource.get(point.sourceKey) ?? 0) + point.generationMw
+    );
+  }
+
+  const totalGenerationMw = [...generationBySource.values()].reduce(
+    (sum, value) => sum + value,
+    0
+  );
+
+  return ENERGY_SOURCE_MIX_KEYS.map((sourceKey) => {
+    const generationMw = generationBySource.get(sourceKey) ?? 0;
+    return {
+      regionCode: "AU",
+      timestamp: OPERATIONAL_SOURCE_MIX_TIMESTAMP,
+      sourceKey,
+      generationMw,
+      sharePct:
+        totalGenerationMw > 0 ? Number(((generationMw / totalGenerationMw) * 100).toFixed(1)) : 0
+    };
+  });
+}
+
+export function energySourceMixSeriesId(
+  view: "official" | "operational",
+  sourceKey: EnergySourceMixKey
+): string {
+  return `energy.source_mix.${view}.share_pct.${sourceKey}`;
+}
+
+function buildSourceMixSeedObservations(): LiveObservation[] {
+  const officialObservations = OFFICIAL_SOURCE_MIX_FIXTURE.map((point) =>
+    makeObservation({
+      seriesId: energySourceMixSeriesId("official", point.sourceKey),
+      regionCode: point.regionCode,
+      countryCode: "AU",
+      market: "annual_official",
+      metricFamily: "source_mix",
+      date: point.period,
+      value: point.sharePct,
+      unit: "pct",
+      sourceName: "DCCEEW",
+      sourceUrl: SOURCE_DCCEEW_GENERATION_MIX_URL,
+      publishedAt: "2025-09-01T00:00:00Z",
+      methodologyVersion: "energy-source-mix-v1"
+    })
+  );
+
+  const operationalObservations = [
+    ...buildOperationalAggregateFixture([
+      ...NEM_OPERATIONAL_SOURCE_MIX_FIXTURE,
+      ...WEM_OPERATIONAL_SOURCE_MIX_FIXTURE
+    ]).map((point) =>
+      makeObservation({
+        seriesId: energySourceMixSeriesId("operational", point.sourceKey),
+        regionCode: "AU",
+        countryCode: "AU",
+        market: "NEM+WEM",
+        metricFamily: "source_mix",
+        date: point.timestamp,
+        intervalStartUtc: point.timestamp,
+        intervalEndUtc: point.timestamp,
+        value: point.sharePct,
+        unit: "pct",
+        sourceName: "AEMO",
+        sourceUrl: `${SOURCE_AEMO_URL}|${SOURCE_AEMO_WEM_URL}`,
+        publishedAt: point.timestamp,
+        isModeled: true,
+        confidence: "derived",
+        methodologyVersion: "energy-source-mix-v1"
+      })
+    ),
+    ...NEM_OPERATIONAL_SOURCE_MIX_FIXTURE.map((point) =>
+      makeObservation({
+        seriesId: energySourceMixSeriesId("operational", point.sourceKey),
+        regionCode: point.regionCode,
+        countryCode: "AU",
+        market: "NEM",
+        metricFamily: "source_mix",
+        date: point.timestamp,
+        intervalStartUtc: point.timestamp,
+        intervalEndUtc: point.timestamp,
+        value: point.sharePct,
+        unit: "pct",
+        sourceName: "AEMO",
+        sourceUrl: SOURCE_AEMO_URL,
+        publishedAt: point.timestamp,
+        methodologyVersion: "energy-source-mix-v1"
+      })
+    ),
+    ...WEM_OPERATIONAL_SOURCE_MIX_FIXTURE.map((point) =>
+      makeObservation({
+        seriesId: energySourceMixSeriesId("operational", point.sourceKey),
+        regionCode: point.regionCode,
+        countryCode: "AU",
+        market: "WEM",
+        metricFamily: "source_mix",
+        date: point.timestamp,
+        intervalStartUtc: point.timestamp,
+        intervalEndUtc: point.timestamp,
+        value: point.sharePct,
+        unit: "pct",
+        sourceName: "AEMO",
+        sourceUrl: SOURCE_AEMO_WEM_URL,
+        publishedAt: point.timestamp,
+        methodologyVersion: "energy-source-mix-v1"
+      })
+    )
+  ];
+
+  return [...officialObservations, ...operationalObservations];
+}
 
 type ObservationRecencyFields = Pick<
   LiveObservation,
@@ -218,14 +570,37 @@ export function getSourceCatalogItems(sourceIds?: string[]): SourceCatalogItem[]
   });
 }
 
-function mergeSourceCatalog(
+export function dedupeSourceCatalogItems(
   sourceCatalog: SourceCatalogItem[]
 ): SourceCatalogItem[] {
-  const byId = new Map(sourceCatalog.map((item) => [item.sourceId, { ...item }] as const));
-  for (const sourceItem of getSourceCatalogItems()) {
-    byId.set(sourceItem.sourceId, sourceItem);
+  const byId = new Map<string, SourceCatalogItem>();
+
+  for (const sourceItem of sourceCatalog) {
+    byId.set(sourceItem.sourceId, { ...sourceItem });
   }
+
   return [...byId.values()].sort((a, b) => a.sourceId.localeCompare(b.sourceId));
+}
+
+export function mergeSourceCatalogItems(
+  sourceCatalog: SourceCatalogItem[]
+): SourceCatalogItem[] {
+  return dedupeSourceCatalogItems([...sourceCatalog, ...getSourceCatalogItems()]);
+}
+
+export function getSourceReferences(sourceIds: string[]): SourceReference[] {
+  return sourceIds.map((sourceId) => {
+    const sourceItem = LIVE_SOURCE_CATALOG_BY_ID.get(sourceId);
+    if (!sourceItem) {
+      throw new Error(`Unknown source catalog item: ${sourceId}`);
+    }
+
+    return {
+      sourceId: sourceItem.sourceId,
+      name: sourceItem.name,
+      url: sourceItem.url
+    };
+  });
 }
 
 export function compareObservationRecency<T extends ObservationRecencyFields>(
@@ -461,6 +836,36 @@ export function createSeedLiveStore(): LiveStore {
       publishedAt: "2026-02-27T02:05:00Z"
     }),
     makeObservation({
+      seriesId: "energy.wholesale.rrp.region_aud_mwh",
+      regionCode: "QLD",
+      date: "2026-02-27T02:00:00Z",
+      value: 140,
+      unit: "aud_mwh",
+      sourceName: "AEMO",
+      sourceUrl: SOURCE_AEMO_URL,
+      publishedAt: "2026-02-27T02:05:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.wholesale.rrp.region_aud_mwh",
+      regionCode: "SA",
+      date: "2026-02-27T02:00:00Z",
+      value: 138,
+      unit: "aud_mwh",
+      sourceName: "AEMO",
+      sourceUrl: SOURCE_AEMO_URL,
+      publishedAt: "2026-02-27T02:05:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.wholesale.rrp.region_aud_mwh",
+      regionCode: "TAS",
+      date: "2026-02-27T02:00:00Z",
+      value: 104,
+      unit: "aud_mwh",
+      sourceName: "AEMO",
+      sourceUrl: SOURCE_AEMO_URL,
+      publishedAt: "2026-02-27T02:05:00Z"
+    }),
+    makeObservation({
       seriesId: "energy.retail.offer.annual_bill_aud.mean",
       regionCode: "AU",
       date: "2026-02-27",
@@ -501,6 +906,146 @@ export function createSeedLiveStore(): LiveStore {
       publishedAt: "2026-02-27T00:00:00Z"
     }),
     makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.mean",
+      regionCode: "NSW",
+      date: "2026-02-27",
+      value: 1960,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.median",
+      regionCode: "NSW",
+      date: "2026-02-27",
+      value: 1960,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.mean",
+      regionCode: "QLD",
+      date: "2026-02-27",
+      value: 2015,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.median",
+      regionCode: "QLD",
+      date: "2026-02-27",
+      value: 2015,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.mean",
+      regionCode: "SA",
+      date: "2026-02-27",
+      value: 2042,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.median",
+      regionCode: "SA",
+      date: "2026-02-27",
+      value: 2042,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.mean",
+      regionCode: "WA",
+      date: "2026-02-27",
+      value: 2148,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.median",
+      regionCode: "WA",
+      date: "2026-02-27",
+      value: 2148,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.mean",
+      regionCode: "TAS",
+      date: "2026-02-27",
+      value: 1887,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.median",
+      regionCode: "TAS",
+      date: "2026-02-27",
+      value: 1887,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.mean",
+      regionCode: "ACT",
+      date: "2026-02-27",
+      value: 1998,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.median",
+      regionCode: "ACT",
+      date: "2026-02-27",
+      value: 1998,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.mean",
+      regionCode: "NT",
+      date: "2026-02-27",
+      value: 2236,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.retail.offer.annual_bill_aud.median",
+      regionCode: "NT",
+      date: "2026-02-27",
+      value: 2236,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2026-02-27T00:00:00Z"
+    }),
+    makeObservation({
       seriesId: "energy.benchmark.dmo.annual_bill_aud",
       regionCode: "AU",
       date: "2025-07-01",
@@ -515,6 +1060,76 @@ export function createSeedLiveStore(): LiveStore {
       regionCode: "VIC",
       date: "2025-07-01",
       value: 1890,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2025-07-01T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.benchmark.dmo.annual_bill_aud",
+      regionCode: "NSW",
+      date: "2025-07-01",
+      value: 2050,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2025-07-01T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.benchmark.dmo.annual_bill_aud",
+      regionCode: "QLD",
+      date: "2025-07-01",
+      value: 2015,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2025-07-01T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.benchmark.dmo.annual_bill_aud",
+      regionCode: "SA",
+      date: "2025-07-01",
+      value: 2080,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2025-07-01T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.benchmark.dmo.annual_bill_aud",
+      regionCode: "WA",
+      date: "2025-07-01",
+      value: 2190,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2025-07-01T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.benchmark.dmo.annual_bill_aud",
+      regionCode: "TAS",
+      date: "2025-07-01",
+      value: 1930,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2025-07-01T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.benchmark.dmo.annual_bill_aud",
+      regionCode: "ACT",
+      date: "2025-07-01",
+      value: 2035,
+      unit: "aud",
+      sourceName: "AER",
+      sourceUrl: SOURCE_AER_URL,
+      publishedAt: "2025-07-01T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.benchmark.dmo.annual_bill_aud",
+      regionCode: "NT",
+      date: "2025-07-01",
+      value: 2290,
       unit: "aud",
       sourceName: "AER",
       sourceUrl: SOURCE_AER_URL,
@@ -539,7 +1154,78 @@ export function createSeedLiveStore(): LiveStore {
       sourceName: "ABS",
       sourceUrl: SOURCE_ABS_URL,
       publishedAt: "2026-01-31T00:00:00Z"
-    })
+    }),
+    makeObservation({
+      seriesId: "energy.cpi.electricity.index",
+      regionCode: "NSW",
+      date: "2025-Q4",
+      value: 152.8,
+      unit: "index",
+      sourceName: "ABS",
+      sourceUrl: SOURCE_ABS_URL,
+      publishedAt: "2026-01-31T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.cpi.electricity.index",
+      regionCode: "QLD",
+      date: "2025-Q4",
+      value: 149.9,
+      unit: "index",
+      sourceName: "ABS",
+      sourceUrl: SOURCE_ABS_URL,
+      publishedAt: "2026-01-31T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.cpi.electricity.index",
+      regionCode: "SA",
+      date: "2025-Q4",
+      value: 153.1,
+      unit: "index",
+      sourceName: "ABS",
+      sourceUrl: SOURCE_ABS_URL,
+      publishedAt: "2026-01-31T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.cpi.electricity.index",
+      regionCode: "WA",
+      date: "2025-Q4",
+      value: 147.4,
+      unit: "index",
+      sourceName: "ABS",
+      sourceUrl: SOURCE_ABS_URL,
+      publishedAt: "2026-01-31T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.cpi.electricity.index",
+      regionCode: "TAS",
+      date: "2025-Q4",
+      value: 146.8,
+      unit: "index",
+      sourceName: "ABS",
+      sourceUrl: SOURCE_ABS_URL,
+      publishedAt: "2026-01-31T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.cpi.electricity.index",
+      regionCode: "ACT",
+      date: "2025-Q4",
+      value: 150.5,
+      unit: "index",
+      sourceName: "ABS",
+      sourceUrl: SOURCE_ABS_URL,
+      publishedAt: "2026-01-31T00:00:00Z"
+    }),
+    makeObservation({
+      seriesId: "energy.cpi.electricity.index",
+      regionCode: "NT",
+      date: "2025-Q4",
+      value: 156.2,
+      unit: "index",
+      sourceName: "ABS",
+      sourceUrl: SOURCE_ABS_URL,
+      publishedAt: "2026-01-31T00:00:00Z"
+    }),
+    ...buildSourceMixSeedObservations()
   ];
 
   return {
@@ -607,17 +1293,29 @@ export function readLiveStoreSync(
   }
 
   if (Array.isArray(parsed.rawSnapshots)) {
+    const hasSourceMixObservations = parsed.observations.some((observation) =>
+      observation.seriesId.startsWith("energy.source_mix.")
+    );
     return {
       ...parsed,
-      sources: mergeSourceCatalog(parsed.sources)
+      observations: hasSourceMixObservations
+        ? parsed.observations
+        : [...parsed.observations, ...buildSourceMixSeedObservations()],
+      sources: mergeSourceCatalogItems(parsed.sources)
     };
   }
 
   // Backfill stores created before raw snapshot support.
+  const hasSourceMixObservations = parsed.observations.some((observation) =>
+    observation.seriesId.startsWith("energy.source_mix.")
+  );
   return {
     ...parsed,
+    observations: hasSourceMixObservations
+      ? parsed.observations
+      : [...parsed.observations, ...buildSourceMixSeedObservations()],
     rawSnapshots: [],
-    sources: mergeSourceCatalog(parsed.sources)
+    sources: mergeSourceCatalogItems(parsed.sources)
   };
 }
 
@@ -681,7 +1379,7 @@ export function upsertSourceCatalog(
     return;
   }
 
-  const merged = mergeSourceCatalog([...store.sources, ...sourceCatalog]);
+  const merged = mergeSourceCatalogItems([...store.sources, ...sourceCatalog]);
   const changed = JSON.stringify(store.sources) !== JSON.stringify(merged);
   if (!changed) {
     return;

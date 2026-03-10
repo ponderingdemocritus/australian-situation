@@ -1,7 +1,8 @@
 import { getDb, observations, sources } from "@aus-dash/db";
-import { compareObservationRecency } from "@aus-dash/shared";
+import { compareObservationRecency, getSourceReferences } from "@aus-dash/shared";
 import { and, eq, gte, lte } from "drizzle-orm";
 import type { ComparableObservation } from "../domain/energy-comparison";
+import { buildEnergySourceMixViews } from "./energy-source-mix";
 import {
   API_SUPPORTED_REGIONS,
   REQUIRED_HOUSING_OVERVIEW_SERIES_IDS
@@ -299,12 +300,7 @@ export function createPostgresLiveDataRepository(): LiveDataRepository {
         isModeled: isFallback,
         methodSummary:
           "Wholesale reference prices aggregated using demand-weighted AU rollup.",
-        sourceRefs: [
-          {
-            name: "AEMO NEM Wholesale",
-            url: "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem"
-          }
-        ],
+        sourceRefs: getSourceReferences(["aemo_wholesale"]),
         latest: {
           timestamp: latestDate,
           valueAudMwh: latestValue,
@@ -347,12 +343,7 @@ export function createPostgresLiveDataRepository(): LiveDataRepository {
         customerType: "residential",
         isModeled: isFallback,
         methodSummary: "Daily aggregation of retail plan prices for residential offers.",
-        sourceRefs: [
-          {
-            name: "AER Product Reference Data",
-            url: "https://www.aer.gov.au/industry/registers/resources/guidelines/consumer-data-right-product-reference-data-api-resource-data-standards-body"
-          }
-        ],
+        sourceRefs: getSourceReferences(["aer_prd"]),
         annualBillAudMean: mean?.value ?? 0,
         annualBillAudMedian: median?.value ?? 0,
         usageRateCKwhMean: 31.2,
@@ -400,25 +391,39 @@ export function createPostgresLiveDataRepository(): LiveDataRepository {
       const cpi =
         (await latestObservation("energy.cpi.electricity.index", region)) ??
         (await latestObservation("energy.cpi.electricity.index", "AU"));
+      const officialSourceMixRegion = region === "ACT" ? "NSW" : region;
+      const operationalSourceMixRegion = region === "ACT" ? "NSW" : region;
+      const sourceMixKeys = [
+        ...["coal", "gas", "hydro", "oil", "other_renewables"].map(
+          (sourceKey) => [`energy.source_mix.official.share_pct.${sourceKey}`, officialSourceMixRegion]
+        ),
+        ...(region === "NT"
+          ? []
+          : ["coal", "gas", "hydro", "oil", "other_renewables"].map((sourceKey) => [
+              `energy.source_mix.operational.share_pct.${sourceKey}`,
+              operationalSourceMixRegion
+            ]))
+      ] as Array<[string, string]>;
+      const sourceMixLookup = new Map<string, ObservationRow | null>();
+      await Promise.all(
+        sourceMixKeys.map(async ([seriesId, regionCode]) => {
+          sourceMixLookup.set(
+            `${seriesId}|${regionCode}`,
+            await latestObservation(seriesId, regionCode)
+          );
+        })
+      );
 
       return {
         region,
         methodSummary:
           "Combines wholesale market signal, retail offer averages, annual benchmark, and CPI context.",
-        sourceRefs: [
-          {
-            name: "AEMO NEM Wholesale",
-            url: "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem"
-          },
-          {
-            name: "AER Product Reference Data",
-            url: "https://www.aer.gov.au/industry/registers/resources/guidelines/consumer-data-right-product-reference-data-api-resource-data-standards-body"
-          },
-          {
-            name: "ABS CPI",
-            url: "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release"
-          }
-        ],
+        sourceRefs: getSourceReferences(["aemo_wholesale", "aer_prd", "abs_cpi"]),
+        sourceMixViews: buildEnergySourceMixViews(
+          region,
+          (seriesId, regionCode) =>
+            sourceMixLookup.get(`${seriesId}|${regionCode}`) ?? null
+        ),
         panels: {
           liveWholesale: {
             valueAudMwh: wholesale.latest.valueAudMwh,
@@ -500,7 +505,10 @@ export function createPostgresLiveDataRepository(): LiveDataRepository {
 
       return {
         generatedAt: new Date().toISOString(),
-        sources: rows
+        sources: rows.map((row) => ({
+          ...row,
+          domain: row.domain as "housing" | "energy" | "macro"
+        }))
       };
     }
   };

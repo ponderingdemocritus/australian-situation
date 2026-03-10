@@ -1,3 +1,9 @@
+import {
+  ENERGY_SOURCE_MIX_KEYS,
+  getSourceCatalogItems,
+  type EnergySourceMixKey
+} from "@aus-dash/shared";
+
 type HttpResponseLike = {
   ok: boolean;
   status: number;
@@ -112,6 +118,20 @@ function normalizeAemoRegion(raw: string): string {
   return upper.endsWith("1") ? upper.slice(0, -1) : upper;
 }
 
+function parseEnergySourceMixKey(
+  sourceId: string,
+  value: unknown
+): EnergySourceMixKey {
+  const sourceKey = String(value ?? "").toLowerCase() as EnergySourceMixKey;
+  if (!ENERGY_SOURCE_MIX_KEYS.includes(sourceKey)) {
+    throw new SourceClientError(sourceId, "schema drift in source mix row", {
+      transient: false
+    });
+  }
+
+  return sourceKey;
+}
+
 export type AemoWholesalePoint = {
   regionCode: string;
   timestamp: string;
@@ -183,6 +203,190 @@ export async function fetchAemoWholesaleSnapshot(
     rawPayload,
     points
   };
+}
+
+export type DccEeewGenerationMixPoint = {
+  regionCode: string;
+  period: string;
+  sourceKey: EnergySourceMixKey;
+  generationGwh: number;
+  sharePct: number;
+};
+
+export type DccEeewGenerationMixSnapshot = {
+  sourceId: "dcceew_generation_mix";
+  endpoint: string;
+  rawPayload: string;
+  points: DccEeewGenerationMixPoint[];
+};
+
+export type FetchDccEeewGenerationMixOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+export async function fetchDccEeewGenerationMixSnapshot(
+  options: FetchDccEeewGenerationMixOptions = {}
+): Promise<DccEeewGenerationMixSnapshot> {
+  const sourceId = "dcceew_generation_mix";
+  const endpoint =
+    options.endpoint ?? getSourceCatalogItems([sourceId])[0]!.url;
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "application/json"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const parsed = await readJsonResponse(sourceId, response);
+  const payload = parsed as {
+    year?: unknown;
+    data?: Array<{
+      region_code?: unknown;
+      source_key?: unknown;
+      generation_gwh?: unknown;
+      share_pct?: unknown;
+    }>;
+  };
+  if (typeof payload.year !== "string" || !Array.isArray(payload.data)) {
+    throw new SourceClientError(sourceId, "schema drift in DCCEEW payload", {
+      transient: false
+    });
+  }
+
+  const points = payload.data.map((row) => {
+    const regionCode = String(row.region_code ?? "");
+    const generationGwh = Number(row.generation_gwh);
+    const sharePct = Number(row.share_pct);
+
+    if (!regionCode || Number.isNaN(generationGwh) || Number.isNaN(sharePct)) {
+      throw new SourceClientError(sourceId, "schema drift in DCCEEW row", {
+        transient: false
+      });
+    }
+
+    return {
+      regionCode,
+      period: payload.year as string,
+      sourceKey: parseEnergySourceMixKey(sourceId, row.source_key),
+      generationGwh,
+      sharePct
+    };
+  });
+
+  return {
+    sourceId,
+    endpoint,
+    rawPayload: JSON.stringify(parsed),
+    points
+  };
+}
+
+export type AemoOperationalSourceMixPoint = {
+  regionCode: string;
+  timestamp: string;
+  sourceKey: EnergySourceMixKey;
+  generationMw: number;
+  sharePct: number;
+};
+
+export type AemoOperationalSourceMixSnapshot = {
+  sourceId: "aemo_nem_source_mix" | "aemo_wem_source_mix";
+  endpoint: string;
+  rawPayload: string;
+  points: AemoOperationalSourceMixPoint[];
+};
+
+type FetchAemoOperationalSourceMixOptions = {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+};
+
+async function fetchAemoOperationalSourceMixSnapshot(
+  sourceId: "aemo_nem_source_mix" | "aemo_wem_source_mix",
+  options: FetchAemoOperationalSourceMixOptions = {}
+): Promise<AemoOperationalSourceMixSnapshot> {
+  const endpoint =
+    options.endpoint ?? getSourceCatalogItems([sourceId])[0]!.url;
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint, {
+      headers: {
+        accept: "application/json"
+      }
+    });
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const parsed = await readJsonResponse(sourceId, response);
+  const payload = parsed as {
+    interval_start_utc?: unknown;
+    data?: Array<{
+      region_code?: unknown;
+      source_key?: unknown;
+      generation_mw?: unknown;
+      share_pct?: unknown;
+    }>;
+  };
+  if (typeof payload.interval_start_utc !== "string" || !Array.isArray(payload.data)) {
+    throw new SourceClientError(sourceId, "schema drift in AEMO source mix payload", {
+      transient: false
+    });
+  }
+
+  const points = payload.data.map((row) => {
+    const regionCode = String(row.region_code ?? "");
+    const generationMw = Number(row.generation_mw);
+    const sharePct = Number(row.share_pct);
+
+    if (!regionCode || Number.isNaN(generationMw) || Number.isNaN(sharePct)) {
+      throw new SourceClientError(sourceId, "schema drift in AEMO source mix row", {
+        transient: false
+      });
+    }
+
+    return {
+      regionCode,
+      timestamp: payload.interval_start_utc as string,
+      sourceKey: parseEnergySourceMixKey(sourceId, row.source_key),
+      generationMw,
+      sharePct
+    };
+  });
+
+  return {
+    sourceId,
+    endpoint,
+    rawPayload: JSON.stringify(parsed),
+    points
+  };
+}
+
+export async function fetchAemoNemSourceMixSnapshot(
+  options: FetchAemoOperationalSourceMixOptions = {}
+): Promise<AemoOperationalSourceMixSnapshot> {
+  return fetchAemoOperationalSourceMixSnapshot("aemo_nem_source_mix", options);
+}
+
+export async function fetchAemoWemSourceMixSnapshot(
+  options: FetchAemoOperationalSourceMixOptions = {}
+): Promise<AemoOperationalSourceMixSnapshot> {
+  return fetchAemoOperationalSourceMixSnapshot("aemo_wem_source_mix", options);
 }
 
 export type AerRetailPlan = {

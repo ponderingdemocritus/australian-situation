@@ -1,10 +1,12 @@
 import {
   compareObservationRecency,
+  getSourceReferences,
   pickLatestObservation,
   readLiveStoreSync,
   type LiveObservation
 } from "@aus-dash/shared";
 import type { ComparableObservation } from "../domain/energy-comparison";
+import { buildEnergySourceMixViews } from "./energy-source-mix";
 import {
   API_SUPPORTED_REGIONS,
   REQUIRED_HOUSING_OVERVIEW_SERIES_IDS
@@ -238,12 +240,7 @@ export function getEnergyLiveWholesaleFromStore(
     isModeled: isFallback,
     methodSummary:
       "Wholesale reference prices aggregated using demand-weighted AU rollup.",
-    sourceRefs: [
-      {
-        name: "AEMO NEM Wholesale",
-        url: "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem"
-      }
-    ],
+    sourceRefs: getSourceReferences(["aemo_wholesale"]),
     latest: {
       timestamp: latestDate,
       valueAudMwh: latestValue,
@@ -283,12 +280,7 @@ export function getEnergyRetailAverageFromStore(
     customerType: "residential",
     isModeled: isFallback,
     methodSummary: "Daily aggregation of retail plan prices for residential offers.",
-    sourceRefs: [
-      {
-        name: "AER Product Reference Data",
-        url: "https://www.aer.gov.au/industry/registers/resources/guidelines/consumer-data-right-product-reference-data-api-resource-data-standards-body"
-      }
-    ],
+    sourceRefs: getSourceReferences(["aer_prd"]),
     annualBillAudMean: mean?.value ?? 0,
     annualBillAudMedian: median?.value ?? 0,
     usageRateCKwhMean: 31.2,
@@ -355,20 +347,10 @@ export function getEnergyOverviewFromStore(
     region,
     methodSummary:
       "Combines wholesale market signal, retail offer averages, annual benchmark, and CPI context.",
-    sourceRefs: [
-      {
-        name: "AEMO NEM Wholesale",
-        url: "https://www.aemo.com.au/energy-systems/electricity/national-electricity-market-nem/data-nem/data-dashboard-nem"
-      },
-      {
-        name: "AER Product Reference Data",
-        url: "https://www.aer.gov.au/industry/registers/resources/guidelines/consumer-data-right-product-reference-data-api-resource-data-standards-body"
-      },
-      {
-        name: "ABS CPI",
-        url: "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release"
-      }
-    ],
+    sourceRefs: getSourceReferences(["aemo_wholesale", "aer_prd", "abs_cpi"]),
+    sourceMixViews: buildEnergySourceMixViews(region, (seriesId, regionCode) =>
+      latestObservation(seriesId, regionCode, storePath)
+    ),
     panels: {
       liveWholesale: {
         valueAudMwh: wholesale.latest.valueAudMwh,

@@ -1,6 +1,5 @@
 import {
-  createSeedLiveStore,
-  getSourceCatalogItems,
+  getSourceCatalogItems
 } from "@aus-dash/shared";
 import {
   fetchEiaElectricitySnapshot,
@@ -18,11 +17,6 @@ import {
   buildIngestRunAuditFields,
   type IngestRunAuditOptions
 } from "./ingest-run-audit";
-
-const GLOBAL_SOURCE_CATALOG = getSourceCatalogItems([
-  "eia_electricity",
-  "eurostat_retail"
-]);
 
 const EIA_RETAIL_FIXTURE: EiaRetailPricePoint[] = [
   {
@@ -129,7 +123,7 @@ export async function syncEnergyRetailGlobal(
   const upsertResult = await persistIngestArtifacts({
     backend: ingestBackend,
     storePath: options.storePath,
-    sourceCatalog: [...createSeedLiveStore().sources, ...GLOBAL_SOURCE_CATALOG],
+    sourceCatalog: getSourceCatalogItems(),
     rawSnapshots: [
       {
         sourceId: "eia_electricity",
