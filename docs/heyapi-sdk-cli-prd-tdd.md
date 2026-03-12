@@ -268,7 +268,7 @@ Deliver:
 ## 11.1 Implementation Progress
 
 - [x] Phase A: OpenAPI export foundation
-- [ ] Phase B: SDK package skeleton
+- [x] Phase B: SDK package skeleton
 - [ ] Phase C: Hey API generation
 - [ ] Phase D: SDK runtime configuration
 - [ ] Phase E: CLI command wiring
