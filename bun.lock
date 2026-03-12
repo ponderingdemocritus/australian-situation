@@ -51,6 +51,7 @@
     "apps/web": {
       "name": "@aus-dash/web",
       "dependencies": {
+        "@aus-dash/sdk": "workspace:*",
         "@aus-dash/ui": "workspace:*",
         "next": "^16.1.6",
         "react": "^19.0.0",

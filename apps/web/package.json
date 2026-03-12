@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aus-dash/sdk": "workspace:*",
     "@aus-dash/ui": "workspace:*",
     "next": "^16.1.6",
     "react": "^19.0.0",

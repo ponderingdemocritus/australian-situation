@@ -1,7 +1,28 @@
 import { cleanup, screen } from "@testing-library/react";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import DashboardPage from "../app/dashboard/page";
 import { renderRoute } from "./render-route";
+
+vi.mock("../lib/queries/dashboard-overview", () => ({
+  getDashboardOverview: vi.fn().mockResolvedValue({
+    hero: {
+      title: "Australia snapshot",
+      description: "Live conditions drawn directly from the generated SDK.",
+      detail: "7 public sources"
+    },
+    metrics: [
+      { label: "API health", value: "Operational", detail: "aus-dash-api" },
+      { label: "Live wholesale", value: "118.4 AUD/MWh", detail: "11.8 c/kWh" },
+      { label: "Retail average", value: "1,940 AUD/year", detail: "Median 1,885 AUD" },
+      { label: "Housing coverage", value: "4 tracked metrics", detail: "Updated 2025-12-31" }
+    ],
+    metadata: {
+      freshness: "2 stale series",
+      generatedAt: "Generated 2026-03-07",
+      methodSummary: "Combines wholesale, retail, benchmark, and CPI source data."
+    }
+  })
+}));
 
 describe("Dashboard shell", () => {
   afterEach(() => {
@@ -33,7 +54,7 @@ describe("Dashboard shell", () => {
     expect(
       screen.getByText("Structured around the generated SDK, with each section tied to a real data domain.")
     ).toBeDefined();
-    expect(screen.getByRole("heading", { name: "Overview" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Australia snapshot" })).toBeDefined();
     expect(screen.getAllByText("Freshness and provenance").length).toBeGreaterThan(0);
   });
 });
