@@ -9,17 +9,25 @@ const sdkMocks = vi.hoisted(() => ({
 vi.mock("@aus-dash/sdk", () => sdkMocks);
 
 describe("getPricesDashboardData", () => {
+  const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   const originalUsername = process.env.AUS_DASH_WEB_USERNAME;
   const originalPassword = process.env.AUS_DASH_WEB_PASSWORD;
 
   beforeEach(() => {
     sdkMocks.getApiPricesAiDeflation.mockReset();
     sdkMocks.getApiPricesMajorGoods.mockReset();
+    delete process.env.NEXT_PUBLIC_API_BASE_URL;
     delete process.env.AUS_DASH_WEB_USERNAME;
     delete process.env.AUS_DASH_WEB_PASSWORD;
   });
 
   afterEach(() => {
+    if (originalApiBaseUrl) {
+      process.env.NEXT_PUBLIC_API_BASE_URL = originalApiBaseUrl;
+    } else {
+      delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    }
+
     if (originalUsername) {
       process.env.AUS_DASH_WEB_USERNAME = originalUsername;
     } else {
@@ -33,7 +41,9 @@ describe("getPricesDashboardData", () => {
     }
   });
 
-  test("returns a locked state when web credentials are not configured", async () => {
+  test("returns a locked state when web credentials are not configured for a non-local API", async () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = "https://example.com";
+
     const result = await getPricesDashboardData();
 
     expect(result).toEqual({
@@ -48,10 +58,7 @@ describe("getPricesDashboardData", () => {
     expect(sdkMocks.getApiPricesAiDeflation).not.toHaveBeenCalled();
   });
 
-  test("maps protected price endpoints into dashboard sections when credentials exist", async () => {
-    process.env.AUS_DASH_WEB_USERNAME = "agent";
-    process.env.AUS_DASH_WEB_PASSWORD = "buildaustralia";
-
+  test("maps protected price endpoints into dashboard sections with local default auth", async () => {
     sdkMocks.getApiPricesMajorGoods.mockResolvedValue({
       region: "AU",
       methodologyVersion: "major-goods-v1",

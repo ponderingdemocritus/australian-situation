@@ -32,7 +32,7 @@ export type EnergyDashboardModel = {
 
 export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
   const options = createPublicSdkOptions();
-  const [overviewResponse, retailComparisonResponse, wholesaleComparisonResponse] =
+  const [overviewResponse, retailComparisonResult, wholesaleComparisonResult] =
     await Promise.all([
     getApiEnergyOverview({
       ...options,
@@ -47,18 +47,28 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
         peers: "US,DE,ID,CN",
         tax_status: "incl_tax"
       }
-    }),
+    }).then(
+      (value) => ({ ok: true as const, value }),
+      () => ({ ok: false as const })
+    ),
     getApiV1EnergyCompareWholesale({
       ...options,
       query: {
         country: "AU",
         peers: "US,DE,CN"
       }
-    })
+    }).then(
+      (value) => ({ ok: true as const, value }),
+      () => ({ ok: false as const })
+    )
   ]);
   const overview = unwrapSdkData(overviewResponse);
-  const retailComparison = unwrapSdkData(retailComparisonResponse);
-  const wholesaleComparison = unwrapSdkData(wholesaleComparisonResponse);
+  const retailComparison = retailComparisonResult.ok
+    ? unwrapSdkData(retailComparisonResult.value)
+    : null;
+  const wholesaleComparison = wholesaleComparisonResult.ok
+    ? unwrapSdkData(wholesaleComparisonResult.value)
+    : null;
 
   return {
     hero: {
@@ -90,13 +100,25 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
     comparisons: [
       {
         label: "Retail comparison",
-        value: `Rank ${retailComparison.auRank ?? "-"} of ${retailComparison.peers.length + 1}`,
-        detail: "Nominal household electricity"
+        value:
+          retailComparison === null
+            ? "Unavailable"
+            : `Rank ${retailComparison.auRank ?? "-"} of ${retailComparison.peers.length + 1}`,
+        detail:
+          retailComparison === null
+            ? "Comparable peer data is not currently available."
+            : "Nominal household electricity"
       },
       {
         label: "Wholesale comparison",
-        value: `Rank ${wholesaleComparison.auRank ?? "-"} of ${wholesaleComparison.peers.length + 1}`,
-        detail: "Cross-country annual market pricing"
+        value:
+          wholesaleComparison === null
+            ? "Unavailable"
+            : `Rank ${wholesaleComparison.auRank ?? "-"} of ${wholesaleComparison.peers.length + 1}`,
+        detail:
+          wholesaleComparison === null
+            ? "Comparable peer data is not currently available."
+            : "Cross-country annual market pricing"
       }
     ],
     mixes: overview.sourceMixViews.map((view) => ({

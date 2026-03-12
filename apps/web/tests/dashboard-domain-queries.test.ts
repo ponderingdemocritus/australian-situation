@@ -138,6 +138,31 @@ describe("dashboard domain queries", () => {
     });
   });
 
+  test("keeps rendering energy metrics when comparison endpoints fail", async () => {
+    sdkMocks.getApiV1EnergyCompareRetail.mockRejectedValueOnce(
+      new Error("NO_COMPARABLE_PEER_DATA")
+    );
+    sdkMocks.getApiV1EnergyCompareWholesale.mockRejectedValueOnce(
+      new Error("NO_COMPARABLE_PEER_DATA")
+    );
+
+    const result = await getEnergyDashboardData();
+
+    expect(result.metrics[0].value).toBe("118.4 AUD/MWh");
+    expect(result.comparisons).toEqual([
+      {
+        label: "Retail comparison",
+        value: "Unavailable",
+        detail: "Comparable peer data is not currently available."
+      },
+      {
+        label: "Wholesale comparison",
+        value: "Unavailable",
+        detail: "Comparable peer data is not currently available."
+      }
+    ]);
+  });
+
   test("maps housing series into readable metric cards and missing coverage notes", async () => {
     const result = await getHousingDashboardData();
 

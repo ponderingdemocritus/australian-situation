@@ -7,17 +7,23 @@ type ProtectedSdkOptions = ReturnType<typeof createPublicSdkOptions> & {
 };
 
 export function createProtectedSdkOptions(): ProtectedSdkOptions | null {
+  const publicOptions = createPublicSdkOptions();
   const username = process.env.AUS_DASH_WEB_USERNAME;
   const password = process.env.AUS_DASH_WEB_PASSWORD;
+  const localFallbackEnabled =
+    publicOptions.baseUrl.includes("localhost") || publicOptions.baseUrl.includes("127.0.0.1");
 
-  if (!username || !password) {
+  const resolvedUsername = username ?? (localFallbackEnabled ? "agent" : null);
+  const resolvedPassword = password ?? (localFallbackEnabled ? "buildaustralia" : null);
+
+  if (!resolvedUsername || !resolvedPassword) {
     return null;
   }
 
   return {
-    ...createPublicSdkOptions(),
+    ...publicOptions,
     headers: {
-      authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`
+      authorization: `Basic ${Buffer.from(`${resolvedUsername}:${resolvedPassword}`).toString("base64")}`
     }
   };
 }
