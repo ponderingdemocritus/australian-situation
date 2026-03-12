@@ -1,0 +1,3253 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AUS Dash API",
+    "description": "Economic and energy indicators API for AUS Dash, including cross-country energy comparison endpoints.",
+    "version": "1.1.0"
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "Local Server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health"
+    },
+    {
+      "name": "Housing"
+    },
+    {
+      "name": "Prices"
+    },
+    {
+      "name": "Series"
+    },
+    {
+      "name": "Energy"
+    },
+    {
+      "name": "Metadata"
+    },
+    {
+      "name": "OpenAPI"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "getApiHealth",
+        "tags": [
+          "Health"
+        ],
+        "summary": "Service health check",
+        "responses": {
+          "200": {
+            "description": "Service status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "service"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/housing/overview": {
+      "get": {
+        "operationId": "getApiHousingOverview",
+        "tags": [
+          "Housing"
+        ],
+        "summary": "Housing metrics overview",
+        "responses": {
+          "200": {
+            "description": "Housing overview payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "region": {
+                      "type": "string"
+                    },
+                    "requiredSeriesIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "missingSeriesIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "metrics": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seriesId": {
+                            "type": "string"
+                          },
+                          "date": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "seriesId",
+                          "date",
+                          "value"
+                        ]
+                      }
+                    },
+                    "updatedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "region",
+                    "requiredSeriesIds",
+                    "missingSeriesIds",
+                    "metrics",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "region",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/prices/intake/batches": {
+      "post": {
+        "operationId": "postApiPricesIntakeBatches",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Submit a batch of discovered price items",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Price intake batch queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "batchId": {
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "type": "string"
+                    },
+                    "queuedCount": {
+                      "type": "number"
+                    },
+                    "unresolvedItemIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rawSnapshotId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "batchId",
+                    "sourceId",
+                    "queuedCount",
+                    "unresolvedItemIds",
+                    "rawSnapshotId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sourceId": {
+                    "type": "string"
+                  },
+                  "capturedAt": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "observedAt": {
+                          "type": "string"
+                        },
+                        "merchantName": {
+                          "type": "string"
+                        },
+                        "merchantSlug": {
+                          "type": "string"
+                        },
+                        "regionCode": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "externalProductId": {
+                          "type": "string"
+                        },
+                        "externalOfferId": {
+                          "type": "string"
+                        },
+                        "priceAmount": {
+                          "type": "number"
+                        },
+                        "unitPriceAmount": {
+                          "type": "number"
+                        },
+                        "normalizedQuantity": {
+                          "type": "number"
+                        },
+                        "normalizedUnit": {
+                          "type": "string"
+                        },
+                        "listingUrl": {
+                          "type": "string"
+                        },
+                        "categoryHint": {
+                          "type": "string"
+                        },
+                        "productHint": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "observedAt",
+                        "merchantName",
+                        "regionCode",
+                        "title",
+                        "externalOfferId",
+                        "priceAmount"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "sourceId",
+                  "items"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prices/unresolved-items": {
+      "get": {
+        "operationId": "getApiPricesUnresolvedItems",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "List unresolved discovered price items",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unresolved price intake items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "unresolvedItemId": {
+                            "type": "string"
+                          },
+                          "batchId": {
+                            "type": "string"
+                          },
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "rawSnapshotId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "observedAt": {
+                            "type": "string"
+                          },
+                          "merchantName": {
+                            "type": "string"
+                          },
+                          "merchantSlug": {
+                            "type": "string"
+                          },
+                          "regionCode": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "externalProductId": {
+                            "type": "string"
+                          },
+                          "externalOfferId": {
+                            "type": "string"
+                          },
+                          "priceAmount": {
+                            "type": "number"
+                          },
+                          "unitPriceAmount": {
+                            "type": "number"
+                          },
+                          "normalizedQuantity": {
+                            "type": "number"
+                          },
+                          "normalizedUnit": {
+                            "type": "string"
+                          },
+                          "listingUrl": {
+                            "type": "string"
+                          },
+                          "categoryHint": {
+                            "type": "string"
+                          },
+                          "productHint": {
+                            "type": "string"
+                          },
+                          "canonicalCategorySlug": {
+                            "type": "string"
+                          },
+                          "canonicalCategoryName": {
+                            "type": "string"
+                          },
+                          "canonicalProductSlug": {
+                            "type": "string"
+                          },
+                          "canonicalProductName": {
+                            "type": "string"
+                          },
+                          "productFamilySlug": {
+                            "type": "string"
+                          },
+                          "countryOfOrigin": {
+                            "type": "string"
+                          },
+                          "isAustralianMade": {
+                            "type": "boolean"
+                          },
+                          "manufacturerName": {
+                            "type": "string"
+                          },
+                          "domesticValueShareBand": {
+                            "type": "string"
+                          },
+                          "aiExposureLevel": {
+                            "anyOf": [
+                              {
+                                "const": "low"
+                              },
+                              {
+                                "const": "medium"
+                              },
+                              {
+                                "const": "high"
+                              }
+                            ]
+                          },
+                          "aiExposureReason": {
+                            "type": "string"
+                          },
+                          "comparableUnitBasis": {
+                            "type": "string"
+                          },
+                          "isControlCandidate": {
+                            "type": "boolean"
+                          },
+                          "cohortReady": {
+                            "type": "boolean"
+                          },
+                          "notes": {
+                            "type": "string"
+                          },
+                          "reconciledAt": {
+                            "type": "string"
+                          },
+                          "promotedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "unresolvedItemId",
+                          "batchId",
+                          "sourceId",
+                          "rawSnapshotId",
+                          "status",
+                          "createdAt",
+                          "observedAt",
+                          "merchantName",
+                          "regionCode",
+                          "title",
+                          "externalOfferId",
+                          "priceAmount"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/prices/unresolved-items/{id}/reconcile": {
+      "post": {
+        "operationId": "postApiPricesUnresolvedItemsByIdReconcile",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Reconcile an unresolved discovered price item",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reconciled unresolved price item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "unresolvedItemId": {
+                          "type": "string"
+                        },
+                        "batchId": {
+                          "type": "string"
+                        },
+                        "sourceId": {
+                          "type": "string"
+                        },
+                        "rawSnapshotId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "observedAt": {
+                          "type": "string"
+                        },
+                        "merchantName": {
+                          "type": "string"
+                        },
+                        "merchantSlug": {
+                          "type": "string"
+                        },
+                        "regionCode": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "externalProductId": {
+                          "type": "string"
+                        },
+                        "externalOfferId": {
+                          "type": "string"
+                        },
+                        "priceAmount": {
+                          "type": "number"
+                        },
+                        "unitPriceAmount": {
+                          "type": "number"
+                        },
+                        "normalizedQuantity": {
+                          "type": "number"
+                        },
+                        "normalizedUnit": {
+                          "type": "string"
+                        },
+                        "listingUrl": {
+                          "type": "string"
+                        },
+                        "categoryHint": {
+                          "type": "string"
+                        },
+                        "productHint": {
+                          "type": "string"
+                        },
+                        "canonicalCategorySlug": {
+                          "type": "string"
+                        },
+                        "canonicalCategoryName": {
+                          "type": "string"
+                        },
+                        "canonicalProductSlug": {
+                          "type": "string"
+                        },
+                        "canonicalProductName": {
+                          "type": "string"
+                        },
+                        "productFamilySlug": {
+                          "type": "string"
+                        },
+                        "countryOfOrigin": {
+                          "type": "string"
+                        },
+                        "isAustralianMade": {
+                          "type": "boolean"
+                        },
+                        "manufacturerName": {
+                          "type": "string"
+                        },
+                        "domesticValueShareBand": {
+                          "type": "string"
+                        },
+                        "aiExposureLevel": {
+                          "anyOf": [
+                            {
+                              "const": "low"
+                            },
+                            {
+                              "const": "medium"
+                            },
+                            {
+                              "const": "high"
+                            }
+                          ]
+                        },
+                        "aiExposureReason": {
+                          "type": "string"
+                        },
+                        "comparableUnitBasis": {
+                          "type": "string"
+                        },
+                        "isControlCandidate": {
+                          "type": "boolean"
+                        },
+                        "cohortReady": {
+                          "type": "boolean"
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "reconciledAt": {
+                          "type": "string"
+                        },
+                        "promotedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "unresolvedItemId",
+                        "batchId",
+                        "sourceId",
+                        "rawSnapshotId",
+                        "status",
+                        "createdAt",
+                        "observedAt",
+                        "merchantName",
+                        "regionCode",
+                        "title",
+                        "externalOfferId",
+                        "priceAmount"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "item"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "canonicalCategorySlug": {
+                    "type": "string"
+                  },
+                  "canonicalCategoryName": {
+                    "type": "string"
+                  },
+                  "canonicalProductSlug": {
+                    "type": "string"
+                  },
+                  "canonicalProductName": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "canonicalCategorySlug",
+                  "canonicalCategoryName",
+                  "canonicalProductSlug",
+                  "canonicalProductName"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prices/unresolved-items/{id}/classify": {
+      "post": {
+        "operationId": "postApiPricesUnresolvedItemsByIdClassify",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Classify a reconciled price item for cohort publication",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classified unresolved price item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "unresolvedItemId": {
+                          "type": "string"
+                        },
+                        "batchId": {
+                          "type": "string"
+                        },
+                        "sourceId": {
+                          "type": "string"
+                        },
+                        "rawSnapshotId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "observedAt": {
+                          "type": "string"
+                        },
+                        "merchantName": {
+                          "type": "string"
+                        },
+                        "merchantSlug": {
+                          "type": "string"
+                        },
+                        "regionCode": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "externalProductId": {
+                          "type": "string"
+                        },
+                        "externalOfferId": {
+                          "type": "string"
+                        },
+                        "priceAmount": {
+                          "type": "number"
+                        },
+                        "unitPriceAmount": {
+                          "type": "number"
+                        },
+                        "normalizedQuantity": {
+                          "type": "number"
+                        },
+                        "normalizedUnit": {
+                          "type": "string"
+                        },
+                        "listingUrl": {
+                          "type": "string"
+                        },
+                        "categoryHint": {
+                          "type": "string"
+                        },
+                        "productHint": {
+                          "type": "string"
+                        },
+                        "canonicalCategorySlug": {
+                          "type": "string"
+                        },
+                        "canonicalCategoryName": {
+                          "type": "string"
+                        },
+                        "canonicalProductSlug": {
+                          "type": "string"
+                        },
+                        "canonicalProductName": {
+                          "type": "string"
+                        },
+                        "productFamilySlug": {
+                          "type": "string"
+                        },
+                        "countryOfOrigin": {
+                          "type": "string"
+                        },
+                        "isAustralianMade": {
+                          "type": "boolean"
+                        },
+                        "manufacturerName": {
+                          "type": "string"
+                        },
+                        "domesticValueShareBand": {
+                          "type": "string"
+                        },
+                        "aiExposureLevel": {
+                          "anyOf": [
+                            {
+                              "const": "low"
+                            },
+                            {
+                              "const": "medium"
+                            },
+                            {
+                              "const": "high"
+                            }
+                          ]
+                        },
+                        "aiExposureReason": {
+                          "type": "string"
+                        },
+                        "comparableUnitBasis": {
+                          "type": "string"
+                        },
+                        "isControlCandidate": {
+                          "type": "boolean"
+                        },
+                        "cohortReady": {
+                          "type": "boolean"
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "reconciledAt": {
+                          "type": "string"
+                        },
+                        "promotedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "unresolvedItemId",
+                        "batchId",
+                        "sourceId",
+                        "rawSnapshotId",
+                        "status",
+                        "createdAt",
+                        "observedAt",
+                        "merchantName",
+                        "regionCode",
+                        "title",
+                        "externalOfferId",
+                        "priceAmount"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "item"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "productFamilySlug": {
+                    "type": "string"
+                  },
+                  "countryOfOrigin": {
+                    "type": "string"
+                  },
+                  "isAustralianMade": {
+                    "type": "boolean"
+                  },
+                  "manufacturerName": {
+                    "type": "string"
+                  },
+                  "domesticValueShareBand": {
+                    "type": "string"
+                  },
+                  "aiExposureLevel": {
+                    "anyOf": [
+                      {
+                        "const": "low"
+                      },
+                      {
+                        "const": "medium"
+                      },
+                      {
+                        "const": "high"
+                      }
+                    ]
+                  },
+                  "aiExposureReason": {
+                    "type": "string"
+                  },
+                  "comparableUnitBasis": {
+                    "type": "string"
+                  },
+                  "isControlCandidate": {
+                    "type": "boolean"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prices/unresolved-items/{id}/promote": {
+      "post": {
+        "operationId": "postApiPricesUnresolvedItemsByIdPromote",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Promote a reconciled price item for downstream publication",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Promoted unresolved price item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "unresolvedItemId": {
+                          "type": "string"
+                        },
+                        "batchId": {
+                          "type": "string"
+                        },
+                        "sourceId": {
+                          "type": "string"
+                        },
+                        "rawSnapshotId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "observedAt": {
+                          "type": "string"
+                        },
+                        "merchantName": {
+                          "type": "string"
+                        },
+                        "merchantSlug": {
+                          "type": "string"
+                        },
+                        "regionCode": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "externalProductId": {
+                          "type": "string"
+                        },
+                        "externalOfferId": {
+                          "type": "string"
+                        },
+                        "priceAmount": {
+                          "type": "number"
+                        },
+                        "unitPriceAmount": {
+                          "type": "number"
+                        },
+                        "normalizedQuantity": {
+                          "type": "number"
+                        },
+                        "normalizedUnit": {
+                          "type": "string"
+                        },
+                        "listingUrl": {
+                          "type": "string"
+                        },
+                        "categoryHint": {
+                          "type": "string"
+                        },
+                        "productHint": {
+                          "type": "string"
+                        },
+                        "canonicalCategorySlug": {
+                          "type": "string"
+                        },
+                        "canonicalCategoryName": {
+                          "type": "string"
+                        },
+                        "canonicalProductSlug": {
+                          "type": "string"
+                        },
+                        "canonicalProductName": {
+                          "type": "string"
+                        },
+                        "productFamilySlug": {
+                          "type": "string"
+                        },
+                        "countryOfOrigin": {
+                          "type": "string"
+                        },
+                        "isAustralianMade": {
+                          "type": "boolean"
+                        },
+                        "manufacturerName": {
+                          "type": "string"
+                        },
+                        "domesticValueShareBand": {
+                          "type": "string"
+                        },
+                        "aiExposureLevel": {
+                          "anyOf": [
+                            {
+                              "const": "low"
+                            },
+                            {
+                              "const": "medium"
+                            },
+                            {
+                              "const": "high"
+                            }
+                          ]
+                        },
+                        "aiExposureReason": {
+                          "type": "string"
+                        },
+                        "comparableUnitBasis": {
+                          "type": "string"
+                        },
+                        "isControlCandidate": {
+                          "type": "boolean"
+                        },
+                        "cohortReady": {
+                          "type": "boolean"
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "reconciledAt": {
+                          "type": "string"
+                        },
+                        "promotedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "unresolvedItemId",
+                        "batchId",
+                        "sourceId",
+                        "rawSnapshotId",
+                        "status",
+                        "createdAt",
+                        "observedAt",
+                        "merchantName",
+                        "regionCode",
+                        "title",
+                        "externalOfferId",
+                        "priceAmount"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "item"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ]
+      }
+    },
+    "/api/prices/ai-deflation": {
+      "get": {
+        "operationId": "getApiPricesAiDeflation",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "AI-deflation cohort overview",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI-deflation cohort payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "region": {
+                      "type": "string"
+                    },
+                    "methodologyVersion": {
+                      "type": "string"
+                    },
+                    "methodSummary": {
+                      "type": "string"
+                    },
+                    "sourceRefs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sourceId",
+                          "name",
+                          "url"
+                        ]
+                      }
+                    },
+                    "indexes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seriesId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "date": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "seriesId",
+                          "label",
+                          "date",
+                          "value"
+                        ]
+                      }
+                    },
+                    "freshness": {
+                      "type": "object",
+                      "properties": {
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "updatedAt",
+                        "status"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "region",
+                    "methodologyVersion",
+                    "methodSummary",
+                    "sourceRefs",
+                    "indexes",
+                    "freshness"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "region",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/prices/major-goods": {
+      "get": {
+        "operationId": "getApiPricesMajorGoods",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Major goods price index overview",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Major goods price index payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "region": {
+                      "type": "string"
+                    },
+                    "methodologyVersion": {
+                      "type": "string"
+                    },
+                    "methodSummary": {
+                      "type": "string"
+                    },
+                    "sourceRefs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sourceId",
+                          "name",
+                          "url"
+                        ]
+                      }
+                    },
+                    "indexes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seriesId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "date": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "seriesId",
+                          "label",
+                          "date",
+                          "value"
+                        ]
+                      }
+                    },
+                    "freshness": {
+                      "type": "object",
+                      "properties": {
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "updatedAt",
+                        "status"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "region",
+                    "methodologyVersion",
+                    "methodSummary",
+                    "sourceRefs",
+                    "indexes",
+                    "freshness"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "region",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/series/{id}": {
+      "get": {
+        "operationId": "getApiSeriesById",
+        "tags": [
+          "Series"
+        ],
+        "summary": "Get series points by id",
+        "responses": {
+          "200": {
+            "description": "Series points payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "seriesId": {
+                      "type": "string"
+                    },
+                    "region": {
+                      "type": "string"
+                    },
+                    "points": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "date",
+                          "value"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "seriesId",
+                    "region",
+                    "points"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "region",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/energy/live-wholesale": {
+      "get": {
+        "operationId": "getApiEnergyLiveWholesale",
+        "tags": [
+          "Energy"
+        ],
+        "summary": "Live wholesale energy snapshot",
+        "responses": {
+          "200": {
+            "description": "Live wholesale payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "region": {
+                      "type": "string"
+                    },
+                    "window": {
+                      "type": "string"
+                    },
+                    "isModeled": {
+                      "type": "boolean"
+                    },
+                    "methodSummary": {
+                      "type": "string"
+                    },
+                    "sourceRefs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sourceId",
+                          "name",
+                          "url"
+                        ]
+                      }
+                    },
+                    "latest": {
+                      "type": "object",
+                      "properties": {
+                        "timestamp": {
+                          "type": "string"
+                        },
+                        "valueAudMwh": {
+                          "type": "number"
+                        },
+                        "valueCKwh": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "timestamp",
+                        "valueAudMwh",
+                        "valueCKwh"
+                      ]
+                    },
+                    "rollups": {
+                      "type": "object",
+                      "properties": {
+                        "oneHourAvgAudMwh": {
+                          "type": "number"
+                        },
+                        "twentyFourHourAvgAudMwh": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "oneHourAvgAudMwh",
+                        "twentyFourHourAvgAudMwh"
+                      ]
+                    },
+                    "freshness": {
+                      "type": "object",
+                      "properties": {
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "updatedAt",
+                        "status"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "region",
+                    "window",
+                    "isModeled",
+                    "methodSummary",
+                    "sourceRefs",
+                    "latest",
+                    "rollups",
+                    "freshness"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "region",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "window",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/energy/retail-average": {
+      "get": {
+        "operationId": "getApiEnergyRetailAverage",
+        "tags": [
+          "Energy"
+        ],
+        "summary": "Retail average summary",
+        "responses": {
+          "200": {
+            "description": "Retail average payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "region": {
+                      "type": "string"
+                    },
+                    "customerType": {
+                      "type": "string"
+                    },
+                    "isModeled": {
+                      "type": "boolean"
+                    },
+                    "methodSummary": {
+                      "type": "string"
+                    },
+                    "sourceRefs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sourceId",
+                          "name",
+                          "url"
+                        ]
+                      }
+                    },
+                    "annualBillAudMean": {
+                      "type": "number"
+                    },
+                    "annualBillAudMedian": {
+                      "type": "number"
+                    },
+                    "usageRateCKwhMean": {
+                      "type": "number"
+                    },
+                    "dailyChargeAudDayMean": {
+                      "type": "number"
+                    },
+                    "freshness": {
+                      "type": "object",
+                      "properties": {
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "updatedAt",
+                        "status"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "region",
+                    "customerType",
+                    "isModeled",
+                    "methodSummary",
+                    "sourceRefs",
+                    "annualBillAudMean",
+                    "annualBillAudMedian",
+                    "usageRateCKwhMean",
+                    "dailyChargeAudDayMean",
+                    "freshness"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "region",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "customer_type",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/energy/overview": {
+      "get": {
+        "operationId": "getApiEnergyOverview",
+        "tags": [
+          "Energy"
+        ],
+        "summary": "Energy dashboard overview",
+        "responses": {
+          "200": {
+            "description": "Energy overview payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "region": {
+                      "type": "string"
+                    },
+                    "methodSummary": {
+                      "type": "string"
+                    },
+                    "sourceRefs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sourceId",
+                          "name",
+                          "url"
+                        ]
+                      }
+                    },
+                    "sourceMixViews": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "viewId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "coverageLabel": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "sourceRefs": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "sourceId": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "sourceId",
+                                "name",
+                                "url"
+                              ]
+                            }
+                          },
+                          "rows": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "sourceKey": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "sharePct": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "sourceKey",
+                                "label",
+                                "sharePct"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "viewId",
+                          "title",
+                          "coverageLabel",
+                          "updatedAt",
+                          "sourceRefs",
+                          "rows"
+                        ]
+                      }
+                    },
+                    "panels": {
+                      "type": "object",
+                      "properties": {
+                        "liveWholesale": {
+                          "type": "object",
+                          "properties": {
+                            "valueAudMwh": {
+                              "type": "number"
+                            },
+                            "valueCKwh": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "valueAudMwh",
+                            "valueCKwh"
+                          ]
+                        },
+                        "retailAverage": {
+                          "type": "object",
+                          "properties": {
+                            "annualBillAudMean": {
+                              "type": "number"
+                            },
+                            "annualBillAudMedian": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "annualBillAudMean",
+                            "annualBillAudMedian"
+                          ]
+                        },
+                        "benchmark": {
+                          "type": "object",
+                          "properties": {
+                            "dmoAnnualBillAud": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "dmoAnnualBillAud"
+                          ]
+                        },
+                        "cpiElectricity": {
+                          "type": "object",
+                          "properties": {
+                            "indexValue": {
+                              "type": "number"
+                            },
+                            "period": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "indexValue",
+                            "period"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "liveWholesale",
+                        "retailAverage",
+                        "benchmark",
+                        "cpiElectricity"
+                      ]
+                    },
+                    "freshness": {
+                      "type": "object",
+                      "properties": {
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "updatedAt",
+                        "status"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "region",
+                    "methodSummary",
+                    "sourceRefs",
+                    "sourceMixViews",
+                    "panels",
+                    "freshness"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "region",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/energy/household-estimate": {
+      "get": {
+        "operationId": "getApiEnergyHouseholdEstimate",
+        "tags": [
+          "Energy"
+        ],
+        "summary": "Feature-flagged household cost estimate",
+        "responses": {
+          "200": {
+            "description": "Household estimate payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "region": {
+                      "type": "string"
+                    },
+                    "usageProfile": {
+                      "type": "string"
+                    },
+                    "isModeled": {
+                      "type": "boolean"
+                    },
+                    "confidence": {
+                      "type": "string"
+                    },
+                    "methodologyVersion": {
+                      "type": "string"
+                    },
+                    "methodSummary": {
+                      "type": "string"
+                    },
+                    "sourceRefs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sourceId",
+                          "name",
+                          "url"
+                        ]
+                      }
+                    },
+                    "monthlyAud": {
+                      "type": "number"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "region",
+                    "usageProfile",
+                    "isModeled",
+                    "confidence",
+                    "methodologyVersion",
+                    "methodSummary",
+                    "sourceRefs",
+                    "monthlyAud",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "region",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "usage_profile",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/metadata/freshness": {
+      "get": {
+        "operationId": "getApiMetadataFreshness",
+        "tags": [
+          "Metadata"
+        ],
+        "summary": "Freshness metadata for key series",
+        "responses": {
+          "200": {
+            "description": "Metadata freshness payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "generatedAt": {
+                      "type": "string"
+                    },
+                    "staleSeriesCount": {
+                      "type": "number"
+                    },
+                    "series": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seriesId": {
+                            "type": "string"
+                          },
+                          "regionCode": {
+                            "type": "string"
+                          },
+                          "expectedCadence": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "lagMinutes": {
+                            "type": "number"
+                          },
+                          "freshnessStatus": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "seriesId",
+                          "regionCode",
+                          "expectedCadence",
+                          "updatedAt",
+                          "lagMinutes",
+                          "freshnessStatus"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "generatedAt",
+                    "staleSeriesCount",
+                    "series"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metadata/sources": {
+      "get": {
+        "operationId": "getApiMetadataSources",
+        "tags": [
+          "Metadata"
+        ],
+        "summary": "Source provenance metadata",
+        "responses": {
+          "200": {
+            "description": "Metadata sources payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "generatedAt": {
+                      "type": "string"
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "domain": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "expectedCadence": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sourceId",
+                          "domain",
+                          "name",
+                          "url",
+                          "expectedCadence"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "generatedAt",
+                    "sources"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/energy/compare/retail": {
+      "get": {
+        "operationId": "getApiV1EnergyCompareRetail",
+        "tags": [
+          "Energy"
+        ],
+        "summary": "Cross-country retail electricity comparison",
+        "responses": {
+          "200": {
+            "description": "Retail comparison payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "country": {
+                      "type": "string"
+                    },
+                    "peers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "basis": {
+                      "type": "string"
+                    },
+                    "taxStatus": {
+                      "type": "string"
+                    },
+                    "consumptionBand": {
+                      "type": "string"
+                    },
+                    "auRank": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "methodologyVersion": {
+                      "type": "string"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "countryCode": {
+                            "type": "string"
+                          },
+                          "date": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "methodologyVersion": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "rank": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "countryCode",
+                          "date",
+                          "value",
+                          "methodologyVersion",
+                          "rank"
+                        ]
+                      }
+                    },
+                    "comparisons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "peerCountryCode": {
+                            "type": "string"
+                          },
+                          "peerValue": {
+                            "type": "number"
+                          },
+                          "gap": {
+                            "type": "number"
+                          },
+                          "gapPct": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "peerCountryCode",
+                          "peerValue",
+                          "gap",
+                          "gapPct"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "country",
+                    "peers",
+                    "basis",
+                    "taxStatus",
+                    "consumptionBand",
+                    "auRank",
+                    "methodologyVersion",
+                    "rows",
+                    "comparisons"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "country",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "peers",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "basis",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tax_status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "consumption_band",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/energy/compare/wholesale": {
+      "get": {
+        "operationId": "getApiV1EnergyCompareWholesale",
+        "tags": [
+          "Energy"
+        ],
+        "summary": "Cross-country wholesale electricity comparison",
+        "responses": {
+          "200": {
+            "description": "Wholesale comparison payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "country": {
+                      "type": "string"
+                    },
+                    "peers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "auRank": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "auPercentile": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "methodologyVersion": {
+                      "type": "string"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "countryCode": {
+                            "type": "string"
+                          },
+                          "date": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "number"
+                          },
+                          "methodologyVersion": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "rank": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "countryCode",
+                          "date",
+                          "value",
+                          "methodologyVersion",
+                          "rank"
+                        ]
+                      }
+                    },
+                    "comparisons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "peerCountryCode": {
+                            "type": "string"
+                          },
+                          "peerValue": {
+                            "type": "number"
+                          },
+                          "gap": {
+                            "type": "number"
+                          },
+                          "gapPct": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "peerCountryCode",
+                          "peerValue",
+                          "gap",
+                          "gapPct"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "country",
+                    "peers",
+                    "auRank",
+                    "auPercentile",
+                    "methodologyVersion",
+                    "rows",
+                    "comparisons"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "country",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "peers",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/metadata/methodology": {
+      "get": {
+        "operationId": "getApiV1MetadataMethodology",
+        "tags": [
+          "Metadata"
+        ],
+        "summary": "Methodology metadata by metric key",
+        "responses": {
+          "200": {
+            "description": "Methodology payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "metric": {
+                      "type": "string"
+                    },
+                    "methodologyVersion": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "requiredDimensions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "metric",
+                    "methodologyVersion",
+                    "description",
+                    "requiredDimensions"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "metric",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
