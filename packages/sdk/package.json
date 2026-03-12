@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "check": "bun scripts/check-generated.ts",
     "generate": "openapi-ts -f openapi-ts.config.ts",
     "test": "vitest run"
   },

@@ -7,6 +7,7 @@
     "tests/*"
   ],
   "scripts": {
+    "api:openapi:export": "bun apps/api/scripts/export-openapi.ts",
     "dev:web": "bun --filter @aus-dash/web dev",
     "dev:api": "AUS_DASH_STORE_PATH=$PWD/apps/ingest/data/live-store.json bun --filter @aus-dash/api dev",
     "dev:ingest": "AUS_DASH_STORE_PATH=$PWD/apps/ingest/data/live-store.json bun --filter @aus-dash/ingest dev",
@@ -16,6 +17,9 @@
     "infra:down": "./run-all.sh infra down",
     "infra:status": "./run-all.sh infra status",
     "lint": "eslint .",
+    "sdk:generate": "bun --filter @aus-dash/sdk generate",
+    "sdk:check": "bun --filter @aus-dash/sdk check",
+    "cli:test": "bun --filter @aus-dash/cli test",
     "typecheck": "bash ./scripts/typecheck.sh",
     "docs:check": "bun --filter @aus-dash/api test tests/openapi.test.ts tests/openapi-schema-contract.test.ts",
     "test": "vitest --workspace vitest.workspace.ts --run",
@@ -26,7 +30,8 @@
     "test:e2e": "bun --filter @aus-dash/e2e test",
     "test:e2e:real": "bun --filter @aus-dash/e2e test specs/live-api-overview.spec.ts",
     "test:postgres": "bash ./scripts/test-postgres.sh",
-    "validate": "bun run lint && bun run typecheck && bun run test && bun run docs:check",
+    "validate:sdk-cli": "bun --filter @aus-dash/sdk test && bun run sdk:check && bun run cli:test",
+    "validate": "bun run lint && bun run typecheck && bun run test && bun run docs:check && bun run sdk:check",
     "validate:full": "bun run validate && bun run test:postgres && bun run test:e2e:real",
     "test:all": "./run-all.sh test",
     "test:all:e2e": "./run-all.sh test --with-e2e"

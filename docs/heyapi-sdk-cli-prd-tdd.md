@@ -273,7 +273,7 @@ Deliver:
 - [x] Phase D: SDK runtime configuration
 - [x] Phase E: CLI command wiring
 - [x] Phase F: Authenticated route coverage
-- [ ] Phase G: Drift detection
+- [x] Phase G: Drift detection
 - [ ] Phase H: Packaging smoke test
 
 ## 12. TDD Execution Plan
