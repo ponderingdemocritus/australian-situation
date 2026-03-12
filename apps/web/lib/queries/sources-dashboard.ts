@@ -1,6 +1,7 @@
 import { getApiMetadataFreshness, getApiMetadataSources } from "@aus-dash/sdk";
 import { formatIsoDate } from "../format";
 import { createPublicSdkOptions } from "../sdk/public";
+import { unwrapSdkData } from "../sdk/unwrap";
 
 type SourceRow = {
   cadence: string;
@@ -32,10 +33,12 @@ export type SourcesDashboardModel = {
 
 export async function getSourcesDashboardData(): Promise<SourcesDashboardModel> {
   const options = createPublicSdkOptions();
-  const [sources, freshness] = await Promise.all([
+  const [sourcesResponse, freshnessResponse] = await Promise.all([
     getApiMetadataSources(options),
     getApiMetadataFreshness(options)
   ]);
+  const sources = unwrapSdkData(sourcesResponse);
+  const freshness = unwrapSdkData(freshnessResponse);
 
   return {
     hero: {

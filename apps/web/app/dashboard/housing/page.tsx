@@ -2,6 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@aus-
 import { DashboardFrame } from "../../../features/site/components/dashboard-frame";
 import { getHousingDashboardData } from "../../../lib/queries/housing-dashboard";
 
+export const dynamic = "force-dynamic";
+
 export default async function HousingPage() {
   const housing = await getHousingDashboardData();
 

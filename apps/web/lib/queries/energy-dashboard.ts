@@ -5,6 +5,7 @@ import {
 } from "@aus-dash/sdk";
 import { formatIsoDate, formatOneDecimal, formatWholeNumber } from "../format";
 import { createPublicSdkOptions } from "../sdk/public";
+import { unwrapSdkData } from "../sdk/unwrap";
 
 type Metric = {
   detail: string;
@@ -31,7 +32,8 @@ export type EnergyDashboardModel = {
 
 export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
   const options = createPublicSdkOptions();
-  const [overview, retailComparison, wholesaleComparison] = await Promise.all([
+  const [overviewResponse, retailComparisonResponse, wholesaleComparisonResponse] =
+    await Promise.all([
     getApiEnergyOverview({
       ...options,
       query: { region: "AU" }
@@ -54,6 +56,9 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
       }
     })
   ]);
+  const overview = unwrapSdkData(overviewResponse);
+  const retailComparison = unwrapSdkData(retailComparisonResponse);
+  const wholesaleComparison = unwrapSdkData(wholesaleComparisonResponse);
 
   return {
     hero: {

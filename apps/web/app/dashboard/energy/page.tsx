@@ -2,6 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@aus-
 import { DashboardFrame } from "../../../features/site/components/dashboard-frame";
 import { getEnergyDashboardData } from "../../../lib/queries/energy-dashboard";
 
+export const dynamic = "force-dynamic";
+
 export default async function EnergyPage() {
   const energy = await getEnergyDashboardData();
 

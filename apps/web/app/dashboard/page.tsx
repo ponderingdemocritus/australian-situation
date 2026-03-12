@@ -2,6 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@aus-
 import { DashboardFrame } from "../../features/site/components/dashboard-frame";
 import { getDashboardOverview } from "../../lib/queries/dashboard-overview";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const overview = await getDashboardOverview();
 

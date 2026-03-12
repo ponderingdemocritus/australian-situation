@@ -1,6 +1,7 @@
 import { getApiHousingOverview } from "@aus-dash/sdk";
 import { formatIsoDate, formatTwoDecimals, formatWholeNumber } from "../format";
 import { createPublicSdkOptions } from "../sdk/public";
+import { unwrapSdkData } from "../sdk/unwrap";
 
 type Metric = {
   detail: string;
@@ -40,10 +41,11 @@ function formatOneDecimalOrWhole(value: number) {
 }
 
 export async function getHousingDashboardData(): Promise<HousingDashboardModel> {
-  const overview = await getApiHousingOverview({
+  const overviewResponse = await getApiHousingOverview({
     ...createPublicSdkOptions(),
     query: { region: "AU" }
   });
+  const overview = unwrapSdkData(overviewResponse);
 
   return {
     hero: {

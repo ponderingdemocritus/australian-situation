@@ -6,6 +6,7 @@ import {
   getApiMetadataSources
 } from "@aus-dash/sdk";
 import { createPublicSdkOptions } from "../sdk/public";
+import { unwrapSdkData } from "../sdk/unwrap";
 
 export type DashboardOverviewMetric = {
   detail: string;
@@ -47,7 +48,8 @@ function formatTrackedMetricCount(count: number) {
 export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
   const options = createPublicSdkOptions();
 
-  const [health, energy, housing, freshness, sources] = await Promise.all([
+  const [healthResponse, energyResponse, housingResponse, freshnessResponse, sourcesResponse] =
+    await Promise.all([
     getApiHealth(options),
     getApiEnergyOverview({
       ...options,
@@ -60,6 +62,11 @@ export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
     getApiMetadataFreshness(options),
     getApiMetadataSources(options)
   ]);
+  const health = unwrapSdkData(healthResponse);
+  const energy = unwrapSdkData(energyResponse);
+  const housing = unwrapSdkData(housingResponse);
+  const freshness = unwrapSdkData(freshnessResponse);
+  const sources = unwrapSdkData(sourcesResponse);
 
   return {
     hero: {

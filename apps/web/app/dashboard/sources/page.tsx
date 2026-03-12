@@ -2,6 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@aus-
 import { DashboardFrame } from "../../../features/site/components/dashboard-frame";
 import { getSourcesDashboardData } from "../../../lib/queries/sources-dashboard";
 
+export const dynamic = "force-dynamic";
+
 export default async function SourcesPage() {
   const data = await getSourcesDashboardData();
 
