@@ -26,6 +26,18 @@ describe("ingest job registry", () => {
         expect.objectContaining({
           jobId: "sync-housing-abs-daily",
           schedule: expect.objectContaining({ pattern: "0 2 * * *" })
+        }),
+        expect.objectContaining({
+          jobId: "sync-major-goods-price-index-daily",
+          schedule: expect.objectContaining({ pattern: "10 4 * * *" })
+        }),
+        expect.objectContaining({
+          jobId: "sync-price-promotion-hourly",
+          schedule: expect.objectContaining({ pattern: "20 * * * *" })
+        }),
+        expect.objectContaining({
+          jobId: "sync-ai-deflation-cohorts-hourly",
+          schedule: expect.objectContaining({ pattern: "35 * * * *" })
         })
       ])
     );

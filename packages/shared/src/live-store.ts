@@ -30,7 +30,7 @@ export type LiveObservation = {
 
 export type SourceCatalogItem = {
   sourceId: string;
-  domain: "housing" | "energy" | "macro";
+  domain: "housing" | "energy" | "macro" | "prices";
   name: string;
   url: string;
   expectedCadence: string;
@@ -68,6 +68,60 @@ export type RawSnapshot = {
   payload: string;
 };
 
+export type PriceIntakeItem = {
+  observedAt: string;
+  merchantName: string;
+  merchantSlug?: string;
+  regionCode: string;
+  title: string;
+  externalProductId?: string;
+  externalOfferId: string;
+  priceAmount: number;
+  unitPriceAmount?: number;
+  normalizedQuantity?: number;
+  normalizedUnit?: string;
+  listingUrl?: string;
+  categoryHint?: string;
+  productHint?: string;
+};
+
+export type PriceIntakeBatch = {
+  batchId: string;
+  sourceId: string;
+  capturedAt: string;
+  rawSnapshotId: string;
+  itemCount: number;
+  createdAt: string;
+};
+
+export type UnresolvedPriceItemStatus = "open" | "reconciled" | "promoted";
+
+export type UnresolvedPriceItem = PriceIntakeItem & {
+  unresolvedItemId: string;
+  batchId: string;
+  sourceId: string;
+  rawSnapshotId: string;
+  status: UnresolvedPriceItemStatus;
+  createdAt: string;
+  canonicalCategorySlug?: string;
+  canonicalCategoryName?: string;
+  canonicalProductSlug?: string;
+  canonicalProductName?: string;
+  productFamilySlug?: string;
+  countryOfOrigin?: string;
+  isAustralianMade?: boolean;
+  manufacturerName?: string;
+  domesticValueShareBand?: string;
+  aiExposureLevel?: "low" | "medium" | "high";
+  aiExposureReason?: string;
+  comparableUnitBasis?: string;
+  isControlCandidate?: boolean;
+  cohortReady?: boolean;
+  notes?: string;
+  reconciledAt?: string;
+  promotedAt?: string;
+};
+
 export type LiveStore = {
   version: 1;
   updatedAt: string;
@@ -76,6 +130,8 @@ export type LiveStore = {
   sources: SourceCatalogItem[];
   sourceCursors: SourceCursor[];
   ingestionRuns: IngestionRun[];
+  priceIntakeBatches: PriceIntakeBatch[];
+  unresolvedPriceItems: UnresolvedPriceItem[];
 };
 
 export type UpsertResult = {
@@ -91,6 +147,7 @@ const SOURCE_AER_URL = "https://www.aer.gov.au/energy-product-reference-data";
 const SOURCE_RBA_URL = "https://www.rba.gov.au/statistics/interest-rates/";
 const SOURCE_ABS_CPI_URL =
   "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release";
+const SOURCE_MAJOR_GOODS_PRICES_URL = SOURCE_ABS_CPI_URL;
 const SOURCE_EIA_URL = "https://www.eia.gov/opendata/documentation.php";
 const SOURCE_EUROSTAT_URL =
   "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_pc_204_sims.htm";
@@ -163,6 +220,13 @@ export const LIVE_SOURCE_CATALOG: SourceCatalogItem[] = [
     name: "ABS CPI Electricity",
     url: SOURCE_ABS_CPI_URL,
     expectedCadence: "quarterly"
+  },
+  {
+    sourceId: "major_goods_prices",
+    domain: "prices",
+    name: "Major Goods Retail Basket",
+    url: SOURCE_MAJOR_GOODS_PRICES_URL,
+    expectedCadence: "daily"
   },
   {
     sourceId: "eia_electricity",
@@ -812,6 +876,214 @@ export function createSeedLiveStore(): LiveStore {
       publishedAt: "2026-01-05T00:00:00Z"
     }),
     makeObservation({
+      seriesId: "prices.major_goods.overall.index",
+      regionCode: "AU",
+      market: "major_goods",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 107.53,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.major_goods.food.index",
+      regionCode: "AU",
+      market: "major_goods",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 107.49,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.major_goods.household_supplies.index",
+      regionCode: "AU",
+      market: "major_goods",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 107.89,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.major_goods.overall.index",
+      regionCode: "VIC",
+      market: "major_goods",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 107.1,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.major_goods.food.index",
+      regionCode: "VIC",
+      market: "major_goods",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 108.09,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.major_goods.household_supplies.index",
+      regionCode: "VIC",
+      market: "major_goods",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 104.05,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.au_made.all.index",
+      regionCode: "AU",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 107.24,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.au_made.ai_exposed.index",
+      regionCode: "AU",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 104.76,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.au_made.control.index",
+      regionCode: "AU",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 109.72,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.imported.matched_control.index",
+      regionCode: "AU",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 107.89,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.ai_deflation.spread.au_made_vs_control.index",
+      regionCode: "AU",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: -4.96,
+      unit: "index_points",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.au_made.all.index",
+      regionCode: "VIC",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 108.04,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.au_made.ai_exposed.index",
+      regionCode: "VIC",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 107.5,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.au_made.control.index",
+      regionCode: "VIC",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 108.57,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.imported.matched_control.index",
+      regionCode: "VIC",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: 104.05,
+      unit: "index",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
+      seriesId: "prices.ai_deflation.spread.au_made_vs_control.index",
+      regionCode: "VIC",
+      market: "ai_deflation",
+      metricFamily: "prices",
+      date: "2026-02-27",
+      value: -1.07,
+      unit: "index_points",
+      sourceName: "Major Goods Retail Basket",
+      sourceUrl: SOURCE_MAJOR_GOODS_PRICES_URL,
+      publishedAt: "2026-02-27T06:00:00Z",
+      methodologyVersion: "prices-major-goods-v1"
+    }),
+    makeObservation({
       seriesId: "energy.wholesale.rrp.au_weighted_aud_mwh",
       regionCode: "AU",
       date: "2026-02-27T01:50:00Z",
@@ -1261,7 +1533,9 @@ export function createSeedLiveStore(): LiveStore {
     rawSnapshots: [],
     sources: getSourceCatalogItems(),
     sourceCursors: [],
-    ingestionRuns: []
+    ingestionRuns: [],
+    priceIntakeBatches: [],
+    unresolvedPriceItems: []
   };
 }
 
@@ -1297,7 +1571,9 @@ function isLiveStore(value: unknown): value is LiveStore {
     (Array.isArray(maybe.rawSnapshots) || maybe.rawSnapshots === undefined) &&
     Array.isArray(maybe.sources) &&
     Array.isArray(maybe.sourceCursors) &&
-    Array.isArray(maybe.ingestionRuns)
+    Array.isArray(maybe.ingestionRuns) &&
+    (Array.isArray(maybe.priceIntakeBatches) || maybe.priceIntakeBatches === undefined) &&
+    (Array.isArray(maybe.unresolvedPriceItems) || maybe.unresolvedPriceItems === undefined)
   );
 }
 
@@ -1327,7 +1603,9 @@ export function readLiveStoreSync(
       observations: hasSourceMixObservations
         ? parsed.observations
         : [...parsed.observations, ...buildSourceMixSeedObservations()],
-      sources: mergeSourceCatalogItems(parsed.sources)
+      sources: mergeSourceCatalogItems(parsed.sources),
+      priceIntakeBatches: parsed.priceIntakeBatches ?? [],
+      unresolvedPriceItems: parsed.unresolvedPriceItems ?? []
     };
   }
 
@@ -1341,7 +1619,9 @@ export function readLiveStoreSync(
       ? parsed.observations
       : [...parsed.observations, ...buildSourceMixSeedObservations()],
     rawSnapshots: [],
-    sources: mergeSourceCatalogItems(parsed.sources)
+    sources: mergeSourceCatalogItems(parsed.sources),
+    priceIntakeBatches: parsed.priceIntakeBatches ?? [],
+    unresolvedPriceItems: parsed.unresolvedPriceItems ?? []
   };
 }
 
@@ -1440,6 +1720,98 @@ export type StageRawPayloadResult = {
   snapshot: RawSnapshot;
 };
 
+export type AppendPriceIntakeBatchInput = {
+  sourceId: string;
+  capturedAt: string;
+  items: PriceIntakeItem[];
+};
+
+export type AppendPriceIntakeBatchResult = {
+  batch: PriceIntakeBatch;
+  unresolvedItems: UnresolvedPriceItem[];
+  snapshot: RawSnapshot;
+};
+
+export type ReconcileUnresolvedPriceItemInput = {
+  canonicalCategorySlug: string;
+  canonicalCategoryName: string;
+  canonicalProductSlug: string;
+  canonicalProductName: string;
+  notes?: string;
+};
+
+export type ClassifyUnresolvedPriceItemInput = {
+  productFamilySlug?: string;
+  countryOfOrigin?: string;
+  isAustralianMade?: boolean;
+  manufacturerName?: string;
+  domesticValueShareBand?: string;
+  aiExposureLevel?: "low" | "medium" | "high";
+  aiExposureReason?: string;
+  comparableUnitBasis?: string;
+  isControlCandidate?: boolean;
+};
+
+export type UnresolvedPriceItemMutationResult =
+  | {
+      kind: "ok";
+      item: UnresolvedPriceItem;
+    }
+  | {
+      kind: "not_found";
+    }
+  | {
+      kind: "invalid_state";
+      currentStatus: UnresolvedPriceItemStatus;
+    };
+
+function notFoundUnresolvedPriceItem(): UnresolvedPriceItemMutationResult {
+  return { kind: "not_found" };
+}
+
+function invalidUnresolvedPriceItemState(
+  currentStatus: UnresolvedPriceItemStatus
+): UnresolvedPriceItemMutationResult {
+  return {
+    kind: "invalid_state",
+    currentStatus
+  };
+}
+
+export function promoteReconciledPriceItemsInStore(
+  store: LiveStore,
+  input: {
+    sourceId?: string;
+    promotedAt: string;
+  }
+): UnresolvedPriceItem[] {
+  const promoted: UnresolvedPriceItem[] = [];
+
+  for (const item of store.unresolvedPriceItems) {
+    if (item.status !== "reconciled") {
+      continue;
+    }
+    if (input.sourceId && item.sourceId !== input.sourceId) {
+      continue;
+    }
+
+    const next = promoteUnresolvedPriceItem(
+      store,
+      item.unresolvedItemId,
+      input.promotedAt
+    );
+    if (next.kind === "ok") {
+      promoted.push(next.item);
+    }
+  }
+
+  if (promoted.length > 0) {
+    store.updatedAt = input.promotedAt;
+  }
+
+  return promoted;
+}
+
 export function payloadChecksumSha256(payload: string): string {
   return createHash("sha256").update(payload).digest("hex");
 }
@@ -1476,5 +1848,153 @@ export function stageRawPayload(
   return {
     staged: true,
     snapshot
+  };
+}
+
+export function appendPriceIntakeBatch(
+  store: LiveStore,
+  input: AppendPriceIntakeBatchInput
+): AppendPriceIntakeBatchResult {
+  const payload = JSON.stringify({
+    sourceId: input.sourceId,
+    capturedAt: input.capturedAt,
+    items: input.items
+  });
+  const staged = stageRawPayload(store, {
+    sourceId: input.sourceId,
+    payload,
+    contentType: "application/json",
+    capturedAt: input.capturedAt
+  });
+
+  const batch: PriceIntakeBatch = {
+    batchId: `${input.sourceId}-batch-${input.capturedAt.replace(/[^0-9A-Za-z]/g, "")}-${store.priceIntakeBatches.length + 1}`,
+    sourceId: input.sourceId,
+    capturedAt: input.capturedAt,
+    rawSnapshotId: staged.snapshot.snapshotId,
+    itemCount: input.items.length,
+    createdAt: input.capturedAt
+  };
+
+  const unresolvedItems = input.items.map((item, index) => ({
+    unresolvedItemId: `${batch.batchId}-item-${index + 1}`,
+    batchId: batch.batchId,
+    sourceId: input.sourceId,
+    rawSnapshotId: staged.snapshot.snapshotId,
+    status: "open" as const,
+    createdAt: input.capturedAt,
+    ...item
+  }));
+
+  store.priceIntakeBatches.push(batch);
+  store.unresolvedPriceItems.push(...unresolvedItems);
+  store.updatedAt = input.capturedAt;
+
+  return {
+    batch,
+    unresolvedItems,
+    snapshot: staged.snapshot
+  };
+}
+
+export function listUnresolvedPriceItems(
+  store: LiveStore,
+  status: UnresolvedPriceItemStatus = "open"
+): UnresolvedPriceItem[] {
+  return store.unresolvedPriceItems.filter((item) => item.status === status);
+}
+
+export function reconcileUnresolvedPriceItem(
+  store: LiveStore,
+  unresolvedItemId: string,
+  input: ReconcileUnresolvedPriceItemInput
+): UnresolvedPriceItemMutationResult {
+  const item = store.unresolvedPriceItems.find(
+    (entry) => entry.unresolvedItemId === unresolvedItemId
+  );
+  if (!item) {
+    return notFoundUnresolvedPriceItem();
+  }
+  if (item.status === "promoted") {
+    return invalidUnresolvedPriceItemState(item.status);
+  }
+
+  item.status = "reconciled";
+  item.canonicalCategorySlug = input.canonicalCategorySlug;
+  item.canonicalCategoryName = input.canonicalCategoryName;
+  item.canonicalProductSlug = input.canonicalProductSlug;
+  item.canonicalProductName = input.canonicalProductName;
+  item.notes = input.notes;
+  item.reconciledAt = nowIso();
+  store.updatedAt = item.reconciledAt;
+  return {
+    kind: "ok",
+    item
+  };
+}
+
+export function classifyUnresolvedPriceItem(
+  store: LiveStore,
+  unresolvedItemId: string,
+  input: ClassifyUnresolvedPriceItemInput
+): UnresolvedPriceItemMutationResult {
+  const item = store.unresolvedPriceItems.find(
+    (entry) => entry.unresolvedItemId === unresolvedItemId
+  );
+  if (!item) {
+    return notFoundUnresolvedPriceItem();
+  }
+  if (item.status !== "reconciled") {
+    return invalidUnresolvedPriceItemState(item.status);
+  }
+
+  item.productFamilySlug = input.productFamilySlug;
+  item.countryOfOrigin = input.countryOfOrigin;
+  item.isAustralianMade = input.isAustralianMade;
+  item.manufacturerName = input.manufacturerName;
+  item.domesticValueShareBand = input.domesticValueShareBand;
+  item.aiExposureLevel = input.aiExposureLevel;
+  item.aiExposureReason = input.aiExposureReason;
+  item.comparableUnitBasis = input.comparableUnitBasis;
+  item.isControlCandidate = input.isControlCandidate;
+  item.cohortReady = Boolean(
+    item.productFamilySlug &&
+      item.countryOfOrigin &&
+      typeof item.isAustralianMade === "boolean" &&
+      item.manufacturerName &&
+      item.domesticValueShareBand &&
+      item.aiExposureLevel &&
+      item.aiExposureReason &&
+      item.comparableUnitBasis &&
+      typeof item.isControlCandidate === "boolean"
+  );
+  store.updatedAt = nowIso();
+  return {
+    kind: "ok",
+    item
+  };
+}
+
+export function promoteUnresolvedPriceItem(
+  store: LiveStore,
+  unresolvedItemId: string,
+  promotedAt: string
+): UnresolvedPriceItemMutationResult {
+  const item = store.unresolvedPriceItems.find(
+    (entry) => entry.unresolvedItemId === unresolvedItemId
+  );
+  if (!item) {
+    return notFoundUnresolvedPriceItem();
+  }
+  if (item.status !== "reconciled") {
+    return invalidUnresolvedPriceItemState(item.status);
+  }
+
+  item.status = "promoted";
+  item.promotedAt = promotedAt;
+  store.updatedAt = promotedAt;
+  return {
+    kind: "ok",
+    item
   };
 }

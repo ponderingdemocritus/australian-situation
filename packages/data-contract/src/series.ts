@@ -49,6 +49,34 @@ export const ENERGY_RETAIL_SERIES_IDS = [
 
 export type EnergyRetailSeriesId = (typeof ENERGY_RETAIL_SERIES_IDS)[number];
 
+export const PRICE_INDEX_SERIES_IDS = [
+  "prices.major_goods.overall.index",
+  "prices.major_goods.food.index",
+  "prices.major_goods.household_supplies.index"
+] as const;
+
+export type PriceIndexSeriesId = (typeof PRICE_INDEX_SERIES_IDS)[number];
+
+export const PRICE_INDEX_OVERVIEW_SERIES_IDS = [...PRICE_INDEX_SERIES_IDS] as const;
+
+export type PriceIndexOverviewSeriesId =
+  (typeof PRICE_INDEX_OVERVIEW_SERIES_IDS)[number];
+
+export const AI_DEFLATION_SERIES_IDS = [
+  "prices.au_made.all.index",
+  "prices.au_made.ai_exposed.index",
+  "prices.au_made.control.index",
+  "prices.imported.matched_control.index",
+  "prices.ai_deflation.spread.au_made_vs_control.index"
+] as const;
+
+export type AiDeflationSeriesId = (typeof AI_DEFLATION_SERIES_IDS)[number];
+
+export const AI_DEFLATION_OVERVIEW_SERIES_IDS = [...AI_DEFLATION_SERIES_IDS] as const;
+
+export type AiDeflationOverviewSeriesId =
+  (typeof AI_DEFLATION_OVERVIEW_SERIES_IDS)[number];
+
 export const TAX_STATUS_VALUES = ["incl_tax", "excl_tax", "mixed"] as const;
 
 export type TaxStatus = (typeof TAX_STATUS_VALUES)[number];

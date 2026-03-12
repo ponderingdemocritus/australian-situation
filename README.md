@@ -23,6 +23,7 @@ Monorepo for AUS Dash ingestion, API, and dashboard apps.
 - [Quickstart](#quickstart)
 - [Common Commands](#common-commands)
 - [API Docs](#api-docs)
+- [Major Goods Price Index](#major-goods-price-index)
 - [Data Backends](#data-backends)
 - [Environment Notes](#environment-notes)
 - [Repo Layout](#repo-layout)
@@ -31,7 +32,7 @@ Monorepo for AUS Dash ingestion, API, and dashboard apps.
 
 ## Scope
 
-- Housing + energy metrics
+- Housing, energy, and major-goods price index metrics
 - Source metadata + freshness metadata
 - Internal API-first architecture (`apps/api`) used by the dashboard (`apps/web`)
 
@@ -128,6 +129,114 @@ Comparison semantics:
 - Energy comparison ranks are ascending by price. Rank `1` is the cheapest observation in the comparison set.
 - China comparison entries are proxy-based. Retail uses a Beijing residential tariff proxy and wholesale uses an NEA annual market-price proxy.
 
+## Major Goods Price Index
+
+The price index implementation uses a two-layer model:
+
+1. Raw warehouse tables in Postgres keep canonical product, merchant, offer, and price history.
+2. Curated public series are published back into the existing `series` and `observations` API layer.
+
+Core schema:
+
+- `product_categories`, `products`, `product_aliases`
+- `merchants`, `merchant_locations`, `offers`
+- `price_observations`, `price_rollups_daily`
+- `index_definitions`, `index_basket_versions`, `index_weights`
+
+Current pipeline:
+
+1. `apps/ingest/src/jobs/sync-major-goods-price-index.ts` builds canonical major-goods fixture records.
+2. For Postgres, `apps/ingest/src/repositories/postgres-price-warehouse.ts` upserts the raw warehouse tables and links facts to `raw_snapshots`.
+3. The job computes daily product rollups using median prices and unit-price aggregates.
+4. The job applies versioned basket weights to publish curated observations such as:
+   - `prices.major_goods.overall.index`
+   - `prices.major_goods.food.index`
+   - `prices.major_goods.household_supplies.index`
+5. The API serves the latest snapshot at `/api/prices/major-goods`.
+
+Public API shape:
+
+- `/api/prices/major-goods?region=AU` returns the latest major-goods index rows for the requested region.
+- `/api/prices/ai-deflation?region=AU` returns the latest Australian-made / AI-exposed cohort snapshot.
+- The response includes `methodologyVersion`, `methodSummary`, `sourceRefs`, `indexes`, and `freshness`.
+- The route reads from curated `observations`, not directly from raw warehouse tables.
+
+Price endpoint auth:
+
+- `/api/prices/major-goods` is password protected with HTTP Basic Auth.
+- `/api/prices/intake/batches` is password protected with HTTP Basic Auth.
+- `/api/prices/ai-deflation` is password protected with HTTP Basic Auth.
+- `/api/prices/unresolved-items` is password protected with HTTP Basic Auth.
+- `/api/prices/unresolved-items/:id/reconcile` is password protected with HTTP Basic Auth.
+- The hardcoded password is `buildaustralia`.
+- The current implementation accepts any username paired with that password.
+- Requests without valid Basic Auth receive `401` and `WWW-Authenticate: Basic realm="AUS Dash Prices"`.
+
+Example:
+
+```bash
+curl -u agent:buildaustralia "http://localhost:3001/api/prices/major-goods?region=AU"
+```
+
+Agent intake flow:
+
+1. Scraper agents submit discovered offers in bulk to `POST /api/prices/intake/batches`.
+2. The API stages the batch payload in `rawSnapshots` and creates queue entries in `unresolvedPriceItems`.
+3. Reconciliation agents read open items from `GET /api/prices/unresolved-items`.
+4. A reconciliation agent resolves an item with `POST /api/prices/unresolved-items/:id/reconcile`.
+5. The promotion job moves reconciled items into `promoted` state for downstream ingestion handoff.
+6. Promoted items still do not automatically change the published index until a downstream warehouse/index publication step consumes them.
+
+Queue transition rules:
+
+- `classify` only works for items already in `reconciled` state.
+- `promote` only works for items already in `reconciled` state.
+- Invalid transition attempts return `409 INVALID_ITEM_STATE`.
+
+Current batch intake contract:
+
+- each item includes `observedAt`, merchant fields, region, title, offer id, and price fields
+- intake is append-only and does not publish directly into the index
+- reconciliation is the gate before a discovered item should affect canonical product mapping or basket weights
+- `status=promoted` can be queried once the promotion job has run
+
+AI-deflation cohort scope:
+
+- `prices.au_made.all.index`
+- `prices.au_made.ai_exposed.index`
+- `prices.au_made.control.index`
+- `prices.imported.matched_control.index`
+- `prices.ai_deflation.spread.au_made_vs_control.index`
+
+How the index is calculated:
+
+1. Raw offer prices are grouped by `region + product + day`.
+2. The daily rollup stores `sample_size`, `distinct_offer_count`, `min`, `max`, `mean`, `median`, and unit-price aggregates.
+3. The base period is fixed in `index_definitions.base_period`.
+4. Each basket version defines product weights in `index_weights`.
+5. Published index points are weighted price relatives rebased to `100`.
+
+How to add another price source:
+
+1. Add a stable `sourceId` to `packages/shared/src/live-store.ts`.
+2. Add any new public series ids to `packages/data-contract/src/series.ts`.
+3. Implement fetch/parse in `apps/ingest/src/sources/live-source-clients.ts`.
+4. Extend or add a sync job in `apps/ingest/src/jobs/` that maps source rows into the canonical price warehouse shape.
+5. Persist raw rows through `apps/ingest/src/repositories/postgres-price-warehouse.ts`.
+6. Publish any new curated index outputs through `persistIngestArtifacts(...)`.
+7. If the public API contract changes, update `apps/api/src/routes/`, repository methods, OpenAPI tests, and this README.
+
+Validation flow for price-index changes:
+
+```bash
+bun --filter @aus-dash/db test
+bun --filter @aus-dash/data-contract test
+bun --filter @aus-dash/shared test
+bun --filter @aus-dash/ingest test
+bun --filter @aus-dash/api test
+bun run docs:check
+```
+
 ## Data Backends
 
 API backend is selected via `AUS_DASH_DATA_BACKEND`:
@@ -175,4 +284,7 @@ tests/
 - `docs/kpi-definitions-electricity-prices-aus-global-v1.md`
 - `docs/api-energy-comparison-v1.md`
 - `docs/postgres-api-abstraction-prd-tdd.md`
+- `docs/ai-deflation-au-made-prd-tdd.md`
+- `docs/price-index-db-structure.md`
+- `docs/price-index-prd-tdd.md`
 - `research_electricity_prices_api_scope/research_report.md`

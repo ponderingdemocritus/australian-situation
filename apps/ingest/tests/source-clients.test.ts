@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   type BeijingResidentialTariffPoint,
   type EntsoeWholesalePoint,
+  type MajorGoodsPricePoint,
   type NeaChinaWholesaleProxyPoint,
   type EurostatRetailPricePoint,
   type PlnRetailTariffPoint,
@@ -18,6 +19,7 @@ import {
   fetchEiaElectricitySnapshot,
   fetchEntsoeWholesaleSnapshot,
   fetchEurostatRetailSnapshot,
+  fetchMajorGoodsPriceSnapshot,
   fetchNeaChinaWholesaleProxySnapshot,
   fetchPlnRetailTariffSnapshot,
   fetchRbaRatesSnapshot,
@@ -253,6 +255,84 @@ describe("live source clients", () => {
         annualBillAud: 1825
       }
     ]);
+  });
+
+  test("maps major goods price payload into canonical offer observations", async () => {
+    const snapshot = await fetchMajorGoodsPriceSnapshot({
+      endpoint: "https://example.test/major-goods.json",
+      fetchImpl: async () =>
+        buildResponse({
+          json: {
+            observed_at: "2026-02-27T06:00:00Z",
+            items: [
+              {
+                merchant: "coles",
+                merchant_name: "Coles",
+                region_code: "AU",
+                category_slug: "food",
+                category_name: "Food",
+                product_slug: "white-bread",
+                canonical_name: "White Bread 700g",
+                external_product_id: "bread-700",
+                external_offer_id: "coles-bread-au",
+                price_amount: 4.05,
+                unit_price_amount: 5.79,
+                normalized_quantity: 0.7,
+                normalized_unit: "kg",
+                price_type: "shelf"
+              }
+            ]
+          }
+        })
+    });
+
+    expect(snapshot.sourceId).toBe("major_goods_prices");
+    expect(snapshot.points).toEqual([
+      {
+        observedAt: "2026-02-27T06:00:00Z",
+        merchantSlug: "coles",
+        merchantName: "Coles",
+        regionCode: "AU",
+        categorySlug: "food",
+        categoryName: "Food",
+        productSlug: "white-bread",
+        canonicalName: "White Bread 700g",
+        externalProductId: "bread-700",
+        externalOfferId: "coles-bread-au",
+        priceAmount: 4.05,
+        unitPriceAmount: 5.79,
+        normalizedQuantity: 0.7,
+        normalizedUnit: "kg",
+        priceType: "shelf"
+      } satisfies MajorGoodsPricePoint
+    ]);
+  });
+
+  test("fails fast when major goods live fetch has no machine-readable endpoint configured", async () => {
+    const originalFetchUrl = process.env.AUS_DASH_MAJOR_GOODS_FETCH_URL;
+    delete process.env.AUS_DASH_MAJOR_GOODS_FETCH_URL;
+
+    await expect(
+      fetchMajorGoodsPriceSnapshot({
+        fetchImpl: async () =>
+          buildResponse({
+            json: {
+              observed_at: "2026-02-27T06:00:00Z",
+              items: []
+            }
+          })
+      })
+    ).rejects.toMatchObject({
+      name: "SourceClientError",
+      sourceId: "major_goods_prices",
+      transient: false
+    } satisfies Partial<SourceClientError>);
+
+    if (originalFetchUrl === undefined) {
+      delete process.env.AUS_DASH_MAJOR_GOODS_FETCH_URL;
+    } else {
+      process.env.AUS_DASH_MAJOR_GOODS_FETCH_URL = originalFetchUrl;
+    }
   });
 
   test("maps ABS housing payload into canonical observations", async () => {

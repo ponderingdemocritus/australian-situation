@@ -19,6 +19,13 @@ describe("OpenAPI routes", () => {
     expect(body.paths).toMatchObject({
       "/api/health": expect.any(Object),
       "/api/housing/overview": expect.any(Object),
+      "/api/prices/ai-deflation": expect.any(Object),
+      "/api/prices/intake/batches": expect.any(Object),
+      "/api/prices/major-goods": expect.any(Object),
+      "/api/prices/unresolved-items/{id}/classify": expect.any(Object),
+      "/api/prices/unresolved-items/{id}/promote": expect.any(Object),
+      "/api/prices/unresolved-items": expect.any(Object),
+      "/api/prices/unresolved-items/{id}/reconcile": expect.any(Object),
       "/api/series/{id}": expect.any(Object),
       "/api/energy/live-wholesale": expect.any(Object),
       "/api/energy/retail-average": expect.any(Object),

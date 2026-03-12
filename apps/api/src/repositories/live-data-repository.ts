@@ -7,6 +7,8 @@ import {
   getHousingOverviewFromStore,
   getMetadataFreshnessFromStore,
   getMetadataSourcesFromStore,
+  getAiDeflationOverviewFromStore,
+  getPriceIndexOverviewFromStore,
   getSeriesFromStore
 } from "./live-store-repository";
 import type {
@@ -50,6 +52,8 @@ function createStoreLiveDataRepository(): LiveDataRepository {
     getEnergyWholesaleComparison: async (input) =>
       getEnergyWholesaleComparisonFromStore(input),
     getEnergyOverview: async (region) => getEnergyOverviewFromStore(region),
+    getPriceIndexOverview: async (region) => getPriceIndexOverviewFromStore(region),
+    getAiDeflationOverview: async (region) => getAiDeflationOverviewFromStore(region),
     getMetadataFreshness: async () => getMetadataFreshnessFromStore(),
     getMetadataSources: async () => getMetadataSourcesFromStore()
   };

@@ -112,6 +112,22 @@ export type EnergyOverviewResponse = {
   freshness: Freshness;
 };
 
+export type PriceIndexOverviewRow = {
+  seriesId: string;
+  label: string;
+  date: string;
+  value: number;
+};
+
+export type PriceIndexOverviewResponse = {
+  region: string;
+  methodologyVersion: string;
+  methodSummary: string;
+  sourceRefs: SourceRef[];
+  indexes: PriceIndexOverviewRow[];
+  freshness: Freshness;
+};
+
 export type ComparisonResponse = {
   rows: ComparableObservation[];
 };
@@ -133,7 +149,7 @@ export type MetadataFreshnessResponse = {
 
 export type MetadataSource = {
   sourceId: string;
-  domain: "housing" | "energy" | "macro";
+  domain: "housing" | "energy" | "macro" | "prices";
   name: string;
   url: string;
   expectedCadence: string;
@@ -179,6 +195,8 @@ export type LiveDataRepository = {
     input: GetEnergyWholesaleComparisonInput
   ): Promise<ComparisonResponse>;
   getEnergyOverview(region: string): Promise<EnergyOverviewResponse>;
+  getPriceIndexOverview(region: string): Promise<PriceIndexOverviewResponse>;
+  getAiDeflationOverview(region: string): Promise<PriceIndexOverviewResponse>;
   getMetadataFreshness(): Promise<MetadataFreshnessResponse>;
   getMetadataSources(): Promise<MetadataSourcesResponse>;
 };

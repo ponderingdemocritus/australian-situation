@@ -10,7 +10,10 @@ import { syncEnergyWholesale } from "./sync-energy-wholesale";
 import { syncEnergyWholesaleGlobal } from "./sync-energy-wholesale-global";
 import { syncHousingRba } from "./sync-housing-rba";
 import { syncHousingSeries } from "./sync-housing-series";
+import { syncMajorGoodsPriceIndex } from "./sync-major-goods-price-index";
 import { syncMacroAbsCpi } from "./sync-macro-abs-cpi";
+import { promoteReconciledPriceItems } from "./promote-reconciled-price-items";
+import { publishAiDeflationCohorts } from "./publish-ai-deflation-cohorts";
 
 export type IngestJobPayload = {
   sourceMode?: "fixture" | "live";
@@ -244,6 +247,47 @@ export const INGEST_JOB_REGISTRY = createValidatedIngestJobRegistry([
         storePath: payload.storePath,
         sourceMode: payload.sourceMode,
         ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
+      })
+  },
+  {
+    jobId: "sync-major-goods-price-index-daily",
+    phase: 1,
+    schedule: { pattern: "10 4 * * *" },
+    processor: async (payload, context) =>
+      syncMajorGoodsPriceIndex({
+        storePath: payload.storePath,
+        sourceMode: payload.sourceMode,
+        ingestBackend: payload.ingestBackend,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
+      })
+  },
+  {
+    jobId: "sync-price-promotion-hourly",
+    phase: 1,
+    schedule: { pattern: "20 * * * *" },
+    processor: async (payload, context) =>
+      promoteReconciledPriceItems({
+        storePath: payload.storePath,
+        bullJobId: context?.bullJobId,
+        queueName: context?.queueName,
+        attempt: context?.attempt,
+        runMode: payload.runMode
+      })
+  },
+  {
+    jobId: "sync-ai-deflation-cohorts-hourly",
+    phase: 2,
+    schedule: { pattern: "35 * * * *" },
+    processor: async (payload, context) =>
+      publishAiDeflationCohorts({
+        storePath: payload.storePath,
         bullJobId: context?.bullJobId,
         queueName: context?.queueName,
         attempt: context?.attempt,

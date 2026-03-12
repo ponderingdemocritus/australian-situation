@@ -122,6 +122,135 @@ export const ENERGY_OVERVIEW_RESPONSE_SCHEMA = v.object({
   freshness: FRESHNESS_SCHEMA
 });
 
+export const PRICE_INDEX_OVERVIEW_ROW_SCHEMA = v.object({
+  seriesId: v.string(),
+  label: v.string(),
+  date: v.string(),
+  value: v.number()
+});
+
+export const PRICE_INDEX_OVERVIEW_RESPONSE_SCHEMA = v.object({
+  region: v.string(),
+  methodologyVersion: v.string(),
+  methodSummary: v.string(),
+  sourceRefs: v.array(SOURCE_REF_SCHEMA),
+  indexes: v.array(PRICE_INDEX_OVERVIEW_ROW_SCHEMA),
+  freshness: FRESHNESS_SCHEMA
+});
+
+const AI_EXPOSURE_LEVEL_SCHEMA = v.union([
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high")
+]);
+
+export const PRICE_INTAKE_ITEM_SCHEMA = v.object({
+  observedAt: v.string(),
+  merchantName: v.string(),
+  merchantSlug: v.optional(v.string()),
+  regionCode: v.string(),
+  title: v.string(),
+  externalProductId: v.optional(v.string()),
+  externalOfferId: v.string(),
+  priceAmount: v.number(),
+  unitPriceAmount: v.optional(v.number()),
+  normalizedQuantity: v.optional(v.number()),
+  normalizedUnit: v.optional(v.string()),
+  listingUrl: v.optional(v.string()),
+  categoryHint: v.optional(v.string()),
+  productHint: v.optional(v.string())
+});
+
+export const PRICE_INTAKE_BATCH_REQUEST_SCHEMA = v.object({
+  sourceId: v.string(),
+  capturedAt: v.optional(v.string()),
+  items: v.array(PRICE_INTAKE_ITEM_SCHEMA)
+});
+
+export const UNRESOLVED_PRICE_ITEM_SCHEMA = v.object({
+  unresolvedItemId: v.string(),
+  batchId: v.string(),
+  sourceId: v.string(),
+  rawSnapshotId: v.string(),
+  status: v.string(),
+  createdAt: v.string(),
+  observedAt: v.string(),
+  merchantName: v.string(),
+  merchantSlug: v.optional(v.string()),
+  regionCode: v.string(),
+  title: v.string(),
+  externalProductId: v.optional(v.string()),
+  externalOfferId: v.string(),
+  priceAmount: v.number(),
+  unitPriceAmount: v.optional(v.number()),
+  normalizedQuantity: v.optional(v.number()),
+  normalizedUnit: v.optional(v.string()),
+  listingUrl: v.optional(v.string()),
+  categoryHint: v.optional(v.string()),
+  productHint: v.optional(v.string()),
+  canonicalCategorySlug: v.optional(v.string()),
+  canonicalCategoryName: v.optional(v.string()),
+  canonicalProductSlug: v.optional(v.string()),
+  canonicalProductName: v.optional(v.string()),
+  productFamilySlug: v.optional(v.string()),
+  countryOfOrigin: v.optional(v.string()),
+  isAustralianMade: v.optional(v.boolean()),
+  manufacturerName: v.optional(v.string()),
+  domesticValueShareBand: v.optional(v.string()),
+  aiExposureLevel: v.optional(AI_EXPOSURE_LEVEL_SCHEMA),
+  aiExposureReason: v.optional(v.string()),
+  comparableUnitBasis: v.optional(v.string()),
+  isControlCandidate: v.optional(v.boolean()),
+  cohortReady: v.optional(v.boolean()),
+  notes: v.optional(v.string()),
+  reconciledAt: v.optional(v.string()),
+  promotedAt: v.optional(v.string())
+});
+
+export const PRICE_INTAKE_BATCH_RESPONSE_SCHEMA = v.object({
+  batchId: v.string(),
+  sourceId: v.string(),
+  queuedCount: v.number(),
+  unresolvedItemIds: v.array(v.string()),
+  rawSnapshotId: v.string()
+});
+
+export const UNRESOLVED_PRICE_ITEMS_RESPONSE_SCHEMA = v.object({
+  items: v.array(UNRESOLVED_PRICE_ITEM_SCHEMA)
+});
+
+export const RECONCILE_UNRESOLVED_PRICE_ITEM_REQUEST_SCHEMA = v.object({
+  canonicalCategorySlug: v.string(),
+  canonicalCategoryName: v.string(),
+  canonicalProductSlug: v.string(),
+  canonicalProductName: v.string(),
+  notes: v.optional(v.string())
+});
+
+export const CLASSIFY_UNRESOLVED_PRICE_ITEM_REQUEST_SCHEMA = v.object({
+  productFamilySlug: v.optional(v.string()),
+  countryOfOrigin: v.optional(v.string()),
+  isAustralianMade: v.optional(v.boolean()),
+  manufacturerName: v.optional(v.string()),
+  domesticValueShareBand: v.optional(v.string()),
+  aiExposureLevel: v.optional(AI_EXPOSURE_LEVEL_SCHEMA),
+  aiExposureReason: v.optional(v.string()),
+  comparableUnitBasis: v.optional(v.string()),
+  isControlCandidate: v.optional(v.boolean()),
+});
+
+export const RECONCILE_UNRESOLVED_PRICE_ITEM_RESPONSE_SCHEMA = v.object({
+  item: UNRESOLVED_PRICE_ITEM_SCHEMA
+});
+
+export const CLASSIFY_UNRESOLVED_PRICE_ITEM_RESPONSE_SCHEMA = v.object({
+  item: UNRESOLVED_PRICE_ITEM_SCHEMA
+});
+
+export const PROMOTE_UNRESOLVED_PRICE_ITEM_RESPONSE_SCHEMA = v.object({
+  item: UNRESOLVED_PRICE_ITEM_SCHEMA
+});
+
 export const METADATA_FRESHNESS_RESPONSE_SCHEMA = v.object({
   generatedAt: v.string(),
   staleSeriesCount: v.number(),
@@ -219,8 +348,16 @@ export const SERIES_PARAM_SCHEMA = v.object({
   id: v.string()
 });
 
+export const PRICE_ITEM_PARAM_SCHEMA = v.object({
+  id: v.string()
+});
+
 export const REGION_QUERY_SCHEMA = v.object({
   region: v.optional(v.string())
+});
+
+export const UNRESOLVED_PRICE_ITEMS_QUERY_SCHEMA = v.object({
+  status: v.optional(v.string())
 });
 
 export const SERIES_QUERY_SCHEMA = v.object({
@@ -296,6 +433,20 @@ export const METHODOLOGY_METADATA = {
     description:
       "Cross-country wholesale spot electricity comparison using harmonized USD/MWh observations.",
     requiredDimensions: ["country", "peers"]
+  },
+  "prices.major_goods.index": {
+    metric: "prices.major_goods.index",
+    methodologyVersion: "prices-major-goods-v1",
+    description:
+      "Daily major goods price index derived from median product rollups and versioned basket weights.",
+    requiredDimensions: ["region"]
+  },
+  "prices.ai_deflation.index": {
+    metric: "prices.ai_deflation.index",
+    methodologyVersion: "prices-major-goods-v1",
+    description:
+      "Cohort indexes comparing Australian-made, AI-exposed, control, and imported matched-control baskets.",
+    requiredDimensions: ["region"]
   }
 } as const;
 
