@@ -8,9 +8,12 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "generate": "openapi-ts -f openapi-ts.config.ts",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@hey-api/client-fetch": "0.13.1",
+    "@hey-api/openapi-ts": "0.94.0",
     "vitest": "2.1.9"
   }
 }
