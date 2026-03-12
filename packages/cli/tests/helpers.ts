@@ -47,6 +47,7 @@ function getAvailablePort(): Promise<number> {
 
 export async function startServer(): Promise<StartedServer> {
   const port = await getAvailablePort();
+  process.env.AUS_DASH_STORE_PATH = storePath;
   const app = createApp({
     env: {
       ...process.env,
