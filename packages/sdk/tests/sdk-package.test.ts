@@ -14,7 +14,10 @@ describe("@aus-dash/sdk package skeleton", () => {
     };
 
     expect(packageJson.name).toBe("@aus-dash/sdk");
-    expect(packageJson.exports["."]).toBe("./src/index.ts");
+    expect(packageJson.exports["."]).toMatchObject({
+      import: "./dist/index.js",
+      types: "./dist/index.d.ts"
+    });
 
     const module = await import(path.join(packageRoot, "src/index.ts"));
     expect(module).toMatchObject({

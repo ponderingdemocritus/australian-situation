@@ -70,6 +70,7 @@
     },
     "packages/cli": {
       "name": "@aus-dash/cli",
+      "version": "0.1.0",
       "dependencies": {
         "@aus-dash/sdk": "workspace:*",
       },
@@ -97,9 +98,11 @@
     },
     "packages/sdk": {
       "name": "@aus-dash/sdk",
+      "version": "0.1.0",
       "devDependencies": {
         "@hey-api/client-fetch": "0.13.1",
         "@hey-api/openapi-ts": "0.94.0",
+        "typescript": "^5.9.3",
         "vitest": "2.1.9",
       },
     },

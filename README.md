@@ -23,6 +23,7 @@ Monorepo for AUS Dash ingestion, API, and dashboard apps.
 - [Quickstart](#quickstart)
 - [Common Commands](#common-commands)
 - [API Docs](#api-docs)
+- [SDK And CLI](#sdk-and-cli)
 - [Major Goods Price Index](#major-goods-price-index)
 - [Data Backends](#data-backends)
 - [Environment Notes](#environment-notes)
@@ -128,6 +129,38 @@ Comparison semantics:
 
 - Energy comparison ranks are ascending by price. Rank `1` is the cheapest observation in the comparison set.
 - China comparison entries are proxy-based. Retail uses a Beijing residential tariff proxy and wholesale uses an NEA annual market-price proxy.
+
+## SDK And CLI
+
+Install the generated SDK:
+
+```bash
+npm install @aus-dash/sdk
+```
+
+Install or run the CLI:
+
+```bash
+npm install -g @aus-dash/cli
+bunx @aus-dash/cli health
+aus-dash --base-url http://localhost:3001 health
+```
+
+CLI auth can be provided with flags or env vars:
+
+```bash
+aus-dash --base-url http://localhost:3001 prices major-goods --username agent --password buildaustralia
+AUS_DASH_USERNAME=agent AUS_DASH_PASSWORD=buildaustralia aus-dash --base-url http://localhost:3001 prices major-goods
+```
+
+Regenerate and verify client artifacts:
+
+```bash
+bun run api:openapi:export
+bun run sdk:generate
+bun run sdk:check
+bun run validate:sdk-cli
+```
 
 ## Major Goods Price Index
 

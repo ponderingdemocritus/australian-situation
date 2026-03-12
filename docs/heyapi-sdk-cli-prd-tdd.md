@@ -274,7 +274,7 @@ Deliver:
 - [x] Phase E: CLI command wiring
 - [x] Phase F: Authenticated route coverage
 - [x] Phase G: Drift detection
-- [ ] Phase H: Packaging smoke test
+- [x] Phase H: Packaging smoke test
 
 ## 12. TDD Execution Plan
 
