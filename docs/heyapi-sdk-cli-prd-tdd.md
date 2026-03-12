@@ -271,7 +271,7 @@ Deliver:
 - [x] Phase B: SDK package skeleton
 - [x] Phase C: Hey API generation
 - [x] Phase D: SDK runtime configuration
-- [ ] Phase E: CLI command wiring
+- [x] Phase E: CLI command wiring
 - [ ] Phase F: Authenticated route coverage
 - [ ] Phase G: Drift detection
 - [ ] Phase H: Packaging smoke test
