@@ -272,7 +272,7 @@ Deliver:
 - [x] Phase C: Hey API generation
 - [x] Phase D: SDK runtime configuration
 - [x] Phase E: CLI command wiring
-- [ ] Phase F: Authenticated route coverage
+- [x] Phase F: Authenticated route coverage
 - [ ] Phase G: Drift detection
 - [ ] Phase H: Packaging smoke test
 

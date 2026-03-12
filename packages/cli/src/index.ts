@@ -6,12 +6,19 @@ import {
   getApiHealth,
   getApiMetadataFreshness,
   getApiMetadataSources,
+  getApiPricesMajorGoods,
   getApiSeriesById
 } from "@aus-dash/sdk";
 import { resolveCliConfig, sdkConfigFromCli } from "./config";
 
 type JsonPrimitive = boolean | null | number | string;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+type CliErrorPayload = {
+  error?: {
+    code?: string;
+    message?: string;
+  };
+};
 
 function flagValue(flags: Record<string, string | boolean>, name: string): string | undefined {
   const value = flags[name];
@@ -24,6 +31,28 @@ function writeJson(value: JsonValue) {
 
 function writeError(message: string) {
   process.stderr.write(`${message}\n`);
+}
+
+function formatCliError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const payload = error as CliErrorPayload;
+    const code = payload.error?.code;
+    const message = payload.error?.message;
+
+    if (code && message) {
+      return `${code}: ${message}`;
+    }
+
+    if (message) {
+      return message;
+    }
+  }
+
+  return "Unknown CLI error";
 }
 
 function unknownCommandError(positionals: string[]) {
@@ -44,6 +73,16 @@ async function execute(positionals: string[], flags: Record<string, string | boo
 
   if (group === "metadata" && action === "sources") {
     return await getApiMetadataSources({ responseStyle: "data", throwOnError: true });
+  }
+
+  if (group === "prices" && action === "major-goods") {
+    return await getApiPricesMajorGoods({
+      query: {
+        region: flagValue(flags, "region")
+      },
+      responseStyle: "data",
+      throwOnError: true
+    });
   }
 
   if (group === "energy" && action === "overview") {
@@ -108,7 +147,7 @@ export async function main(argv = process.argv.slice(2), env: NodeJS.ProcessEnv 
     await run(argv, env);
     process.exitCode = 0;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown CLI error";
+    const message = formatCliError(error);
     writeError(message);
     process.exitCode = 1;
   }
