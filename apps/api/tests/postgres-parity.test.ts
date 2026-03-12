@@ -23,6 +23,8 @@ function parseOptionalDate(value: string | undefined): Date | null {
   return parseDate(value);
 }
 
+const BASIC_AUTH_HEADER = `Basic ${Buffer.from("agent:buildaustralia").toString("base64")}`;
+
 const describeIfDatabase = process.env.DATABASE_URL ? describe : describe.skip;
 
 describeIfDatabase("postgres/store parity", () => {
@@ -93,6 +95,29 @@ describeIfDatabase("postgres/store parity", () => {
     expect(storeResponse.status).toBe(200);
     expect(postgresResponse.status).toBe(200);
     expect(await postgresResponse.json()).toEqual(await storeResponse.json());
+  });
+
+  test("major goods price index route matches key overview fields", async () => {
+    const requestPath = "/api/prices/major-goods?region=AU";
+    const requestOptions = {
+      headers: {
+        Authorization: BASIC_AUTH_HEADER
+      }
+    };
+    const storeResponse = await storeApp.request(requestPath, requestOptions);
+    const postgresResponse = await postgresApp.request(requestPath, requestOptions);
+
+    const storeBody = await storeResponse.json();
+    const postgresBody = await postgresResponse.json();
+
+    expect(storeResponse.status).toBe(200);
+    expect(postgresResponse.status).toBe(200);
+    expect(postgresBody).toMatchObject({
+      region: storeBody.region,
+      methodologyVersion: storeBody.methodologyVersion,
+      indexes: storeBody.indexes,
+      freshness: storeBody.freshness
+    });
   });
 
   test("energy retail average endpoint matches key contract fields", async () => {

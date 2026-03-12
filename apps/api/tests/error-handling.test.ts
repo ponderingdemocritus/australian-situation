@@ -40,6 +40,12 @@ describe("Global error handling", () => {
       getEnergyOverview: async () => {
         throw new Error("boom");
       },
+      getPriceIndexOverview: async () => {
+        throw new Error("boom");
+      },
+      getAiDeflationOverview: async () => {
+        throw new Error("boom");
+      },
       getMetadataFreshness: async () => {
         throw new Error("boom");
       },
@@ -91,6 +97,12 @@ describe("Global error handling", () => {
         throw new Error("boom");
       },
       getEnergyOverview: async () => {
+        throw new Error("boom");
+      },
+      getPriceIndexOverview: async () => {
+        throw new Error("boom");
+      },
+      getAiDeflationOverview: async () => {
         throw new Error("boom");
       },
       getMetadataFreshness: async () => {

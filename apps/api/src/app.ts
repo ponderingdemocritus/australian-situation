@@ -7,6 +7,7 @@ import {
   registerMetadataRoutes,
   registerV1MetadataRoutes
 } from "./routes/metadata-routes";
+import { registerPriceRoutes } from "./routes/price-routes";
 import {
   HEALTH_RESPONSE_SCHEMA,
   jsonError,
@@ -74,6 +75,7 @@ function registerCurrentApiRoutes(
 ) {
   registerDocsAndHealthRoutes(api);
   registerHousingRoutes(api, createRepository);
+  registerPriceRoutes(api, createRepository);
   registerSeriesRoutes(api, createRepository);
   registerEnergyRoutes(api, createRepository, env);
   registerMetadataRoutes(api, createRepository);

@@ -87,6 +87,28 @@ function createStubRepository(
         status: "fresh"
       }
     }),
+    getPriceIndexOverview: async () => ({
+      region: "AU",
+      methodologyVersion: "prices-major-goods-v1",
+      methodSummary: "stub",
+      sourceRefs: [],
+      indexes: [],
+      freshness: {
+        updatedAt: "2026-03-01T00:00:00Z",
+        status: "fresh"
+      }
+    }),
+    getAiDeflationOverview: async () => ({
+      region: "AU",
+      methodologyVersion: "prices-major-goods-v1",
+      methodSummary: "stub",
+      sourceRefs: [],
+      indexes: [],
+      freshness: {
+        updatedAt: "2026-03-01T00:00:00Z",
+        status: "fresh"
+      }
+    }),
     getMetadataFreshness: async () => ({
       generatedAt: "2026-03-01T00:00:00Z",
       staleSeriesCount: 0,
@@ -111,7 +133,7 @@ describe("GET /api/metadata/sources", () => {
       sources: expect.arrayContaining([
         expect.objectContaining({
           sourceId: expect.any(String),
-          domain: expect.stringMatching(/housing|energy|macro/),
+          domain: expect.stringMatching(/housing|energy|macro|prices/),
           name: expect.any(String),
           url: expect.any(String),
           expectedCadence: expect.any(String)
@@ -129,19 +151,10 @@ describe("GET /api/metadata/sources", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.sources.map((item: { sourceId: string }) => item.sourceId)).toEqual([
-      "abs_cpi",
-      "abs_housing",
-      "aemo_nem_source_mix",
-      "aemo_wem_source_mix",
-      "aemo_wholesale",
-      "aer_prd",
-      "dcceew_generation_mix",
-      "eia_electricity",
-      "entsoe_wholesale",
-      "eurostat_retail",
-      "rba_rates",
-      "world_bank_normalization"
-    ]);
+    expect(body.sources.map((item: { sourceId: string }) => item.sourceId)).toEqual(
+      getSourceCatalogItems()
+        .map((item) => item.sourceId)
+        .sort((left, right) => left.localeCompare(right))
+    );
   });
 });

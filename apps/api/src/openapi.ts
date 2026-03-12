@@ -7,10 +7,19 @@ export const OPENAPI_DOCUMENTATION: Partial<OpenAPIV3_1.Document> = {
     description:
       "Economic and energy indicators API for AUS Dash, including cross-country energy comparison endpoints."
   },
+  components: {
+    securitySchemes: {
+      basicAuth: {
+        type: "http",
+        scheme: "basic"
+      }
+    }
+  },
   servers: [{ url: "http://localhost:3001", description: "Local Server" }],
   tags: [
     { name: "Health" },
     { name: "Housing" },
+    { name: "Prices" },
     { name: "Series" },
     { name: "Energy" },
     { name: "Metadata" },

@@ -22,6 +22,20 @@
       "when": 1772415692206,
       "tag": "0002_open_agent_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773270953877,
+      "tag": "0003_sticky_night_nurse",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773276181609,
+      "tag": "0004_jazzy_maggott",
+      "breakpoints": true
     }
   ]
 }

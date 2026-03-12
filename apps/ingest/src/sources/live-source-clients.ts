@@ -18,6 +18,25 @@ export type SourceFetch = (
   }
 ) => Promise<HttpResponseLike>;
 
+export type MajorGoodsPricePoint = {
+  observedAt: string;
+  merchantSlug: string;
+  merchantName: string;
+  regionCode: string;
+  categorySlug: string;
+  categoryName: string;
+  productSlug: string;
+  canonicalName: string;
+  externalProductId: string;
+  externalOfferId: string;
+  priceAmount: number;
+  unitPriceAmount: number;
+  normalizedQuantity: number;
+  normalizedUnit: string;
+  priceType: string;
+  listingUrl?: string;
+};
+
 type SourceClientErrorOptions = {
   transient: boolean;
   status?: number;
@@ -116,6 +135,152 @@ async function readTextResponse(
 function normalizeAemoRegion(raw: string): string {
   const upper = raw.toUpperCase();
   return upper.endsWith("1") ? upper.slice(0, -1) : upper;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function readStringField(
+  sourceId: string,
+  value: unknown,
+  fieldName: string
+): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new SourceClientError(sourceId, `schema drift in ${fieldName}`, {
+      transient: false
+    });
+  }
+  return value.trim();
+}
+
+function readNumberField(
+  sourceId: string,
+  value: unknown,
+  fieldName: string
+): number {
+  if (isFiniteNumber(value)) {
+    return value;
+  }
+  throw new SourceClientError(sourceId, `schema drift in ${fieldName}`, {
+    transient: false
+  });
+}
+
+function resolveMajorGoodsFetchUrl(endpoint?: string): string {
+  if (endpoint && endpoint.length > 0) {
+    return endpoint;
+  }
+
+  const configured = process.env.AUS_DASH_MAJOR_GOODS_FETCH_URL;
+  if (configured && configured.length > 0) {
+    return configured;
+  }
+
+  throw new SourceClientError("major_goods_prices", "major goods fetch URL is not configured", {
+    transient: false
+  });
+}
+
+export async function fetchMajorGoodsPriceSnapshot(options: {
+  endpoint?: string;
+  fetchImpl?: SourceFetch;
+} = {}): Promise<{
+  sourceId: "major_goods_prices";
+  observedAt: string;
+  points: MajorGoodsPricePoint[];
+  rawPayload: string;
+}> {
+  const sourceId = "major_goods_prices";
+  const endpoint = resolveMajorGoodsFetchUrl(options.endpoint);
+  const fetchImpl = options.fetchImpl ?? defaultFetch;
+
+  let response: HttpResponseLike;
+  try {
+    response = await fetchImpl(endpoint);
+  } catch (error) {
+    throw new SourceClientError(sourceId, "network failure", {
+      transient: true,
+      cause: error
+    });
+  }
+
+  const payload = await readJsonResponse(sourceId, response);
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !("observed_at" in payload) ||
+    !("items" in payload) ||
+    !Array.isArray(payload.items)
+  ) {
+    throw new SourceClientError(sourceId, "schema drift in major goods payload", {
+      transient: false
+    });
+  }
+
+  const observedAt = readStringField(sourceId, payload.observed_at, "major goods observed_at");
+  const points = payload.items.map((item) => {
+    if (!item || typeof item !== "object") {
+      throw new SourceClientError(sourceId, "schema drift in major goods row", {
+        transient: false
+      });
+    }
+
+    const listingUrl =
+      "listing_url" in item && typeof item.listing_url === "string"
+        ? item.listing_url
+        : undefined;
+
+    return {
+      observedAt,
+      merchantSlug: readStringField(sourceId, item.merchant, "major goods merchant"),
+      merchantName: readStringField(sourceId, item.merchant_name, "major goods merchant_name"),
+      regionCode: readStringField(sourceId, item.region_code, "major goods region_code"),
+      categorySlug: readStringField(sourceId, item.category_slug, "major goods category_slug"),
+      categoryName: readStringField(sourceId, item.category_name, "major goods category_name"),
+      productSlug: readStringField(sourceId, item.product_slug, "major goods product_slug"),
+      canonicalName: readStringField(
+        sourceId,
+        item.canonical_name,
+        "major goods canonical_name"
+      ),
+      externalProductId: readStringField(
+        sourceId,
+        item.external_product_id,
+        "major goods external_product_id"
+      ),
+      externalOfferId: readStringField(
+        sourceId,
+        item.external_offer_id,
+        "major goods external_offer_id"
+      ),
+      priceAmount: readNumberField(sourceId, item.price_amount, "major goods price_amount"),
+      unitPriceAmount: readNumberField(
+        sourceId,
+        item.unit_price_amount,
+        "major goods unit_price_amount"
+      ),
+      normalizedQuantity: readNumberField(
+        sourceId,
+        item.normalized_quantity,
+        "major goods normalized_quantity"
+      ),
+      normalizedUnit: readStringField(
+        sourceId,
+        item.normalized_unit,
+        "major goods normalized_unit"
+      ),
+      priceType: readStringField(sourceId, item.price_type, "major goods price_type"),
+      listingUrl
+    };
+  });
+
+  return {
+    sourceId,
+    observedAt,
+    points,
+    rawPayload: JSON.stringify(payload)
+  };
 }
 
 function parseEnergySourceMixKey(

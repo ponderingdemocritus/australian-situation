@@ -1,4 +1,8 @@
 import {
+  AI_DEFLATION_OVERVIEW_SERIES_IDS,
+  PRICE_INDEX_OVERVIEW_SERIES_IDS
+} from "@aus-dash/data-contract";
+import {
   compareObservationRecency,
   getSourceReferences,
   pickLatestObservation,
@@ -25,6 +29,7 @@ import type {
   HousingOverviewResponse,
   MetadataFreshnessResponse,
   MetadataSourcesResponse,
+  PriceIndexOverviewResponse,
   SeriesResponse
 } from "./live-data-contract";
 
@@ -40,6 +45,20 @@ type StoreRetailComparisonInput = GetEnergyRetailComparisonInput & {
 
 type StoreWholesaleComparisonInput = GetEnergyWholesaleComparisonInput & {
   storePath?: string;
+};
+
+const PRICE_INDEX_LABELS: Record<string, string> = {
+  "prices.major_goods.overall.index": "Major Goods",
+  "prices.major_goods.food.index": "Food",
+  "prices.major_goods.household_supplies.index": "Household Supplies"
+};
+
+const AI_DEFLATION_LABELS: Record<string, string> = {
+  "prices.au_made.all.index": "AU-made All",
+  "prices.au_made.ai_exposed.index": "AU-made AI Exposed",
+  "prices.au_made.control.index": "AU-made Control",
+  "prices.imported.matched_control.index": "Imported Matched Control",
+  "prices.ai_deflation.spread.au_made_vs_control.index": "AU-made vs Control Spread"
 };
 
 function latestObservation(
@@ -372,6 +391,86 @@ export function getEnergyOverviewFromStore(
   };
 }
 
+export function getPriceIndexOverviewFromStore(
+  region: string,
+  storePath?: string
+): PriceIndexOverviewResponse {
+  const indexes = PRICE_INDEX_OVERVIEW_SERIES_IDS.map((seriesId) =>
+    latestObservation(seriesId, region, storePath)
+  )
+    .filter((observation): observation is LiveObservation => observation !== null)
+    .map((observation) => ({
+      seriesId: observation.seriesId,
+      label: PRICE_INDEX_LABELS[observation.seriesId] ?? observation.seriesId,
+      date: observation.date,
+      value: observation.value,
+      methodologyVersion: observation.methodologyVersion ?? "unknown"
+    }));
+
+  const updatedAt =
+    indexes
+      .map((entry) => entry.date)
+      .sort((left, right) => right.localeCompare(left))[0] ?? "1970-01-01";
+
+  return {
+    region,
+    methodologyVersion: indexes[0]?.methodologyVersion ?? "unknown",
+    methodSummary:
+      "Daily major goods price index built from median product rollups and versioned basket weights.",
+    sourceRefs: getSourceReferences(["major_goods_prices"]),
+    indexes: indexes.map((entry) => ({
+      seriesId: entry.seriesId,
+      label: entry.label,
+      date: entry.date,
+      value: entry.value
+    })),
+    freshness: {
+      updatedAt,
+      status: freshnessStatus("daily", lagMinutes(Date.now(), updatedAt))
+    }
+  };
+}
+
+export function getAiDeflationOverviewFromStore(
+  region: string,
+  storePath?: string
+): PriceIndexOverviewResponse {
+  const indexes = AI_DEFLATION_OVERVIEW_SERIES_IDS.map((seriesId) =>
+    latestObservation(seriesId, region, storePath)
+  )
+    .filter((observation): observation is LiveObservation => observation !== null)
+    .map((observation) => ({
+      seriesId: observation.seriesId,
+      label: AI_DEFLATION_LABELS[observation.seriesId] ?? observation.seriesId,
+      date: observation.date,
+      value: observation.value,
+      methodologyVersion: observation.methodologyVersion ?? "unknown"
+    }));
+
+  const updatedAt =
+    indexes
+      .map((entry) => entry.date)
+      .sort((left, right) => right.localeCompare(left))[0] ?? "1970-01-01";
+
+  return {
+    region,
+    methodologyVersion: indexes[0]?.methodologyVersion ?? "unknown",
+    methodSummary:
+      "Cohort indexes comparing Australian-made, AI-exposed, control, and imported matched-control baskets.",
+    sourceRefs: getSourceReferences(["major_goods_prices"]),
+    indexes: indexes.map((entry) => ({
+      seriesId: entry.seriesId,
+      label: entry.label,
+      date: entry.date,
+      value: entry.value
+    })),
+    freshness: {
+      updatedAt,
+      status: freshnessStatus("daily", lagMinutes(Date.now(), updatedAt))
+    }
+  };
+}
+
 export function getMetadataFreshnessFromStore(
   storePath?: string
 ): MetadataFreshnessResponse {
@@ -391,6 +490,16 @@ export function getMetadataFreshnessFromStore(
       seriesId: "energy.cpi.electricity.index",
       regionCode: "AU",
       expectedCadence: "quarterly" as const
+    },
+    {
+      seriesId: "prices.major_goods.overall.index",
+      regionCode: "AU",
+      expectedCadence: "daily" as const
+    },
+    {
+      seriesId: "prices.au_made.all.index",
+      regionCode: "AU",
+      expectedCadence: "daily" as const
     }
   ];
 

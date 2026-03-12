@@ -43,6 +43,28 @@ describe("OpenAPI response schemas", () => {
       })
     });
 
+    const priceOverview = responseSchema(body, "/api/prices/major-goods", "get", "200");
+    expect(priceOverview).toMatchObject({
+      type: "object",
+      properties: expect.objectContaining({
+        region: expect.any(Object),
+        methodologyVersion: expect.any(Object),
+        indexes: expect.any(Object),
+        freshness: expect.any(Object)
+      })
+    });
+
+    const aiDeflation = responseSchema(body, "/api/prices/ai-deflation", "get", "200");
+    expect(aiDeflation).toMatchObject({
+      type: "object",
+      properties: expect.objectContaining({
+        region: expect.any(Object),
+        methodologyVersion: expect.any(Object),
+        indexes: expect.any(Object),
+        freshness: expect.any(Object)
+      })
+    });
+
     const freshness = responseSchema(body, "/api/metadata/freshness", "get", "200");
     expect(freshness).toMatchObject({
       type: "object",
@@ -50,6 +72,19 @@ describe("OpenAPI response schemas", () => {
         generatedAt: expect.any(Object),
         staleSeriesCount: expect.any(Object),
         series: expect.any(Object)
+      })
+    });
+
+    const invalidPriceItemState = responseSchema(
+      body,
+      "/api/prices/unresolved-items/{id}/classify",
+      "post",
+      "409"
+    );
+    expect(invalidPriceItemState).toMatchObject({
+      type: "object",
+      properties: expect.objectContaining({
+        error: expect.any(Object)
       })
     });
   });
