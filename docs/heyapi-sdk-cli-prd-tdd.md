@@ -270,7 +270,7 @@ Deliver:
 - [x] Phase A: OpenAPI export foundation
 - [x] Phase B: SDK package skeleton
 - [x] Phase C: Hey API generation
-- [ ] Phase D: SDK runtime configuration
+- [x] Phase D: SDK runtime configuration
 - [ ] Phase E: CLI command wiring
 - [ ] Phase F: Authenticated route coverage
 - [ ] Phase G: Drift detection
