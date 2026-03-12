@@ -3,8 +3,11 @@ import { getEnergyDashboardData } from "../lib/queries/energy-dashboard";
 import { getHousingDashboardData } from "../lib/queries/housing-dashboard";
 import { getSourcesDashboardData } from "../lib/queries/sources-dashboard";
 
-const sdkMocks = vi.hoisted(() => ({
+  const sdkMocks = vi.hoisted(() => ({
+  getApiEnergyHouseholdEstimate: vi.fn(),
+  getApiEnergyLiveWholesale: vi.fn(),
   getApiEnergyOverview: vi.fn(),
+  getApiEnergyRetailAverage: vi.fn(),
   getApiHousingOverview: vi.fn(),
   getApiMetadataFreshness: vi.fn(),
   getApiMetadataSources: vi.fn(),
@@ -18,6 +21,49 @@ describe("dashboard domain queries", () => {
   beforeEach(() => {
     Object.values(sdkMocks).forEach((mock) => mock.mockReset());
 
+    sdkMocks.getApiEnergyLiveWholesale.mockResolvedValue({
+      region: "AU",
+      window: "5m",
+      isModeled: false,
+      methodSummary: "Wholesale reference prices aggregated using demand-weighted AU rollup.",
+      sourceRefs: [],
+      latest: {
+        timestamp: "2026-02-27T02:00:00Z",
+        valueAudMwh: 119.35,
+        valueCKwh: 11.93
+      },
+      rollups: {
+        oneHourAvgAudMwh: 116.47,
+        twentyFourHourAvgAudMwh: 116.47
+      },
+      freshness: {
+        updatedAt: "2026-02-27T02:00:00Z",
+        status: "stale"
+      }
+    });
+    sdkMocks.getApiEnergyRetailAverage.mockResolvedValue({
+      region: "AU",
+      customerType: "residential",
+      isModeled: false,
+      methodSummary: "Daily aggregation of retail plan prices for residential offers.",
+      sourceRefs: [],
+      annualBillAudMean: 1998.2,
+      annualBillAudMedian: 2004,
+      usageRateCKwhMean: 31.2,
+      dailyChargeAudDayMean: 1.08,
+      freshness: {
+        updatedAt: "2026-02-27",
+        status: "stale"
+      }
+    });
+    sdkMocks.getApiEnergyHouseholdEstimate.mockRejectedValue({
+      data: {
+        error: {
+          code: "FEATURE_DISABLED",
+          message: "Energy household estimate is disabled"
+        }
+      }
+    });
     sdkMocks.getApiEnergyOverview.mockResolvedValue({
       region: "AU",
       methodSummary: "Combines wholesale, retail, benchmark, and CPI source data.",
@@ -135,6 +181,21 @@ describe("dashboard domain queries", () => {
       title: "National mix",
       topRows: ["Coal 52.4%", "Solar 18.7%"],
       updatedAt: "2025-12-31"
+    });
+    expect(result.liveWholesale).toEqual({
+      detail: "1h avg 116.5 AUD/MWh · 24h avg 116.5 AUD/MWh",
+      label: "Latest interval",
+      value: "119.4 AUD/MWh"
+    });
+    expect(result.retailAverage).toEqual({
+      detail: "31.2 c/kWh · 1.1 AUD/day",
+      label: "Residential mean bill",
+      value: "1,998 AUD/year"
+    });
+    expect(result.householdEstimate).toEqual({
+      detail: "Energy household estimate is disabled",
+      label: "Household estimate",
+      value: "Unavailable"
     });
   });
 

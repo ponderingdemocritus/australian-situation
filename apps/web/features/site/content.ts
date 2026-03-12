@@ -3,7 +3,9 @@ export const dashboardNavItems = [
   { href: "/dashboard/energy", label: "Energy" },
   { href: "/dashboard/housing", label: "Housing" },
   { href: "/dashboard/sources", label: "Sources" },
-  { href: "/dashboard/prices", label: "Prices" }
+  { href: "/dashboard/prices", label: "Prices" },
+  { href: "/dashboard/series", label: "Series" },
+  { href: "/dashboard/methodology", label: "Methodology" }
 ] as const;
 
 export const dashboardPreviewCards = [

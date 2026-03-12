@@ -42,6 +42,15 @@ describe("PricesPage", () => {
         mode: "ready",
         majorGoods: [{ label: "Overall", value: "104.2", date: "2026-03-01" }],
         aiDeflation: [{ label: "AU-made spread", value: "98.6", date: "2026-03-01" }],
+        unresolvedItems: [
+          {
+            unresolvedItemId: "item-1",
+            title: "Dishwashing liquid",
+            merchantName: "Coles",
+            priceAmount: 5.2,
+            status: "open"
+          }
+        ],
         metadata: {
           freshness: "Major goods: fresh · AI deflation: fresh",
           methodSummary: "Weighted household basket.",
@@ -56,5 +65,10 @@ describe("PricesPage", () => {
     expect(screen.getByText("104.2")).toBeDefined();
     expect(screen.getByText("AU-made spread")).toBeDefined();
     expect(screen.getByText("Major goods: fresh · AI deflation: fresh")).toBeDefined();
+    expect(screen.getByText("Dishwashing liquid")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Submit intake" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Reconcile" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Classify" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Promote" })).toBeDefined();
   });
 });

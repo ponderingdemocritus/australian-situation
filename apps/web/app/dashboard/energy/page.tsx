@@ -48,6 +48,22 @@ export default async function EnergyPage() {
           </Card>
         </section>
 
+        <section className="grid gap-4 xl:grid-cols-3">
+          {[energy.liveWholesale, energy.retailAverage, energy.householdEstimate].map((metric) => (
+            <Card key={metric.label} className="border-black/10 bg-white/88">
+              <CardHeader>
+                <CardTitle>{metric.label}</CardTitle>
+                <CardDescription>{metric.detail}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-semibold tracking-[-0.03em] text-slate-950">
+                  {metric.value}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
+
         <section className="grid gap-4">
           {energy.mixes.map((mix) => (
             <Card key={mix.title} className="border-black/10 bg-white/88">

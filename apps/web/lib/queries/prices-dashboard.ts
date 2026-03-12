@@ -1,4 +1,8 @@
-import { getApiPricesAiDeflation, getApiPricesMajorGoods } from "@aus-dash/sdk";
+import {
+  getApiPricesAiDeflation,
+  getApiPricesMajorGoods,
+  getApiPricesUnresolvedItems
+} from "@aus-dash/sdk";
 import { formatIsoDate, formatOneDecimal } from "../format";
 import { createProtectedSdkOptions } from "../sdk/protected";
 import { unwrapSdkData } from "../sdk/unwrap";
@@ -31,6 +35,13 @@ type ReadyPricesDashboard = {
     secondarySummary: string;
   };
   mode: "ready";
+  unresolvedItems: Array<{
+    merchantName: string;
+    priceAmount: string;
+    status: string;
+    title: string;
+    unresolvedItemId: string;
+  }>;
 };
 
 export type PricesDashboardModel = LockedPricesDashboard | ReadyPricesDashboard;
@@ -50,7 +61,7 @@ export async function getPricesDashboardData(): Promise<PricesDashboardModel> {
     };
   }
 
-  const [majorGoodsResponse, aiDeflationResponse] = await Promise.all([
+  const [majorGoodsResponse, aiDeflationResponse, unresolvedItemsResponse] = await Promise.all([
     getApiPricesMajorGoods({
       ...options,
       query: { region: "AU" }
@@ -58,10 +69,14 @@ export async function getPricesDashboardData(): Promise<PricesDashboardModel> {
     getApiPricesAiDeflation({
       ...options,
       query: { region: "AU" }
+    }),
+    getApiPricesUnresolvedItems({
+      ...options
     })
   ]);
   const majorGoods = unwrapSdkData(majorGoodsResponse);
   const aiDeflation = unwrapSdkData(aiDeflationResponse);
+  const unresolvedItems = unwrapSdkData(unresolvedItemsResponse);
 
   return {
     hero: lockedHero,
@@ -80,6 +95,13 @@ export async function getPricesDashboardData(): Promise<PricesDashboardModel> {
       freshness: `Major goods: ${majorGoods.freshness.status} · AI deflation: ${aiDeflation.freshness.status}`,
       methodSummary: majorGoods.methodSummary,
       secondarySummary: aiDeflation.methodSummary
-    }
+    },
+    unresolvedItems: unresolvedItems.items.map((item) => ({
+      merchantName: item.merchantName,
+      priceAmount: `${item.priceAmount.toFixed(2)} AUD`,
+      status: item.status,
+      title: item.title,
+      unresolvedItemId: item.unresolvedItemId
+    }))
   };
 }

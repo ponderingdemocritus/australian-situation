@@ -1,5 +1,8 @@
 import {
+  getApiEnergyHouseholdEstimate,
+  getApiEnergyLiveWholesale,
   getApiEnergyOverview,
+  getApiEnergyRetailAverage,
   getApiV1EnergyCompareRetail,
   getApiV1EnergyCompareWholesale
 } from "@aus-dash/sdk";
@@ -26,18 +29,71 @@ export type EnergyDashboardModel = {
     summary: string;
     title: string;
   };
+  householdEstimate: Metric;
+  liveWholesale: Metric;
   metrics: Metric[];
   mixes: MixSummary[];
+  retailAverage: Metric;
 };
+
+function resolveErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "data" in error &&
+    error.data &&
+    typeof error.data === "object" &&
+    "error" in error.data &&
+    error.data.error &&
+    typeof error.data.error === "object" &&
+    "message" in error.data.error &&
+    typeof error.data.error.message === "string"
+  ) {
+    return error.data.error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "This endpoint is currently unavailable.";
+}
 
 export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
   const options = createPublicSdkOptions();
-  const [overviewResponse, retailComparisonResult, wholesaleComparisonResult] =
-    await Promise.all([
+  const [
+    overviewResponse,
+    liveWholesaleResult,
+    retailAverageResult,
+    householdEstimateResult,
+    retailComparisonResult,
+    wholesaleComparisonResult
+  ] = await Promise.all([
     getApiEnergyOverview({
       ...options,
       query: { region: "AU" }
     }),
+    getApiEnergyLiveWholesale({
+      ...options,
+      query: { region: "AU", window: "5m" }
+    }).then(
+      (value) => ({ ok: true as const, value }),
+      (error) => ({ ok: false as const, error })
+    ),
+    getApiEnergyRetailAverage({
+      ...options,
+      query: { customer_type: "residential", region: "AU" }
+    }).then(
+      (value) => ({ ok: true as const, value }),
+      (error) => ({ ok: false as const, error })
+    ),
+    getApiEnergyHouseholdEstimate({
+      ...options,
+      query: { region: "AU", usage_profile: "household_mid" }
+    }).then(
+      (value) => ({ ok: true as const, value }),
+      (error) => ({ ok: false as const, error })
+    ),
     getApiV1EnergyCompareRetail({
       ...options,
       query: {
@@ -63,6 +119,11 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
     )
   ]);
   const overview = unwrapSdkData(overviewResponse);
+  const liveWholesale = liveWholesaleResult.ok ? unwrapSdkData(liveWholesaleResult.value) : null;
+  const retailAverage = retailAverageResult.ok ? unwrapSdkData(retailAverageResult.value) : null;
+  const householdEstimate = householdEstimateResult.ok
+    ? unwrapSdkData(householdEstimateResult.value)
+    : null;
   const retailComparison = retailComparisonResult.ok
     ? unwrapSdkData(retailComparisonResult.value)
     : null;
@@ -75,6 +136,42 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
       title: "Energy system",
       summary: "Wholesale, retail, and generation signals from the public energy stack."
     },
+    liveWholesale:
+      liveWholesale === null
+        ? {
+            label: "Latest interval",
+            value: "Unavailable",
+            detail: "Live wholesale endpoint is currently unavailable."
+          }
+        : {
+            label: "Latest interval",
+            value: `${formatOneDecimal(liveWholesale.latest.valueAudMwh)} AUD/MWh`,
+            detail: `1h avg ${formatOneDecimal(liveWholesale.rollups.oneHourAvgAudMwh)} AUD/MWh · 24h avg ${formatOneDecimal(liveWholesale.rollups.twentyFourHourAvgAudMwh)} AUD/MWh`
+          },
+    retailAverage:
+      retailAverage === null
+        ? {
+            label: "Residential mean bill",
+            value: "Unavailable",
+            detail: "Retail average endpoint is currently unavailable."
+          }
+        : {
+            label: "Residential mean bill",
+            value: `${formatWholeNumber(retailAverage.annualBillAudMean)} AUD/year`,
+            detail: `${formatOneDecimal(retailAverage.usageRateCKwhMean)} c/kWh · ${formatOneDecimal(retailAverage.dailyChargeAudDayMean)} AUD/day`
+          },
+    householdEstimate:
+      householdEstimate === null
+        ? {
+            label: "Household estimate",
+            value: "Unavailable",
+            detail: resolveErrorMessage(householdEstimateResult.ok ? null : householdEstimateResult.error)
+          }
+        : {
+            label: "Household estimate",
+            value: `${formatWholeNumber(householdEstimate.monthlyAud)} AUD/month`,
+            detail: `${householdEstimate.usageProfile} · ${householdEstimate.confidence}`
+          },
     metrics: [
       {
         label: "Live wholesale",

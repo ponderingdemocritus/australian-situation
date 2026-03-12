@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { getPricesDashboardData } from "../lib/queries/prices-dashboard";
 
 const sdkMocks = vi.hoisted(() => ({
+  getApiPricesUnresolvedItems: vi.fn(),
   getApiPricesAiDeflation: vi.fn(),
   getApiPricesMajorGoods: vi.fn()
 }));
@@ -16,6 +17,7 @@ describe("getPricesDashboardData", () => {
   beforeEach(() => {
     sdkMocks.getApiPricesAiDeflation.mockReset();
     sdkMocks.getApiPricesMajorGoods.mockReset();
+    sdkMocks.getApiPricesUnresolvedItems.mockReset();
     delete process.env.NEXT_PUBLIC_API_BASE_URL;
     delete process.env.AUS_DASH_WEB_USERNAME;
     delete process.env.AUS_DASH_WEB_PASSWORD;
@@ -85,6 +87,24 @@ describe("getPricesDashboardData", () => {
         status: "fresh"
       }
     });
+    sdkMocks.getApiPricesUnresolvedItems.mockResolvedValue({
+      items: [
+        {
+          unresolvedItemId: "item-1",
+          batchId: "batch-1",
+          sourceId: "major_goods_prices",
+          rawSnapshotId: "snap-1",
+          status: "open",
+          createdAt: "2026-03-01T00:00:00Z",
+          observedAt: "2026-03-01T00:00:00Z",
+          merchantName: "Coles",
+          regionCode: "AU",
+          title: "Dishwashing liquid",
+          externalOfferId: "offer-1",
+          priceAmount: 5.2
+        }
+      ]
+    });
 
     const result = await getPricesDashboardData();
 
@@ -108,6 +128,15 @@ describe("getPricesDashboardData", () => {
       methodSummary: "Weighted household basket.",
       secondarySummary: "AI-exposed and control cohorts."
     });
+    expect(result.unresolvedItems).toEqual([
+      {
+        merchantName: "Coles",
+        priceAmount: "5.20 AUD",
+        status: "open",
+        title: "Dishwashing liquid",
+        unresolvedItemId: "item-1"
+      }
+    ]);
     expect(sdkMocks.getApiPricesMajorGoods).toHaveBeenCalledWith(
       expect.objectContaining({
         headers: expect.objectContaining({
