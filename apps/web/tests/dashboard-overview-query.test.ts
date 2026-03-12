@@ -67,7 +67,16 @@ describe("getDashboardOverview", () => {
     sdkMocks.getApiMetadataFreshness.mockResolvedValue({
       generatedAt: "2026-03-07T03:10:00Z",
       staleSeriesCount: 2,
-      series: []
+      series: [
+        {
+          seriesId: "energy.live.wholesale.aud_mwh",
+          regionCode: "AU",
+          expectedCadence: "5m",
+          updatedAt: "2026-03-07T03:00:00Z",
+          lagMinutes: 10,
+          freshnessStatus: "stale"
+        }
+      ]
     });
     sdkMocks.getApiMetadataSources.mockResolvedValue({
       generatedAt: "2026-03-07T03:10:00Z",
@@ -121,6 +130,7 @@ describe("getDashboardOverview", () => {
       generatedAt: "Generated 2026-03-07",
       methodSummary: "Combines wholesale, retail, benchmark, and CPI source data."
     });
+    expect(overview.chart).toEqual([{ label: "wholesale.aud_mwh", lag: 10 }]);
   });
 
   test("requests public overview data for the Australian national view", async () => {

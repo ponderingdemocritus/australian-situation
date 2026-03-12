@@ -1,64 +1,58 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@aus-dash/ui";
+import { ChartAreaInteractive } from "../../components/chart-area-interactive";
+import { DataTable, type DashboardCoverageRow } from "../../components/data-table";
+import { SectionCards } from "../../components/section-cards";
 import { DashboardFrame } from "../../features/site/components/dashboard-frame";
+import { dashboardNavItems } from "../../features/site/content";
 import { getDashboardOverview } from "../../lib/queries/dashboard-overview";
 
 export const dynamic = "force-dynamic";
+
+const coverageRows: DashboardCoverageRow[] = [
+  { surface: "Overview", route: "/dashboard", endpoint: "getApiHealth", access: "public" },
+  { surface: "Overview", route: "/dashboard", endpoint: "getApiEnergyOverview", access: "public" },
+  { surface: "Overview", route: "/dashboard", endpoint: "getApiHousingOverview", access: "public" },
+  { surface: "Overview", route: "/dashboard", endpoint: "getApiMetadataFreshness", access: "public" },
+  { surface: "Overview", route: "/dashboard", endpoint: "getApiMetadataSources", access: "public" },
+  { surface: "Energy", route: "/dashboard/energy", endpoint: "getApiEnergyLiveWholesale", access: "public" },
+  { surface: "Energy", route: "/dashboard/energy", endpoint: "getApiEnergyRetailAverage", access: "public" },
+  { surface: "Energy", route: "/dashboard/energy", endpoint: "getApiEnergyHouseholdEstimate", access: "public/flagged" },
+  { surface: "Energy", route: "/dashboard/energy", endpoint: "getApiV1EnergyCompareRetail", access: "public" },
+  { surface: "Energy", route: "/dashboard/energy", endpoint: "getApiV1EnergyCompareWholesale", access: "public" },
+  { surface: "Housing", route: "/dashboard/housing", endpoint: "getApiHousingOverview", access: "public" },
+  { surface: "Sources", route: "/dashboard/sources", endpoint: "getApiMetadataFreshness", access: "public" },
+  { surface: "Sources", route: "/dashboard/sources", endpoint: "getApiMetadataSources", access: "public" },
+  { surface: "Series", route: "/dashboard/series", endpoint: "getApiSeriesById", access: "public" },
+  { surface: "Methodology", route: "/dashboard/methodology", endpoint: "getApiV1MetadataMethodology", access: "public" },
+  { surface: "Prices", route: "/dashboard/prices", endpoint: "getApiPricesMajorGoods", access: "protected" },
+  { surface: "Prices", route: "/dashboard/prices", endpoint: "getApiPricesAiDeflation", access: "protected" },
+  { surface: "Prices", route: "/dashboard/prices", endpoint: "getApiPricesUnresolvedItems", access: "protected" },
+  { surface: "Prices", route: "/dashboard/prices", endpoint: "postApiPricesIntakeBatches", access: "protected action" },
+  { surface: "Prices", route: "/dashboard/prices", endpoint: "postApiPricesUnresolvedItemsByIdReconcile", access: "protected action" },
+  { surface: "Prices", route: "/dashboard/prices", endpoint: "postApiPricesUnresolvedItemsByIdClassify", access: "protected action" },
+  { surface: "Prices", route: "/dashboard/prices", endpoint: "postApiPricesUnresolvedItemsByIdPromote", access: "protected action" }
+];
 
 export default async function DashboardPage() {
   const overview = await getDashboardOverview();
 
   return (
     <DashboardFrame
-      eyebrow="Dashboard"
+      eyebrow="Overview"
       summary="Structured around the generated SDK, with each section tied to a real data domain."
       title="National dashboard"
     >
-      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card className="border-black/10 bg-white/88">
-          <CardHeader>
-            <CardTitle>{overview.hero.title}</CardTitle>
-            <CardDescription>{overview.hero.description}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-              {overview.hero.detail}
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {overview.metrics.map((metric) => (
-                <div
-                  key={metric.label}
-                  className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4"
-                >
-                  <div className="text-sm font-medium text-slate-500">{metric.label}</div>
-                  <div className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
-                    {metric.value}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-600">{metric.detail}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-black/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(241,245,249,0.96))]">
-          <CardHeader>
-            <CardTitle>Freshness and provenance</CardTitle>
-            <CardDescription>
-              Source metadata and freshness belong in the primary information architecture.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-              <div className="text-sm font-medium text-slate-500">Freshness</div>
-              <div className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
-                {overview.metadata.freshness}
-              </div>
-              <div className="mt-1 text-sm text-slate-600">{overview.metadata.generatedAt}</div>
-            </div>
-            <p className="text-sm leading-6 text-slate-600">{overview.metadata.methodSummary}</p>
-          </CardContent>
-        </Card>
-      </section>
+      <SectionCards items={overview.metrics} />
+      <div className="px-4 lg:px-6">
+        <div className="rounded-xl border bg-card px-4 py-4 text-sm text-muted-foreground">
+          {overview.hero.title} · {overview.hero.detail} · {overview.metadata.freshness}
+        </div>
+      </div>
+      <div className="px-4 lg:px-6">
+        <ChartAreaInteractive
+          data={overview.chart && overview.chart.length > 0 ? overview.chart : [{ label: "freshness", lag: 0 }]}
+        />
+      </div>
+      <DataTable data={coverageRows.filter((row) => dashboardNavItems.some((item) => row.route.startsWith(item.href) || row.route === "/dashboard"))} />
     </DashboardFrame>
   );
 }

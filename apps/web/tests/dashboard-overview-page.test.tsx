@@ -48,11 +48,11 @@ describe("Dashboard overview page", () => {
   test("renders the SDK-backed overview metrics on the dashboard home", async () => {
     await renderRoute(await DashboardPage());
 
-    expect(screen.getByText("Australia snapshot")).toBeDefined();
-    expect(screen.getByText("7 public sources")).toBeDefined();
+    expect(screen.getByText(/Australia snapshot/)).toBeDefined();
+    expect(screen.getByText(/7 public sources/)).toBeDefined();
     expect(screen.getByText("118.4 AUD/MWh")).toBeDefined();
     expect(screen.getByText("1,940 AUD/year")).toBeDefined();
     expect(screen.getByText("4 tracked metrics")).toBeDefined();
-    expect(screen.getByText("2 stale series")).toBeDefined();
+    expect(screen.getByText(/2 stale series/)).toBeDefined();
   });
 });

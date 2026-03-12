@@ -15,6 +15,10 @@ export type DashboardOverviewMetric = {
 };
 
 export type DashboardOverviewModel = {
+  chart: Array<{
+    label: string;
+    lag: number;
+  }>;
   hero: {
     description: string;
     detail: string;
@@ -74,6 +78,10 @@ export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
       description: "Live conditions drawn directly from the generated SDK.",
       detail: `${sources.sources.length} public source${sources.sources.length === 1 ? "" : "s"}`
     },
+    chart: freshness.series.slice(0, 6).map((series) => ({
+      label: series.seriesId.split(".").slice(-2).join("."),
+      lag: series.lagMinutes
+    })),
     metrics: [
       {
         label: "API health",
