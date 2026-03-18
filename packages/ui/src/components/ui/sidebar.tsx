@@ -6,24 +6,24 @@ import { PanelLeftIcon } from "lucide-react"
 import { Slot } from "@radix-ui/react-slot"
 
 import { useIsMobile } from "../../hooks/use-mobile"
-import { cn } from "@aus-dash/ui/lib/utils"
-import { Button } from "@aus-dash/ui/components/ui/button"
-import { Input } from "@aus-dash/ui/components/ui/input"
-import { Separator } from "@aus-dash/ui/components/ui/separator"
+import { cn } from "../../lib/utils"
+import { Button } from "./button"
+import { Input } from "./input"
+import { Separator } from "./separator"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@aus-dash/ui/components/ui/sheet"
-import { Skeleton } from "@aus-dash/ui/components/ui/skeleton"
+} from "./sheet"
+import { Skeleton } from "./skeleton"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@aus-dash/ui/components/ui/tooltip"
+} from "./tooltip"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7

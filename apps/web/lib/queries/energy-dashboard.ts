@@ -6,14 +6,62 @@ import {
   getApiV1EnergyCompareRetail,
   getApiV1EnergyCompareWholesale
 } from "@aus-dash/sdk";
-import { formatIsoDate, formatOneDecimal, formatWholeNumber } from "../format";
+import {
+  formatIsoDate,
+  formatOneDecimal,
+  formatTwoDecimals,
+  formatWholeNumber
+} from "../format";
 import { createPublicSdkOptions } from "../sdk/public";
 import { unwrapSdkData } from "../sdk/unwrap";
+
+export const ENERGY_DASHBOARD_REGIONS = [
+  "AU",
+  "NSW",
+  "VIC",
+  "QLD",
+  "SA",
+  "WA",
+  "TAS",
+  "NT",
+  "ACT"
+] as const;
+
+export type EnergyDashboardRegion = (typeof ENERGY_DASHBOARD_REGIONS)[number];
+
+export const ENERGY_DASHBOARD_REGION_LABELS: Record<EnergyDashboardRegion, string> = {
+  AU: "Australia",
+  NSW: "New South Wales",
+  VIC: "Victoria",
+  QLD: "Queensland",
+  SA: "South Australia",
+  WA: "Western Australia",
+  TAS: "Tasmania",
+  NT: "Northern Territory",
+  ACT: "Australian Capital Territory"
+};
+
+const UNSUPPORTED_LIVE_WHOLESALE_REGIONS = new Set<EnergyDashboardRegion>(["WA", "NT", "ACT"]);
 
 type Metric = {
   detail: string;
   label: string;
   value: string;
+};
+
+type ComparisonRow = {
+  countryCode: string;
+  rank: string;
+  updatedAt: string;
+  value: string;
+};
+
+type NationalComparison = {
+  detail: string;
+  peerGaps: string[];
+  rows: ComparisonRow[];
+  summary: string;
+  title: string;
 };
 
 type MixSummary = {
@@ -24,7 +72,6 @@ type MixSummary = {
 };
 
 export type EnergyDashboardModel = {
-  comparisons: Metric[];
   hero: {
     summary: string;
     title: string;
@@ -33,8 +80,24 @@ export type EnergyDashboardModel = {
   liveWholesale: Metric;
   metrics: Metric[];
   mixes: MixSummary[];
+  nationalComparisons: NationalComparison[];
+  region: EnergyDashboardRegion;
+  regionLabel: string;
   retailAverage: Metric;
 };
+
+export function normalizeEnergyDashboardRegion(
+  region?: string
+): EnergyDashboardRegion {
+  if (!region) {
+    return "AU";
+  }
+
+  const upperRegion = region.toUpperCase();
+  return ENERGY_DASHBOARD_REGIONS.includes(upperRegion as EnergyDashboardRegion)
+    ? (upperRegion as EnergyDashboardRegion)
+    : "AU";
+}
 
 function resolveErrorMessage(error: unknown) {
   if (
@@ -59,7 +122,85 @@ function resolveErrorMessage(error: unknown) {
   return "This endpoint is currently unavailable.";
 }
 
-export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
+function formatSignedPercent(value: number) {
+  const prefix = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${prefix}${formatOneDecimal(Math.abs(value))}%`;
+}
+
+function formatComparisonValue(value: number, unit: "usd_kwh" | "usd_mwh") {
+  return unit === "usd_kwh"
+    ? `${formatTwoDecimals(value)} USD/kWh`
+    : `${formatOneDecimal(value)} USD/MWh`;
+}
+
+function buildNationalComparison(input: {
+  comparison:
+    | {
+        auPercentile?: number | null;
+        auRank?: number | null;
+        comparisons?: Array<{
+          gapPct: number;
+          peerCountryCode: string;
+        }>;
+        methodologyVersion?: string;
+        peers: string[];
+        rows?: Array<{
+          countryCode: string;
+          date: string;
+          rank: number;
+          value: number;
+        }>;
+      }
+    | null;
+  detailLabel: string;
+  title: string;
+  unit: "usd_kwh" | "usd_mwh";
+}) {
+  if (input.comparison === null) {
+    return {
+      title: input.title,
+      summary: "Unavailable",
+      detail: "Comparable peer data is not currently available.",
+      peerGaps: [],
+      rows: []
+    } satisfies NationalComparison;
+  }
+
+  const comparisonSetSize = input.comparison.peers.length + 1;
+  const percentileSuffix =
+    typeof input.comparison.auPercentile === "number"
+      ? ` · Percentile ${formatWholeNumber(input.comparison.auPercentile)}`
+      : "";
+
+  return {
+    title: input.title,
+    summary: `Australia ranks ${input.comparison.auRank ?? "-"} of ${comparisonSetSize} peers${percentileSuffix}`,
+    detail: `${input.detailLabel} · ${input.comparison.methodologyVersion ?? "unknown"}`,
+    peerGaps: (input.comparison.comparisons ?? []).map(
+      (comparison) =>
+        `${comparison.peerCountryCode} ${formatSignedPercent(comparison.gapPct)}`
+    ),
+    rows: (input.comparison.rows ?? []).map((row) => ({
+      countryCode: row.countryCode,
+      rank: String(row.rank),
+      updatedAt: formatIsoDate(row.date),
+      value: formatComparisonValue(row.value, input.unit)
+    }))
+  } satisfies NationalComparison;
+}
+
+function liveWholesaleUnavailableDetail(region: EnergyDashboardRegion, error: unknown) {
+  if (UNSUPPORTED_LIVE_WHOLESALE_REGIONS.has(region)) {
+    return `Direct live wholesale is not currently available for ${ENERGY_DASHBOARD_REGION_LABELS[region]}.`;
+  }
+
+  return resolveErrorMessage(error);
+}
+
+export async function getEnergyDashboardData(
+  region = "AU"
+): Promise<EnergyDashboardModel> {
+  const selectedRegion = normalizeEnergyDashboardRegion(region);
   const options = createPublicSdkOptions();
   const [
     overviewResponse,
@@ -71,25 +212,30 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
   ] = await Promise.all([
     getApiEnergyOverview({
       ...options,
-      query: { region: "AU" }
+      query: { region: selectedRegion }
     }),
-    getApiEnergyLiveWholesale({
-      ...options,
-      query: { region: "AU", window: "5m" }
-    }).then(
-      (value) => ({ ok: true as const, value }),
-      (error) => ({ ok: false as const, error })
-    ),
+    UNSUPPORTED_LIVE_WHOLESALE_REGIONS.has(selectedRegion)
+      ? Promise.resolve({
+          ok: false as const,
+          error: new Error(`Unsupported region: ${selectedRegion}`)
+        })
+      : getApiEnergyLiveWholesale({
+          ...options,
+          query: { region: selectedRegion, window: "5m" }
+        }).then(
+          (value) => ({ ok: true as const, value }),
+          (error) => ({ ok: false as const, error })
+        ),
     getApiEnergyRetailAverage({
       ...options,
-      query: { customer_type: "residential", region: "AU" }
+      query: { customer_type: "residential", region: selectedRegion }
     }).then(
       (value) => ({ ok: true as const, value }),
       (error) => ({ ok: false as const, error })
     ),
     getApiEnergyHouseholdEstimate({
       ...options,
-      query: { region: "AU", usage_profile: "household_mid" }
+      query: { region: selectedRegion, usage_profile: "household_mid" }
     }).then(
       (value) => ({ ok: true as const, value }),
       (error) => ({ ok: false as const, error })
@@ -130,8 +276,17 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
   const wholesaleComparison = wholesaleComparisonResult.ok
     ? unwrapSdkData(wholesaleComparisonResult.value)
     : null;
+  const liveWholesaleDetail =
+    liveWholesale === null
+      ? liveWholesaleUnavailableDetail(
+          selectedRegion,
+          liveWholesaleResult.ok ? null : liveWholesaleResult.error
+        )
+      : `1h avg ${formatOneDecimal(liveWholesale.rollups.oneHourAvgAudMwh)} AUD/MWh · 24h avg ${formatOneDecimal(liveWholesale.rollups.twentyFourHourAvgAudMwh)} AUD/MWh`;
 
   return {
+    region: selectedRegion,
+    regionLabel: ENERGY_DASHBOARD_REGION_LABELS[selectedRegion],
     hero: {
       title: "Energy system",
       summary: "Wholesale, retail, and generation signals from the public energy stack."
@@ -141,12 +296,12 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
         ? {
             label: "Latest interval",
             value: "Unavailable",
-            detail: "Live wholesale endpoint is currently unavailable."
+            detail: liveWholesaleDetail
           }
         : {
             label: "Latest interval",
             value: `${formatOneDecimal(liveWholesale.latest.valueAudMwh)} AUD/MWh`,
-            detail: `1h avg ${formatOneDecimal(liveWholesale.rollups.oneHourAvgAudMwh)} AUD/MWh · 24h avg ${formatOneDecimal(liveWholesale.rollups.twentyFourHourAvgAudMwh)} AUD/MWh`
+            detail: liveWholesaleDetail
           },
     retailAverage:
       retailAverage === null
@@ -175,8 +330,14 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
     metrics: [
       {
         label: "Live wholesale",
-        value: `${formatOneDecimal(overview.panels.liveWholesale.valueAudMwh)} AUD/MWh`,
-        detail: `${formatOneDecimal(overview.panels.liveWholesale.valueCKwh)} c/kWh`
+        value:
+          liveWholesale === null
+            ? "Unavailable"
+            : `${formatOneDecimal(overview.panels.liveWholesale.valueAudMwh)} AUD/MWh`,
+        detail:
+          liveWholesale === null
+            ? liveWholesaleDetail
+            : `${formatOneDecimal(overview.panels.liveWholesale.valueCKwh)} c/kWh`
       },
       {
         label: "Retail average",
@@ -194,29 +355,19 @@ export async function getEnergyDashboardData(): Promise<EnergyDashboardModel> {
         detail: overview.panels.cpiElectricity.period
       }
     ],
-    comparisons: [
-      {
-        label: "Retail comparison",
-        value:
-          retailComparison === null
-            ? "Unavailable"
-            : `Rank ${retailComparison.auRank ?? "-"} of ${retailComparison.peers.length + 1}`,
-        detail:
-          retailComparison === null
-            ? "Comparable peer data is not currently available."
-            : "Nominal household electricity"
-      },
-      {
-        label: "Wholesale comparison",
-        value:
-          wholesaleComparison === null
-            ? "Unavailable"
-            : `Rank ${wholesaleComparison.auRank ?? "-"} of ${wholesaleComparison.peers.length + 1}`,
-        detail:
-          wholesaleComparison === null
-            ? "Comparable peer data is not currently available."
-            : "Cross-country annual market pricing"
-      }
+    nationalComparisons: [
+      buildNationalComparison({
+        comparison: retailComparison,
+        detailLabel: "Nominal household electricity",
+        title: "Retail electricity",
+        unit: "usd_kwh"
+      }),
+      buildNationalComparison({
+        comparison: wholesaleComparison,
+        detailLabel: "Cross-country annual market pricing",
+        title: "Wholesale electricity",
+        unit: "usd_mwh"
+      })
     ],
     mixes: overview.sourceMixViews.map((view) => ({
       coverage: view.coverageLabel,

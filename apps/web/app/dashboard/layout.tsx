@@ -1,10 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
+import { SidebarInset, SidebarProvider } from "@aus-dash/ui";
 import { AppSidebar } from "../../components/app-sidebar";
 import { SiteHeader } from "../../components/site-header";
-import {
-  SidebarInset,
-  SidebarProvider
-} from "@aus-dash/ui/components/ui/sidebar";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (

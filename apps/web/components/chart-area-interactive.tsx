@@ -1,19 +1,17 @@
 "use client";
 
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle
-} from "@aus-dash/ui/components/ui/card";
-import {
+  CardTitle,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig
-} from "@aus-dash/ui/components/ui/chart";
+} from "@aus-dash/ui";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 
 const chartConfig = {
   lag: {

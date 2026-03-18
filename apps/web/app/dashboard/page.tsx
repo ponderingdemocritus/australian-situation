@@ -1,3 +1,4 @@
+import { Card, CardContent } from "@aus-dash/ui";
 import { ChartAreaInteractive } from "../../components/chart-area-interactive";
 import { DataTable, type DashboardCoverageRow } from "../../components/data-table";
 import { SectionCards } from "../../components/section-cards";
@@ -43,9 +44,11 @@ export default async function DashboardPage() {
     >
       <SectionCards items={overview.metrics} />
       <div className="px-4 lg:px-6">
-        <div className="rounded-xl border bg-card px-4 py-4 text-sm text-muted-foreground">
-          {overview.hero.title} · {overview.hero.detail} · {overview.metadata.freshness}
-        </div>
+        <Card>
+          <CardContent className="text-sm text-muted-foreground">
+            {overview.hero.title} · {overview.hero.detail} · {overview.metadata.freshness}
+          </CardContent>
+        </Card>
       </div>
       <div className="px-4 lg:px-6">
         <ChartAreaInteractive

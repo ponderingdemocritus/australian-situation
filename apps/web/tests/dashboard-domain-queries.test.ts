@@ -156,26 +156,109 @@ describe("dashboard domain queries", () => {
     });
   });
 
-  test("maps energy overview, comparisons, and source mix into a domain view", async () => {
-    const result = await getEnergyDashboardData();
+  test("maps region-scoped energy data and keeps national comparison detail", async () => {
+    sdkMocks.getApiV1EnergyCompareRetail.mockResolvedValue({
+      country: "AU",
+      peers: ["US", "DE", "ID", "CN"],
+      basis: "nominal",
+      taxStatus: "incl_tax",
+      consumptionBand: "household_mid",
+      auRank: 3,
+      methodologyVersion: "energy-comparison-v1",
+      rows: [
+        {
+          countryCode: "US",
+          date: "2026-02",
+          value: 0.18,
+          rank: 1,
+          methodologyVersion: "energy-comparison-v1"
+        },
+        {
+          countryCode: "DE",
+          date: "2026-02",
+          value: 0.3,
+          rank: 2,
+          methodologyVersion: "energy-comparison-v1"
+        },
+        {
+          countryCode: "AU",
+          date: "2026-02",
+          value: 0.32,
+          rank: 3,
+          methodologyVersion: "energy-comparison-v1"
+        }
+      ],
+      comparisons: [
+        { peerCountryCode: "US", peerValue: 0.18, gap: 0.14, gapPct: 77.78 },
+        { peerCountryCode: "DE", peerValue: 0.3, gap: 0.02, gapPct: 6.67 }
+      ]
+    });
+    sdkMocks.getApiV1EnergyCompareWholesale.mockResolvedValue({
+      country: "AU",
+      peers: ["US", "DE", "CN"],
+      auRank: 2,
+      auPercentile: 66,
+      methodologyVersion: "energy-comparison-v1",
+      rows: [
+        {
+          countryCode: "US",
+          date: "2026-02-28T01:00:00Z",
+          value: 70,
+          rank: 1,
+          methodologyVersion: "energy-comparison-v1"
+        },
+        {
+          countryCode: "AU",
+          date: "2026-02-28T01:00:00Z",
+          value: 120,
+          rank: 2,
+          methodologyVersion: "energy-comparison-v1"
+        }
+      ],
+      comparisons: [{ peerCountryCode: "US", peerValue: 70, gap: 50, gapPct: 71.43 }]
+    });
+
+    const result = await getEnergyDashboardData("NSW");
+
+    expect(sdkMocks.getApiEnergyOverview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: { region: "NSW" }
+      })
+    );
+    expect(sdkMocks.getApiEnergyLiveWholesale).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: { region: "NSW", window: "5m" }
+      })
+    );
+    expect(sdkMocks.getApiV1EnergyCompareRetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({
+          country: "AU"
+        })
+      })
+    );
+    expect(result.region).toBe("NSW");
+    expect(result.regionLabel).toBe("New South Wales");
 
     expect(result.metrics[0]).toEqual({
       label: "Live wholesale",
       value: "118.4 AUD/MWh",
       detail: "11.8 c/kWh"
     });
-    expect(result.comparisons).toEqual([
-      {
-        label: "Retail comparison",
-        value: "Rank 3 of 5",
-        detail: "Nominal household electricity"
-      },
-      {
-        label: "Wholesale comparison",
-        value: "Rank 2 of 4",
-        detail: "Cross-country annual market pricing"
-      }
-    ]);
+    expect(result.nationalComparisons[0]).toEqual({
+      title: "Retail electricity",
+      summary: "Australia ranks 3 of 5 peers",
+      detail: "Nominal household electricity · energy-comparison-v1",
+      peerGaps: ["US +77.8%", "DE +6.7%"],
+      rows: [
+        { countryCode: "US", rank: "1", value: "0.18 USD/kWh", updatedAt: "2026-02" },
+        { countryCode: "DE", rank: "2", value: "0.30 USD/kWh", updatedAt: "2026-02" },
+        { countryCode: "AU", rank: "3", value: "0.32 USD/kWh", updatedAt: "2026-02" }
+      ]
+    });
+    expect(result.nationalComparisons[1].summary).toBe(
+      "Australia ranks 2 of 4 peers · Percentile 66"
+    );
     expect(result.mixes[0]).toEqual({
       coverage: "AU annual",
       title: "National mix",
@@ -199,6 +282,26 @@ describe("dashboard domain queries", () => {
     });
   });
 
+  test("keeps state dashboards available when direct live wholesale is unsupported", async () => {
+    sdkMocks.getApiEnergyLiveWholesale.mockRejectedValueOnce(
+      new Error("Unsupported region: WA")
+    );
+
+    const result = await getEnergyDashboardData("WA");
+
+    expect(result.region).toBe("WA");
+    expect(result.liveWholesale).toEqual({
+      label: "Latest interval",
+      value: "Unavailable",
+      detail: "Direct live wholesale is not currently available for Western Australia."
+    });
+    expect(result.metrics[0]).toEqual({
+      label: "Live wholesale",
+      value: "Unavailable",
+      detail: "Direct live wholesale is not currently available for Western Australia."
+    });
+  });
+
   test("keeps rendering energy metrics when comparison endpoints fail", async () => {
     sdkMocks.getApiV1EnergyCompareRetail.mockRejectedValueOnce(
       new Error("NO_COMPARABLE_PEER_DATA")
@@ -210,16 +313,20 @@ describe("dashboard domain queries", () => {
     const result = await getEnergyDashboardData();
 
     expect(result.metrics[0].value).toBe("118.4 AUD/MWh");
-    expect(result.comparisons).toEqual([
+    expect(result.nationalComparisons).toEqual([
       {
-        label: "Retail comparison",
-        value: "Unavailable",
-        detail: "Comparable peer data is not currently available."
+        title: "Retail electricity",
+        summary: "Unavailable",
+        detail: "Comparable peer data is not currently available.",
+        peerGaps: [],
+        rows: []
       },
       {
-        label: "Wholesale comparison",
-        value: "Unavailable",
-        detail: "Comparable peer data is not currently available."
+        title: "Wholesale electricity",
+        summary: "Unavailable",
+        detail: "Comparable peer data is not currently available.",
+        peerGaps: [],
+        rows: []
       }
     ]);
   });

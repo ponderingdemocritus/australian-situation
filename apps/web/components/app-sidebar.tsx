@@ -1,6 +1,15 @@
 "use client";
 
 import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem
+} from "@aus-dash/ui";
+import {
   IconBolt,
   IconChartBar,
   IconDatabase,
@@ -11,15 +20,6 @@ import {
   IconSearch
 } from "@tabler/icons-react";
 import { dashboardNavItems } from "../features/site/content";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem
-} from "@aus-dash/ui/components/ui/sidebar";
 
 const icons = {
   Energy: IconBolt,
@@ -37,9 +37,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:p-1.5!">
+            <SidebarMenuButton asChild>
               <a href="/dashboard">
-                <IconListDetails className="size-5!" />
+                <IconListDetails />
                 <span className="text-base font-semibold">Australia Situation</span>
               </a>
             </SidebarMenuButton>

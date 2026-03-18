@@ -1,5 +1,4 @@
-import { Separator } from "@aus-dash/ui/components/ui/separator";
-import { SidebarTrigger } from "@aus-dash/ui/components/ui/sidebar";
+import { Separator, SidebarTrigger } from "@aus-dash/ui";
 
 export function SiteHeader() {
   return (

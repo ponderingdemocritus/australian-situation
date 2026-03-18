@@ -12,7 +12,7 @@ export function DashboardFrame({ children, eyebrow, summary, title }: DashboardF
   return (
     <section className="grid gap-6 px-4 lg:px-6">
       <header className="grid gap-2">
-        <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        <span className="text-xs font-medium uppercase text-muted-foreground">
           {eyebrow}
         </span>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">{title}</h1>
