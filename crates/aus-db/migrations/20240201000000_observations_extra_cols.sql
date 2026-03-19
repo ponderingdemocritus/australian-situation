@@ -1,0 +1,10 @@
+ALTER TABLE "observations" ADD COLUMN "country_code" text;
+ALTER TABLE "observations" ADD COLUMN "market" text;
+ALTER TABLE "observations" ADD COLUMN "metric_family" text;
+ALTER TABLE "observations" ADD COLUMN "interval_start_utc" timestamp with time zone;
+ALTER TABLE "observations" ADD COLUMN "interval_end_utc" timestamp with time zone;
+ALTER TABLE "observations" ADD COLUMN "currency" text;
+ALTER TABLE "observations" ADD COLUMN "tax_status" text;
+ALTER TABLE "observations" ADD COLUMN "consumption_band" text;
+ALTER TABLE "observations" ADD COLUMN "methodology_version" text;
+CREATE INDEX IF NOT EXISTS "observations_country_metric_date_idx" ON "observations" USING btree ("country_code","metric_family","date");

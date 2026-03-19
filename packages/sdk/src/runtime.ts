@@ -1,7 +1,7 @@
 import { client } from "./generated/client.gen";
 import type { Config as GeneratedClientConfig } from "./generated/client/types.gen";
 
-export const DEFAULT_SDK_BASE_URL = "http://localhost:3001";
+export const DEFAULT_SDK_BASE_URL = "http://localhost:3002";
 
 export type SdkBasicAuth = {
   password: string;

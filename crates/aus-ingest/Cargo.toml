@@ -1,0 +1,25 @@
+[package]
+name = "aus-ingest"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "aus-ingest"
+path = "src/main.rs"
+
+[dependencies]
+aus-domain = { workspace = true }
+aus-db = { workspace = true }
+aus-sources = { workspace = true }
+tokio = { workspace = true }
+tokio-cron-scheduler = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+clap = { workspace = true }
+uuid = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }
+sqlx = { workspace = true }
+serde_json = { workspace = true }

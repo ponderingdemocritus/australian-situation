@@ -89,7 +89,7 @@ describe("@aus-dash/sdk runtime configuration", () => {
 
     sdk.resetSdkConfig?.();
     expect(sdk.getSdkConfig?.()).toMatchObject({
-      baseUrl: "http://localhost:3001",
+      baseUrl: "http://localhost:3002",
       auth: null
     });
   });

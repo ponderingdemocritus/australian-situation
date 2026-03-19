@@ -1,0 +1,10 @@
+ALTER TABLE "products" ADD COLUMN "product_family_slug" text;
+ALTER TABLE "products" ADD COLUMN "country_of_origin" text;
+ALTER TABLE "products" ADD COLUMN "is_australian_made" boolean;
+ALTER TABLE "products" ADD COLUMN "manufacturer_name" text;
+ALTER TABLE "products" ADD COLUMN "domestic_value_share_band" text;
+ALTER TABLE "products" ADD COLUMN "ai_exposure_level" text;
+ALTER TABLE "products" ADD COLUMN "ai_exposure_reason" text;
+ALTER TABLE "products" ADD COLUMN "comparable_unit_basis" text;
+ALTER TABLE "products" ADD COLUMN "is_control_candidate" boolean DEFAULT false NOT NULL;
+ALTER TABLE "products" ADD COLUMN "cohort_ready" boolean DEFAULT false NOT NULL;
