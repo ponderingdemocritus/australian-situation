@@ -17,6 +17,15 @@
     ],
     "isolatedModules": true,
     "paths": {
+      "@aus-dash/ui/components/*": [
+        "../../packages/ui/src/components/*"
+      ],
+      "@aus-dash/ui/hooks/*": [
+        "../../packages/ui/src/hooks/*"
+      ],
+      "@aus-dash/ui/lib/*": [
+        "../../packages/ui/src/lib/*"
+      ],
       "@/*": [
         "./*"
       ]
@@ -29,6 +38,7 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "@aus-dash/**/*"
   ]
 }

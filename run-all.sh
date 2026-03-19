@@ -11,8 +11,8 @@ export AUS_DASH_INGEST_RUNTIME="${AUS_DASH_INGEST_RUNTIME:-bullmq}"
 usage() {
   cat <<'EOF'
 Usage:
-  ./run-all.sh dev
-  ./run-all.sh up [--skip-build] [--keep-infra]
+  ./run-all.sh dev [--rust]
+  ./run-all.sh up [--skip-build] [--keep-infra] [--rust]
   ./run-all.sh infra up|down|status
   ./run-all.sh test [--with-e2e]
 
@@ -22,6 +22,9 @@ Commands:
                 build web, then run web+api+ingest together.
   infra         Manage docker compose infrastructure only.
   test          Run workspace tests (vitest); include e2e with --with-e2e.
+
+Flags:
+  --rust        Use Rust api/ingest binaries instead of TypeScript services.
 EOF
 }
 
@@ -65,33 +68,26 @@ wait_for_postgres() {
   exit 1
 }
 
-wait_for_redis() {
-  local max_attempts=60
-  local attempt=1
-  while [[ "$attempt" -le "$max_attempts" ]]; do
-    if compose_cmd exec -T redis redis-cli ping >/dev/null 2>&1; then
-      echo "Redis is ready."
-      return
-    fi
-
-    sleep 1
-    attempt=$((attempt + 1))
-  done
-
-  echo "Redis did not become ready in time."
-  exit 1
-}
-
 run_dev_processes() {
   local stop_infra_on_exit="${1:-0}"
+  local use_rust="${2:-0}"
 
   echo "Starting web, api, and ingest..."
   bun run dev:web &
   web_pid=$!
-  bun run dev:api &
-  api_pid=$!
-  bun run dev:ingest &
-  ingest_pid=$!
+
+  if [[ "$use_rust" -eq 1 ]]; then
+    echo "Using Rust services for api and ingest."
+    cargo run -p aus-api &
+    api_pid=$!
+    cargo run -p aus-ingest &
+    ingest_pid=$!
+  else
+    bun run dev:api &
+    api_pid=$!
+    bun run dev:ingest &
+    ingest_pid=$!
+  fi
 
   cleanup() {
     kill "$web_pid" "$api_pid" "$ingest_pid" 2>/dev/null || true
@@ -105,12 +101,27 @@ run_dev_processes() {
 }
 
 run_dev() {
-  run_dev_processes 0
+  local use_rust=0
+  for arg in "$@"; do
+    case "$arg" in
+      --rust)
+        use_rust=1
+        ;;
+      *)
+        echo "Unknown dev flag: $arg"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
+  run_dev_processes 0 "$use_rust"
 }
 
 run_up() {
   local skip_build=0
   local keep_infra=0
+  local use_rust=0
 
   for arg in "$@"; do
     case "$arg" in
@@ -119,6 +130,9 @@ run_up() {
         ;;
       --keep-infra)
         keep_infra=1
+        ;;
+      --rust)
+        use_rust=1
         ;;
       *)
         echo "Unknown up flag: $arg"
@@ -140,20 +154,21 @@ run_up() {
   export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
   export POSTGRES_DB="${POSTGRES_DB:-aus_dash}"
   export POSTGRES_PORT="${POSTGRES_PORT:-5433}"
-  export REDIS_PORT="${REDIS_PORT:-6379}"
   export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}"
-  export AUS_DASH_REDIS_URL="${AUS_DASH_REDIS_URL:-redis://127.0.0.1:${REDIS_PORT}/0}"
   export AUS_DASH_DATA_BACKEND="${AUS_DASH_DATA_BACKEND:-postgres}"
   export AUS_DASH_INGEST_BACKEND="${AUS_DASH_INGEST_BACKEND:-postgres}"
 
   echo "Starting docker compose infrastructure..."
-  compose_cmd up -d --force-recreate postgres redis
+  compose_cmd up -d --force-recreate postgres
 
   wait_for_postgres
-  wait_for_redis
 
   echo "Running database migrations..."
-  bun --filter @aus-dash/db db:migrate
+  if [[ "$use_rust" -eq 1 ]]; then
+    cargo run -p aus-cli -- migrate 2>/dev/null || bun --filter @aus-dash/db db:migrate
+  else
+    bun --filter @aus-dash/db db:migrate
+  fi
 
   echo "Backfilling store data into Postgres..."
   bun --filter @aus-dash/ingest backfill:store-to-postgres
@@ -166,16 +181,16 @@ run_up() {
   fi
 
   if [[ "$keep_infra" -eq 1 ]]; then
-    run_dev_processes 0
+    run_dev_processes 0 "$use_rust"
   else
-    run_dev_processes 1
+    run_dev_processes 1 "$use_rust"
   fi
 }
 
 run_infra() {
   case "${1:-}" in
     up)
-      compose_cmd up -d postgres redis
+      compose_cmd up -d postgres
       ;;
     down)
       compose_cmd down
@@ -217,7 +232,8 @@ run_test() {
 main() {
   case "${1:-}" in
     dev)
-      run_dev
+      shift || true
+      run_dev "$@"
       ;;
     up)
       shift || true

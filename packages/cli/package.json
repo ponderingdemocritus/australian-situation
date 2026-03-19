@@ -1,0 +1,26 @@
+{
+  "name": "@aus-dash/cli",
+  "version": "0.1.0",
+  "description": "Installable CLI for the AUS Dash API",
+  "private": false,
+  "type": "module",
+  "bin": {
+    "aus-dash": "./bin/aus-dash.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "bun build ./src/index.ts --outfile ./dist/index.js --target node --format esm --external @aus-dash/sdk",
+    "prepack": "bun run build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aus-dash/sdk": "0.1.0"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.13.7",
+    "vitest": "2.1.9"
+  }
+}
