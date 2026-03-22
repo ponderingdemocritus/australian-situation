@@ -49,6 +49,54 @@ function formatTrackedMetricCount(count: number) {
   return `${count} tracked metric${count === 1 ? "" : "s"}`;
 }
 
+function buildLiveWholesaleMetric(
+  panel:
+    | {
+        valueAudMwh: number;
+        valueCKwh: number;
+      }
+    | null
+    | undefined
+): DashboardOverviewMetric {
+  if (!panel) {
+    return {
+      label: "Live wholesale",
+      value: "Unavailable",
+      detail: "Overview panel unavailable"
+    };
+  }
+
+  return {
+    label: "Live wholesale",
+    value: `${oneDecimal.format(panel.valueAudMwh)} AUD/MWh`,
+    detail: `${oneDecimal.format(panel.valueCKwh)} c/kWh`
+  };
+}
+
+function buildRetailAverageMetric(
+  panel:
+    | {
+        annualBillAudMean: number;
+        annualBillAudMedian: number;
+      }
+    | null
+    | undefined
+): DashboardOverviewMetric {
+  if (!panel) {
+    return {
+      label: "Retail average",
+      value: "Unavailable",
+      detail: "Median unavailable"
+    };
+  }
+
+  return {
+    label: "Retail average",
+    value: `${wholeNumber.format(panel.annualBillAudMean)} AUD/year`,
+    detail: `Median ${wholeNumber.format(panel.annualBillAudMedian)} AUD`
+  };
+}
+
 export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
   const options = createPublicSdkOptions();
 
@@ -88,16 +136,8 @@ export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
         value: health.status === "ok" ? "Operational" : health.status,
         detail: health.service
       },
-      {
-        label: "Live wholesale",
-        value: `${oneDecimal.format(energy.panels.liveWholesale.valueAudMwh)} AUD/MWh`,
-        detail: `${oneDecimal.format(energy.panels.liveWholesale.valueCKwh)} c/kWh`
-      },
-      {
-        label: "Retail average",
-        value: `${wholeNumber.format(energy.panels.retailAverage.annualBillAudMean)} AUD/year`,
-        detail: `Median ${wholeNumber.format(energy.panels.retailAverage.annualBillAudMedian)} AUD`
-      },
+      buildLiveWholesaleMetric(energy.panels.liveWholesale),
+      buildRetailAverageMetric(energy.panels.retailAverage),
       {
         label: "Housing coverage",
         value: formatTrackedMetricCount(housing.metrics.length),

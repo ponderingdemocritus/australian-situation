@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import * as sdk from "@aus-dash/sdk";
 import { getEnergyDashboardData } from "../lib/queries/energy-dashboard";
 import { getHousingDashboardData } from "../lib/queries/housing-dashboard";
 import { getSourcesDashboardData } from "../lib/queries/sources-dashboard";
 
-  const sdkMocks = vi.hoisted(() => ({
+vi.mock("@aus-dash/sdk", () => ({
   getApiEnergyHouseholdEstimate: vi.fn(),
   getApiEnergyLiveWholesale: vi.fn(),
   getApiEnergyOverview: vi.fn(),
@@ -15,7 +16,17 @@ import { getSourcesDashboardData } from "../lib/queries/sources-dashboard";
   getApiV1EnergyCompareWholesale: vi.fn()
 }));
 
-vi.mock("@aus-dash/sdk", () => sdkMocks);
+const sdkMocks = {
+  getApiEnergyHouseholdEstimate: vi.mocked(sdk.getApiEnergyHouseholdEstimate),
+  getApiEnergyLiveWholesale: vi.mocked(sdk.getApiEnergyLiveWholesale),
+  getApiEnergyOverview: vi.mocked(sdk.getApiEnergyOverview),
+  getApiEnergyRetailAverage: vi.mocked(sdk.getApiEnergyRetailAverage),
+  getApiHousingOverview: vi.mocked(sdk.getApiHousingOverview),
+  getApiMetadataFreshness: vi.mocked(sdk.getApiMetadataFreshness),
+  getApiMetadataSources: vi.mocked(sdk.getApiMetadataSources),
+  getApiV1EnergyCompareRetail: vi.mocked(sdk.getApiV1EnergyCompareRetail),
+  getApiV1EnergyCompareWholesale: vi.mocked(sdk.getApiV1EnergyCompareWholesale)
+};
 
 describe("dashboard domain queries", () => {
   beforeEach(() => {
@@ -351,6 +362,7 @@ describe("dashboard domain queries", () => {
       generatedAt: "Generated 2026-03-07"
     });
     expect(result.sources[0]).toEqual({
+      sourceId: "aemo_wholesale",
       cadence: "5m",
       domain: "energy",
       name: "AEMO Wholesale",

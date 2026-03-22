@@ -7,6 +7,7 @@ type SourceRow = {
   cadence: string;
   domain: string;
   name: string;
+  sourceId: string;
   url: string;
 };
 
@@ -53,6 +54,7 @@ export async function getSourcesDashboardData(): Promise<SourcesDashboardModel> 
       cadence: source.expectedCadence,
       domain: source.domain,
       name: source.name,
+      sourceId: source.sourceId,
       url: source.url
     })),
     staleSeries: freshness.series.map((series) => ({

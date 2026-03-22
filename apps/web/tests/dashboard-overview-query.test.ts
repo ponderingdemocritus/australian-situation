@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import * as sdk from "@aus-dash/sdk";
 import { getDashboardOverview } from "../lib/queries/dashboard-overview";
 
-const sdkMocks = vi.hoisted(() => ({
+vi.mock("@aus-dash/sdk", () => ({
   getApiEnergyOverview: vi.fn(),
   getApiHealth: vi.fn(),
   getApiHousingOverview: vi.fn(),
@@ -9,7 +10,13 @@ const sdkMocks = vi.hoisted(() => ({
   getApiMetadataSources: vi.fn()
 }));
 
-vi.mock("@aus-dash/sdk", () => sdkMocks);
+const sdkMocks = {
+  getApiEnergyOverview: vi.mocked(sdk.getApiEnergyOverview),
+  getApiHealth: vi.mocked(sdk.getApiHealth),
+  getApiHousingOverview: vi.mocked(sdk.getApiHousingOverview),
+  getApiMetadataFreshness: vi.mocked(sdk.getApiMetadataFreshness),
+  getApiMetadataSources: vi.mocked(sdk.getApiMetadataSources)
+};
 
 describe("getDashboardOverview", () => {
   beforeEach(() => {
@@ -151,5 +158,49 @@ describe("getDashboardOverview", () => {
         throwOnError: true
       })
     );
+  });
+
+  test("keeps the overview renderable when the energy overview panels are missing", async () => {
+    sdkMocks.getApiEnergyOverview.mockResolvedValueOnce({
+      region: "AU",
+      methodSummary: "Combines wholesale, retail, benchmark, and CPI source data.",
+      sourceRefs: [],
+      sourceMixViews: [],
+      panels: {
+        liveWholesale: null,
+        retailAverage: null,
+        benchmark: null,
+        cpiElectricity: null
+      },
+      freshness: {
+        status: "stale",
+        updatedAt: null
+      }
+    });
+
+    const overview = await getDashboardOverview();
+
+    expect(overview.metrics).toEqual([
+      {
+        label: "API health",
+        value: "Operational",
+        detail: "aus-dash-api"
+      },
+      {
+        label: "Live wholesale",
+        value: "Unavailable",
+        detail: "Overview panel unavailable"
+      },
+      {
+        label: "Retail average",
+        value: "Unavailable",
+        detail: "Median unavailable"
+      },
+      {
+        label: "Housing coverage",
+        value: "4 tracked metrics",
+        detail: "Updated 2025-12-31"
+      }
+    ]);
   });
 });

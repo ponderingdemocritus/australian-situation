@@ -36,7 +36,7 @@ export default async function SourcesPage() {
           </CardHeader>
           <CardContent className="grid gap-3">
             {data.sources.map((source) => (
-              <a key={source.url} className="block" href={source.url}>
+              <a key={source.sourceId} className="block" href={source.url}>
                 <Card>
                   <CardContent className="space-y-1">
                     <div className="text-lg font-semibold text-foreground">{source.name}</div>
