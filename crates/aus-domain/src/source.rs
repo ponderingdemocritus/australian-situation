@@ -218,5 +218,12 @@ pub fn source_catalog() -> Vec<SourceCatalogItem> {
             url: "https://www.eia.gov/opendata/documentation.php".into(),
             expected_cadence: "monthly".into(),
         },
+        SourceCatalogItem {
+            source_id: "un_comtrade".into(),
+            domain: SourceDomain::Oil,
+            name: "UN Comtrade Trade Statistics".into(),
+            url: "https://comtradeapi.un.org".into(),
+            expected_cadence: "annual".into(),
+        },
     ]
 }

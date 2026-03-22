@@ -20,6 +20,7 @@ use utoipa::OpenApi;
         crate::routes::prices::ai_deflation,
         crate::routes::oil::overview,
         crate::routes::oil::timeseries,
+        crate::routes::oil::import_sources,
         crate::routes::metadata::freshness,
         crate::routes::metadata::sources,
         crate::routes::metadata::methodology,
@@ -56,6 +57,8 @@ use utoipa::OpenApi;
         crate::dto::OilMetricPoint,
         crate::dto::OilTimeSeriesResponse,
         crate::dto::OilTimeSeriesPoint,
+        crate::dto::OilImportSource,
+        crate::dto::OilImportSourcesResponse,
         crate::dto::SourceRef,
         crate::dto::FreshnessInfo,
     ))

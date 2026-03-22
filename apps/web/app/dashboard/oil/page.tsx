@@ -1,10 +1,20 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@aus-dash/ui";
+import { OilCombinedChart } from "../../../components/oil-combined-chart";
+import { OilImportSourcesChart } from "../../../components/oil-import-sources-chart";
+import { OilTimeSeriesChart } from "../../../components/oil-timeseries-chart";
 import { ValueCard } from "../../../components/value-card";
 import { DashboardFrame } from "../../../features/site/components/dashboard-frame";
-import { getOilDashboardData } from "../../../lib/queries/oil-dashboard";
 import { formatOneDecimal } from "../../../lib/format";
+import { getOilDashboardData } from "../../../lib/queries/oil-dashboard";
 
 export const dynamic = "force-dynamic";
+
+const COLORS = {
+  production: "#2563eb",
+  imports: "#e11d48",
+  exports: "#f59e0b",
+  consumption: "#8b5cf6"
+} as const;
 
 export default async function OilPage() {
   try {
@@ -23,58 +33,84 @@ export default async function OilPage() {
           ))}
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-2">
+        {oil.importDependencyPct !== null && (
           <Card>
             <CardHeader>
-              <CardTitle>Production history</CardTitle>
-              <CardDescription>Crude oil production over time (kbd)</CardDescription>
+              <CardTitle>Import dependency</CardTitle>
+              <CardDescription>
+                Proportion of oil supply sourced from imports vs domestic production
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {oil.productionHistory.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No production history available.</p>
-              ) : (
-                <div className="divide-y">
-                  {oil.productionHistory.slice(0, 24).map((point) => (
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="mb-2 flex justify-between text-sm">
+                    <span className="font-medium" style={{ color: COLORS.production }}>
+                      Domestic {formatOneDecimal(100 - oil.importDependencyPct)}%
+                    </span>
+                    <span className="font-medium" style={{ color: COLORS.imports }}>
+                      Imported {formatOneDecimal(oil.importDependencyPct)}%
+                    </span>
+                  </div>
+                  <div className="h-4 w-full overflow-hidden rounded-full bg-muted">
                     <div
-                      key={point.period}
-                      className="grid grid-cols-2 items-center gap-3 py-2 text-sm"
-                    >
-                      <span className="font-medium text-muted-foreground">{point.period}</span>
-                      <span className="text-right font-semibold text-foreground">
-                        {formatOneDecimal(point.valueKbd)} kbd
-                      </span>
-                    </div>
-                  ))}
+                      className="h-full rounded-l-full transition-all"
+                      style={{
+                        width: `${100 - oil.importDependencyPct}%`,
+                        backgroundColor: COLORS.production
+                      }}
+                    />
+                  </div>
                 </div>
-              )}
+                <div className="text-right">
+                  <p className="text-2xl font-bold" style={{ color: COLORS.imports }}>
+                    {formatOneDecimal(oil.importDependencyPct)}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">import reliance</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
+        )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Import history</CardTitle>
-              <CardDescription>Total oil imports over time (kbd)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {oil.importHistory.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No import history available.</p>
-              ) : (
-                <div className="divide-y">
-                  {oil.importHistory.slice(0, 24).map((point) => (
-                    <div
-                      key={point.period}
-                      className="grid grid-cols-2 items-center gap-3 py-2 text-sm"
-                    >
-                      <span className="font-medium text-muted-foreground">{point.period}</span>
-                      <span className="text-right font-semibold text-foreground">
-                        {formatOneDecimal(point.valueKbd)} kbd
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <OilCombinedChart
+          production={oil.productionHistory}
+          imports={oil.importHistory}
+          exports={oil.exportHistory}
+          consumption={oil.consumptionHistory}
+        />
+
+        <OilImportSourcesChart
+          sources={oil.importSources}
+          period={oil.importSourcesPeriod}
+          totalUsd={oil.importSourcesTotalUsd}
+        />
+
+        <section className="grid gap-4 xl:grid-cols-2">
+          <OilTimeSeriesChart
+            data={oil.productionHistory}
+            title="Production"
+            description="Crude oil production over time (kbd)"
+            color={COLORS.production}
+          />
+          <OilTimeSeriesChart
+            data={oil.importHistory}
+            title="Imports"
+            description="Total oil imports over time (kbd)"
+            color={COLORS.imports}
+          />
+          <OilTimeSeriesChart
+            data={oil.exportHistory}
+            title="Exports"
+            description="Total oil exports over time (kbd)"
+            color={COLORS.exports}
+          />
+          <OilTimeSeriesChart
+            data={oil.consumptionHistory}
+            title="Consumption"
+            description="Total oil consumption over time (kbd)"
+            color={COLORS.consumption}
+          />
         </section>
       </DashboardFrame>
     );

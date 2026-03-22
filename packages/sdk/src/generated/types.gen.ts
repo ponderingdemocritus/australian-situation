@@ -125,6 +125,22 @@ export type MetricPoint = {
     value: number;
 };
 
+export type OilImportSource = {
+    countryCode: string;
+    countryName: string;
+    period: string;
+    sharePct: number;
+    valueUsd: number;
+};
+
+export type OilImportSourcesResponse = {
+    freshness: FreshnessInfo;
+    period: string;
+    sourceRefs: Array<SourceRef>;
+    sources: Array<OilImportSource>;
+    totalValueUsd: number;
+};
+
 export type OilMetricPoint = {
     countryCode: string;
     period: string;
@@ -349,6 +365,28 @@ export type SourcesResponses = {
 };
 
 export type SourcesResponse = SourcesResponses[keyof SourcesResponses];
+
+export type ImportSourcesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * HS commodity code (default 2709)
+         */
+        hs_code?: string;
+        /**
+         * Year filter (e.g. 2024)
+         */
+        period?: string;
+    };
+    url: '/api/oil/import-sources';
+};
+
+export type ImportSourcesResponses = {
+    200: OilImportSourcesResponse;
+};
+
+export type ImportSourcesResponse = ImportSourcesResponses[keyof ImportSourcesResponses];
 
 export type Overview3Data = {
     body?: never;

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AiDeflationData, AiDeflationResponses, FreshnessData, FreshnessResponses, GetSeriesData, GetSeriesResponses, HealthData, HealthResponses, LiveWholesaleData, LiveWholesaleResponses, MajorGoodsData, MajorGoodsResponses, MethodologyData, MethodologyResponses, Overview2Data, Overview2Responses, Overview3Data, Overview3Responses, OverviewData, OverviewResponses, RetailAverageData, RetailAverageResponses, RetailComparisonData, RetailComparisonResponses, SourcesData, SourcesResponses, TimeseriesData, TimeseriesResponses, WholesaleComparisonData, WholesaleComparisonResponses } from './types.gen';
+import type { AiDeflationData, AiDeflationResponses, FreshnessData, FreshnessResponses, GetSeriesData, GetSeriesResponses, HealthData, HealthResponses, ImportSourcesData, ImportSourcesResponses, LiveWholesaleData, LiveWholesaleResponses, MajorGoodsData, MajorGoodsResponses, MethodologyData, MethodologyResponses, Overview2Data, Overview2Responses, Overview3Data, Overview3Responses, OverviewData, OverviewResponses, RetailAverageData, RetailAverageResponses, RetailComparisonData, RetailComparisonResponses, SourcesData, SourcesResponses, TimeseriesData, TimeseriesResponses, WholesaleComparisonData, WholesaleComparisonResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -31,6 +31,8 @@ export const overview2 = <ThrowOnError extends boolean = false>(options?: Option
 export const freshness = <ThrowOnError extends boolean = false>(options?: Options<FreshnessData, ThrowOnError>) => (options?.client ?? client).get<FreshnessResponses, unknown, ThrowOnError>({ url: '/api/metadata/freshness', ...options });
 
 export const sources = <ThrowOnError extends boolean = false>(options?: Options<SourcesData, ThrowOnError>) => (options?.client ?? client).get<SourcesResponses, unknown, ThrowOnError>({ url: '/api/metadata/sources', ...options });
+
+export const importSources = <ThrowOnError extends boolean = false>(options?: Options<ImportSourcesData, ThrowOnError>) => (options?.client ?? client).get<ImportSourcesResponses, unknown, ThrowOnError>({ url: '/api/oil/import-sources', ...options });
 
 export const overview3 = <ThrowOnError extends boolean = false>(options?: Options<Overview3Data, ThrowOnError>) => (options?.client ?? client).get<Overview3Responses, unknown, ThrowOnError>({ url: '/api/oil/overview', ...options });
 

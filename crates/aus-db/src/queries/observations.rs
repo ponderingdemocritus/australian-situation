@@ -140,6 +140,40 @@ pub async fn upsert_batch(
     Ok((affected, 0))
 }
 
+/// List observations matching a series_id prefix pattern, optionally filtered by date.
+/// Results are ordered by value descending, useful for ranking import sources.
+pub async fn list_by_series_prefix(
+    pool: &PgPool,
+    series_prefix: &str,
+    date_filter: Option<&str>,
+) -> Result<Vec<Observation>, sqlx::Error> {
+    let pattern = format!("{}%", series_prefix);
+    match date_filter {
+        Some(date) => {
+            sqlx::query_as::<_, Observation>(
+                r#"SELECT * FROM observations
+                   WHERE series_id LIKE $1 AND date = $2
+                   ORDER BY value DESC"#,
+            )
+            .bind(&pattern)
+            .bind(date)
+            .fetch_all(pool)
+            .await
+        }
+        None => {
+            sqlx::query_as::<_, Observation>(
+                r#"SELECT DISTINCT ON (series_id)
+                   * FROM observations
+                   WHERE series_id LIKE $1
+                   ORDER BY series_id, date DESC, vintage DESC, ingested_at DESC"#,
+            )
+            .bind(&pattern)
+            .fetch_all(pool)
+            .await
+        }
+    }
+}
+
 /// Create a new observation ID.
 pub fn new_id() -> Uuid {
     Uuid::new_v4()

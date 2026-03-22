@@ -114,6 +114,90 @@ pub async fn overview(
 
 #[utoipa::path(
     get,
+    path = "/api/oil/import-sources",
+    params(
+        ("hs_code" = Option<String>, Query, description = "HS commodity code (default 2709)"),
+        ("period" = Option<String>, Query, description = "Year filter (e.g. 2024)"),
+    ),
+    responses((status = 200, body = OilImportSourcesResponse))
+)]
+pub async fn import_sources(
+    State(pool): State<PgPool>,
+    Query(params): Query<OilImportSourcesQuery>,
+) -> Result<Json<OilImportSourcesResponse>, AppError> {
+    let _hs_code = params.hs_code.as_deref().unwrap_or("2709");
+
+    // Query observations with series prefix for USD import sources
+    let observations = aus_db::queries::observations::list_by_series_prefix(
+        &pool,
+        "oil.imports.by_source.",
+        params.period.as_deref(),
+    )
+    .await?;
+
+    // Filter to USD series only (not kg)
+    let usd_obs: Vec<_> = observations
+        .iter()
+        .filter(|o| o.series_id.ends_with(".usd"))
+        .collect();
+
+    let total_value: f64 = usd_obs
+        .iter()
+        .map(|o| o.value.to_string().parse::<f64>().unwrap_or(0.0))
+        .sum();
+
+    let period = usd_obs
+        .first()
+        .map(|o| o.date.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let latest_ingested = usd_obs.iter().map(|o| o.ingested_at).max();
+
+    let freshness = aus_domain::freshness::compute_freshness(
+        "oil_comtrade",
+        "annual",
+        latest_ingested,
+    );
+
+    let mut sources: Vec<OilImportSource> = usd_obs
+        .iter()
+        .map(|o| {
+            let value = o.value.to_string().parse::<f64>().unwrap_or(0.0);
+            let share = if total_value > 0.0 {
+                (value / total_value) * 100.0
+            } else {
+                0.0
+            };
+            let country_code = o
+                .country_code
+                .clone()
+                .unwrap_or_else(|| "XX".to_string());
+            OilImportSource {
+                country_code: country_code.clone(),
+                country_name: country_code,
+                value_usd: value,
+                share_pct: (share * 100.0).round() / 100.0,
+                period: o.date.clone(),
+            }
+        })
+        .collect();
+
+    sources.sort_by(|a, b| b.value_usd.partial_cmp(&a.value_usd).unwrap_or(std::cmp::Ordering::Equal));
+
+    Ok(Json(OilImportSourcesResponse {
+        period,
+        total_value_usd: total_value,
+        sources,
+        source_refs: source_refs(&["un_comtrade"]),
+        freshness: FreshnessInfo {
+            updated_at: latest_ingested.map(|ts| ts.to_rfc3339()),
+            status: freshness_status_label(freshness.status),
+        },
+    }))
+}
+
+#[utoipa::path(
+    get,
     path = "/api/oil/timeseries",
     params(
         ("series_id" = Option<String>, Query, description = "Oil series ID (e.g. oil.production.kbd)"),

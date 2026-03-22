@@ -75,9 +75,11 @@ pub fn lag_minutes(published_at: DateTime<Utc>) -> i64 {
 pub fn freshness_status(cadence: &str, lag: i64) -> FreshnessStatus {
     let threshold = match cadence {
         "5m" => 20,
-        "daily" => 2880,      // 48 hours
-        "monthly" => 4320,    // 72 hours
-        "quarterly" => 10080, // 7 days
+        "daily" => 2880,        // 48 hours
+        "monthly" => 4320,      // 72 hours
+        "quarterly" => 10080,   // 7 days
+        "semiannual" => 262800, // ~6 months
+        "annual" => 525600,     // ~365 days
         _ => return FreshnessStatus::Stale,
     };
     if lag > threshold {

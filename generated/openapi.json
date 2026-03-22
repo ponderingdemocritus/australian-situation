@@ -202,6 +202,46 @@
         }
       }
     },
+    "/api/oil/import-sources": {
+      "get": {
+        "tags": [
+          "crate::routes::oil"
+        ],
+        "operationId": "import_sources",
+        "parameters": [
+          {
+            "name": "hs_code",
+            "in": "query",
+            "description": "HS commodity code (default 2709)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "description": "Year filter (e.g. 2024)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OilImportSourcesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/oil/overview": {
       "get": {
         "tags": [
@@ -1056,6 +1096,69 @@
             "type": "string"
           },
           "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "OilImportSource": {
+        "type": "object",
+        "required": [
+          "countryCode",
+          "countryName",
+          "valueUsd",
+          "sharePct",
+          "period"
+        ],
+        "properties": {
+          "countryCode": {
+            "type": "string"
+          },
+          "countryName": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "sharePct": {
+            "type": "number",
+            "format": "double"
+          },
+          "valueUsd": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "OilImportSourcesResponse": {
+        "type": "object",
+        "required": [
+          "period",
+          "totalValueUsd",
+          "sources",
+          "sourceRefs",
+          "freshness"
+        ],
+        "properties": {
+          "freshness": {
+            "$ref": "#/components/schemas/FreshnessInfo"
+          },
+          "period": {
+            "type": "string"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OilImportSource"
+            }
+          },
+          "totalValueUsd": {
             "type": "number",
             "format": "double"
           }
