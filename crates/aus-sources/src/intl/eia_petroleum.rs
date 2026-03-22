@@ -26,6 +26,53 @@ struct EiaResponseBody {
     data: Vec<EiaInternationalRow>,
 }
 
+fn deserialize_string_or_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+    struct StringOrF64;
+    impl<'de> de::Visitor<'de> for StringOrF64 {
+        type Value = Option<f64>;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("an f64 or string-encoded f64")
+        }
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> { Ok(Some(v)) }
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> { Ok(Some(v as f64)) }
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> { Ok(Some(v as f64)) }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            if v == "NA" || v == "--" || v.is_empty() { return Ok(None); }
+            v.parse::<f64>().map(Some).map_err(de::Error::custom)
+        }
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+    }
+    deserializer.deserialize_any(StringOrF64)
+}
+
+fn deserialize_string_or_u32<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+    struct StringOrU32;
+    impl<'de> de::Visitor<'de> for StringOrU32 {
+        type Value = Option<u32>;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("a u32 or string-encoded u32")
+        }
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(Some(v as u32))
+        }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            v.parse::<u32>().map(Some).map_err(de::Error::custom)
+        }
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+    }
+    deserializer.deserialize_any(StringOrU32)
+}
+
 #[derive(Deserialize)]
 struct EiaInternationalRow {
     period: Option<String>,
@@ -33,14 +80,15 @@ struct EiaInternationalRow {
     country_region_id: Option<String>,
     #[serde(rename = "countryRegionName")]
     country_region_name: Option<String>,
-    #[serde(rename = "activityId")]
+    #[serde(rename = "activityId", default, deserialize_with = "deserialize_string_or_u32")]
     activity_id: Option<u32>,
     #[serde(rename = "activityName")]
     activity_name: Option<String>,
-    #[serde(rename = "productId")]
+    #[serde(rename = "productId", default, deserialize_with = "deserialize_string_or_u32")]
     product_id: Option<u32>,
     #[serde(rename = "productName")]
     product_name: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_string_or_f64")]
     value: Option<f64>,
     unit: Option<String>,
 }
