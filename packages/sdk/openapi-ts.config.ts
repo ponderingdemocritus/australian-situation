@@ -5,7 +5,7 @@ type OpenApiTsConfigOverrides = {
 
 export function createOpenApiTsConfig(overrides: OpenApiTsConfigOverrides = {}) {
   return {
-    input: overrides.input ?? "../../apps/api/generated/openapi.json",
+    input: overrides.input ?? "../../generated/openapi.json",
     output: overrides.output ?? "src/generated",
     plugins: [
       "@hey-api/client-fetch",

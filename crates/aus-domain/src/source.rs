@@ -12,6 +12,7 @@ pub enum SourceDomain {
     Energy,
     Macro,
     Prices,
+    Oil,
 }
 
 /// An item in the source catalog.
@@ -209,6 +210,13 @@ pub fn source_catalog() -> Vec<SourceCatalogItem> {
             name: "World Bank Indicators API".into(),
             url: "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392-about-the-indicators-api-documentation".into(),
             expected_cadence: "annual".into(),
+        },
+        SourceCatalogItem {
+            source_id: "eia_petroleum".into(),
+            domain: SourceDomain::Oil,
+            name: "EIA International Petroleum Statistics".into(),
+            url: "https://www.eia.gov/opendata/documentation.php".into(),
+            expected_cadence: "monthly".into(),
         },
     ]
 }

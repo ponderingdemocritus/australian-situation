@@ -1,4 +1,4 @@
-import { getApiHousingOverview } from "@aus-dash/sdk";
+import { type HousingMetric, overview2 as housingOverviewSdk } from "@aus-dash/sdk";
 import { formatIsoDate, formatTwoDecimals, formatWholeNumber } from "../format";
 import { createPublicSdkOptions } from "../sdk/public";
 import { unwrapSdkData } from "../sdk/unwrap";
@@ -41,7 +41,7 @@ function formatOneDecimalOrWhole(value: number) {
 }
 
 export async function getHousingDashboardData(): Promise<HousingDashboardModel> {
-  const overviewResponse = await getApiHousingOverview({
+  const overviewResponse = await housingOverviewSdk({
     ...createPublicSdkOptions(),
     query: { region: "AU" }
   });
@@ -52,7 +52,7 @@ export async function getHousingDashboardData(): Promise<HousingDashboardModel> 
       title: "Housing pressure",
       summary: "Property values, lending, and mortgage pressure for the national market."
     },
-    metrics: overview.metrics.map((metric) => {
+    metrics: overview.metrics.map((metric: HousingMetric) => {
       const described = describeMetric(metric.seriesId, metric.value);
       return {
         label: described.label,

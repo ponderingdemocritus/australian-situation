@@ -1,10 +1,9 @@
 import {
-  getApiEnergyHouseholdEstimate,
-  getApiEnergyLiveWholesale,
-  getApiEnergyOverview,
-  getApiEnergyRetailAverage,
-  getApiV1EnergyCompareRetail,
-  getApiV1EnergyCompareWholesale
+  liveWholesale as liveWholesaleSdk,
+  overview as overviewSdk,
+  retailAverage as retailAverageSdk,
+  retailComparison as retailComparisonSdk,
+  wholesaleComparison as wholesaleComparisonSdk
 } from "@aus-dash/sdk";
 import {
   formatIsoDate,
@@ -169,13 +168,13 @@ function buildNationalComparison(input: {
   const comparisonSetSize = input.comparison.peers.length + 1;
   const percentileSuffix =
     typeof input.comparison.auPercentile === "number"
-      ? ` · Percentile ${formatWholeNumber(input.comparison.auPercentile)}`
+      ? ` \u00b7 Percentile ${formatWholeNumber(input.comparison.auPercentile)}`
       : "";
 
   return {
     title: input.title,
     summary: `Australia ranks ${input.comparison.auRank ?? "-"} of ${comparisonSetSize} peers${percentileSuffix}`,
-    detail: `${input.detailLabel} · ${input.comparison.methodologyVersion ?? "unknown"}`,
+    detail: `${input.detailLabel} \u00b7 ${input.comparison.methodologyVersion ?? "unknown"}`,
     peerGaps: (input.comparison.comparisons ?? []).map(
       (comparison) =>
         `${comparison.peerCountryCode} ${formatSignedPercent(comparison.gapPct)}`
@@ -210,7 +209,7 @@ export async function getEnergyDashboardData(
     retailComparisonResult,
     wholesaleComparisonResult
   ] = await Promise.all([
-    getApiEnergyOverview({
+    overviewSdk({
       ...options,
       query: { region: selectedRegion }
     }),
@@ -219,28 +218,22 @@ export async function getEnergyDashboardData(
           ok: false as const,
           error: new Error(`Unsupported region: ${selectedRegion}`)
         })
-      : getApiEnergyLiveWholesale({
+      : liveWholesaleSdk({
           ...options,
           query: { region: selectedRegion, window: "5m" }
         }).then(
           (value) => ({ ok: true as const, value }),
-          (error) => ({ ok: false as const, error })
+          (error: unknown) => ({ ok: false as const, error })
         ),
-    getApiEnergyRetailAverage({
+    retailAverageSdk({
       ...options,
-      query: { customer_type: "residential", region: selectedRegion }
+      query: { region: selectedRegion }
     }).then(
       (value) => ({ ok: true as const, value }),
-      (error) => ({ ok: false as const, error })
+      (error: unknown) => ({ ok: false as const, error })
     ),
-    getApiEnergyHouseholdEstimate({
-      ...options,
-      query: { region: selectedRegion, usage_profile: "household_mid" }
-    }).then(
-      (value) => ({ ok: true as const, value }),
-      (error) => ({ ok: false as const, error })
-    ),
-    getApiV1EnergyCompareRetail({
+    Promise.resolve({ ok: false as const, error: new Error("Household estimate endpoint not available") }),
+    retailComparisonSdk({
       ...options,
       query: {
         basis: "nominal",
@@ -253,7 +246,7 @@ export async function getEnergyDashboardData(
       (value) => ({ ok: true as const, value }),
       () => ({ ok: false as const })
     ),
-    getApiV1EnergyCompareWholesale({
+    wholesaleComparisonSdk({
       ...options,
       query: {
         country: "AU",
@@ -267,9 +260,8 @@ export async function getEnergyDashboardData(
   const overview = unwrapSdkData(overviewResponse);
   const liveWholesale = liveWholesaleResult.ok ? unwrapSdkData(liveWholesaleResult.value) : null;
   const retailAverage = retailAverageResult.ok ? unwrapSdkData(retailAverageResult.value) : null;
-  const householdEstimate = householdEstimateResult.ok
-    ? unwrapSdkData(householdEstimateResult.value)
-    : null;
+  // Household estimate endpoint was removed; result is always { ok: false }
+  const householdEstimate = null;
   const retailComparison = retailComparisonResult.ok
     ? unwrapSdkData(retailComparisonResult.value)
     : null;
@@ -282,7 +274,7 @@ export async function getEnergyDashboardData(
           selectedRegion,
           liveWholesaleResult.ok ? null : liveWholesaleResult.error
         )
-      : `1h avg ${formatOneDecimal(liveWholesale.rollups.oneHourAvgAudMwh)} AUD/MWh · 24h avg ${formatOneDecimal(liveWholesale.rollups.twentyFourHourAvgAudMwh)} AUD/MWh`;
+      : `1h avg ${formatOneDecimal(liveWholesale.rollups?.oneHourAvgAudMwh ?? 0)} AUD/MWh \u00b7 24h avg ${formatOneDecimal(liveWholesale.rollups?.twentyFourHourAvgAudMwh ?? 0)} AUD/MWh`;
 
   return {
     region: selectedRegion,
@@ -300,7 +292,7 @@ export async function getEnergyDashboardData(
           }
         : {
             label: "Latest interval",
-            value: `${formatOneDecimal(liveWholesale.latest.valueAudMwh)} AUD/MWh`,
+            value: `${formatOneDecimal(liveWholesale.latest?.valueAudMwh ?? 0)} AUD/MWh`,
             detail: liveWholesaleDetail
           },
     retailAverage:
@@ -312,47 +304,40 @@ export async function getEnergyDashboardData(
           }
         : {
             label: "Residential mean bill",
-            value: `${formatWholeNumber(retailAverage.annualBillAudMean)} AUD/year`,
-            detail: `${formatOneDecimal(retailAverage.usageRateCKwhMean)} c/kWh · ${formatOneDecimal(retailAverage.dailyChargeAudDayMean)} AUD/day`
+            value: `${formatWholeNumber(retailAverage.annualBillAudMean ?? 0)} AUD/year`,
+            detail: `${formatOneDecimal(retailAverage.usageRateCKwhMean ?? 0)} c/kWh \u00b7 ${formatOneDecimal(retailAverage.dailyChargeAudDayMean ?? 0)} AUD/day`
           },
-    householdEstimate:
-      householdEstimate === null
-        ? {
-            label: "Household estimate",
-            value: "Unavailable",
-            detail: resolveErrorMessage(householdEstimateResult.ok ? null : householdEstimateResult.error)
-          }
-        : {
-            label: "Household estimate",
-            value: `${formatWholeNumber(householdEstimate.monthlyAud)} AUD/month`,
-            detail: `${householdEstimate.usageProfile} · ${householdEstimate.confidence}`
-          },
+    householdEstimate: {
+      label: "Household estimate",
+      value: "Unavailable",
+      detail: resolveErrorMessage(householdEstimateResult.ok ? null : householdEstimateResult.error)
+    },
     metrics: [
       {
         label: "Live wholesale",
         value:
           liveWholesale === null
             ? "Unavailable"
-            : `${formatOneDecimal(overview.panels.liveWholesale.valueAudMwh)} AUD/MWh`,
+            : `${formatOneDecimal(overview.panels.liveWholesale?.valueAudMwh ?? 0)} AUD/MWh`,
         detail:
           liveWholesale === null
             ? liveWholesaleDetail
-            : `${formatOneDecimal(overview.panels.liveWholesale.valueCKwh)} c/kWh`
+            : `${formatOneDecimal(overview.panels.liveWholesale?.valueCKwh ?? 0)} c/kWh`
       },
       {
         label: "Retail average",
-        value: `${formatWholeNumber(overview.panels.retailAverage.annualBillAudMean)} AUD/year`,
-        detail: `Median ${formatWholeNumber(overview.panels.retailAverage.annualBillAudMedian)} AUD`
+        value: `${formatWholeNumber(overview.panels.retailAverage?.annualBillAudMean ?? 0)} AUD/year`,
+        detail: `Median ${formatWholeNumber(overview.panels.retailAverage?.annualBillAudMedian ?? 0)} AUD`
       },
       {
         label: "Benchmark bill",
-        value: `${formatWholeNumber(overview.panels.benchmark.dmoAnnualBillAud)} AUD/year`,
+        value: `${formatWholeNumber(overview.panels.benchmark?.dmoAnnualBillAud ?? 0)} AUD/year`,
         detail: "Default market offer"
       },
       {
         label: "Electricity CPI",
-        value: formatOneDecimal(overview.panels.cpiElectricity.indexValue),
-        detail: overview.panels.cpiElectricity.period
+        value: formatOneDecimal(overview.panels.cpiElectricity?.indexValue ?? 0),
+        detail: overview.panels.cpiElectricity?.period ?? "Unknown"
       }
     ],
     nationalComparisons: [
@@ -373,7 +358,7 @@ export async function getEnergyDashboardData(
       coverage: view.coverageLabel,
       title: view.title,
       topRows: view.rows.slice(0, 3).map((row) => `${row.label} ${formatOneDecimal(row.sharePct)}%`),
-      updatedAt: formatIsoDate(view.updatedAt)
+      updatedAt: formatIsoDate(view.updatedAt ?? "")
     }))
   };
 }

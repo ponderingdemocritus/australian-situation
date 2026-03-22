@@ -1,9 +1,10 @@
 import {
-  getApiEnergyOverview,
-  getApiHealth,
-  getApiHousingOverview,
-  getApiMetadataFreshness,
-  getApiMetadataSources
+  type FreshnessSeriesItem,
+  overview as overviewSdk,
+  health as healthSdk,
+  overview2 as housingOverviewSdk,
+  freshness as freshnessSdk,
+  sources as sourcesSdk
 } from "@aus-dash/sdk";
 import { createPublicSdkOptions } from "../sdk/public";
 import { unwrapSdkData } from "../sdk/unwrap";
@@ -102,22 +103,22 @@ export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
 
   const [healthResponse, energyResponse, housingResponse, freshnessResponse, sourcesResponse] =
     await Promise.all([
-    getApiHealth(options),
-    getApiEnergyOverview({
+    healthSdk(options),
+    overviewSdk({
       ...options,
       query: { region: "AU" }
     }),
-    getApiHousingOverview({
+    housingOverviewSdk({
       ...options,
       query: { region: "AU" }
     }),
-    getApiMetadataFreshness(options),
-    getApiMetadataSources(options)
+    freshnessSdk(options),
+    sourcesSdk(options)
   ]);
   const health = unwrapSdkData(healthResponse);
   const energy = unwrapSdkData(energyResponse);
   const housing = unwrapSdkData(housingResponse);
-  const freshness = unwrapSdkData(freshnessResponse);
+  const freshnessData = unwrapSdkData(freshnessResponse);
   const sources = unwrapSdkData(sourcesResponse);
 
   return {
@@ -126,9 +127,9 @@ export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
       description: "Live conditions drawn directly from the generated SDK.",
       detail: `${sources.sources.length} public source${sources.sources.length === 1 ? "" : "s"}`
     },
-    chart: freshness.series.slice(0, 6).map((series) => ({
+    chart: freshnessData.series.slice(0, 6).map((series: FreshnessSeriesItem) => ({
       label: series.seriesId.split(".").slice(-2).join("."),
-      lag: series.lagMinutes
+      lag: series.lagMinutes ?? 0
     })),
     metrics: [
       {
@@ -145,8 +146,8 @@ export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
       }
     ],
     metadata: {
-      freshness: `${freshness.staleSeriesCount} stale series`,
-      generatedAt: `Generated ${formatShortDate(freshness.generatedAt)}`,
+      freshness: `${freshnessData.staleSeriesCount} stale series`,
+      generatedAt: `Generated ${formatShortDate(freshnessData.generatedAt)}`,
       methodSummary: energy.methodSummary
     }
   };

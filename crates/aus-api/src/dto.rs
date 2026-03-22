@@ -346,3 +346,55 @@ pub struct PriceIndexItem {
     pub date: String,
     pub value: f64,
 }
+
+// ---------------------------------------------------------------------------
+// Oil / Petroleum
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilOverviewResponse {
+    pub region: String,
+    pub source_refs: Vec<SourceRef>,
+    pub production: Option<OilMetricPoint>,
+    pub imports: Option<OilMetricPoint>,
+    pub exports: Option<OilMetricPoint>,
+    pub consumption: Option<OilMetricPoint>,
+    pub freshness: FreshnessInfo,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilMetricPoint {
+    pub period: String,
+    pub value_kbd: f64,
+    pub country_code: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilTimeSeriesResponse {
+    pub series_id: String,
+    pub region: String,
+    pub points: Vec<OilTimeSeriesPoint>,
+    pub source_refs: Vec<SourceRef>,
+    pub freshness: FreshnessInfo,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilTimeSeriesPoint {
+    pub period: String,
+    pub value_kbd: f64,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct OilOverviewQuery {
+    pub region: Option<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct OilTimeSeriesQuery {
+    pub series_id: Option<String>,
+    pub region: Option<String>,
+}

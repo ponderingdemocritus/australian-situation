@@ -1,4 +1,4 @@
-import { getApiV1MetadataMethodology } from "@aus-dash/sdk";
+import { methodology as methodologySdk } from "@aus-dash/sdk";
 import { createPublicSdkOptions } from "../sdk/public";
 import { unwrapSdkData } from "../sdk/unwrap";
 
@@ -18,7 +18,7 @@ export type MethodologyDashboardModel = {
 export async function getMethodologyDashboardData(
   metric = "energy.compare.retail"
 ): Promise<MethodologyDashboardModel> {
-  const response = await getApiV1MetadataMethodology({
+  const response = await methodologySdk({
     ...createPublicSdkOptions(),
     query: { metric }
   });

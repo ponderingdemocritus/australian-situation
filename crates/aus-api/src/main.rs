@@ -6,9 +6,20 @@ mod openapi;
 mod routes;
 
 use tracing_subscriber::EnvFilter;
+use utoipa::OpenApi;
 
 #[tokio::main]
 async fn main() {
+    // Dump OpenAPI spec and exit if requested
+    if std::env::args().any(|a| a == "--dump-openapi") {
+        let spec = openapi::ApiDoc::openapi();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&spec).expect("Failed to serialize OpenAPI spec")
+        );
+        return;
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();

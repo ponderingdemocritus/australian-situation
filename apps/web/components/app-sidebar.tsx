@@ -10,9 +10,11 @@ import {
   SidebarMenuItem
 } from "@aus-dash/ui";
 import {
+  IconActivity,
   IconBolt,
   IconChartBar,
   IconDatabase,
+  IconDroplet,
   IconFileDescription,
   IconHome,
   IconListDetails,
@@ -25,10 +27,12 @@ const icons = {
   Energy: IconBolt,
   Housing: IconHome,
   Methodology: IconFileDescription,
+  Oil: IconDroplet,
   Overview: IconChartBar,
   Prices: IconReceipt,
   Series: IconSearch,
-  Sources: IconDatabase
+  Sources: IconDatabase,
+  Status: IconActivity
 } as const;
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -66,7 +70,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <SidebarFooter>
         <div className="px-2 text-xs leading-5 text-sidebar-foreground/70">
-          SDK-backed dashboard routes
+          Australian economic indicators
         </div>
       </SidebarFooter>
     </Sidebar>

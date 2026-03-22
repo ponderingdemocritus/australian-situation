@@ -1,15 +1,8 @@
 "use server";
 
-import {
-  postApiPricesIntakeBatches,
-  postApiPricesUnresolvedItemsByIdClassify,
-  postApiPricesUnresolvedItemsByIdPromote,
-  postApiPricesUnresolvedItemsByIdReconcile
-} from "@aus-dash/sdk";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createProtectedSdkOptions } from "../../../lib/sdk/protected";
-import { unwrapSdkData } from "../../../lib/sdk/unwrap";
 
 function requireProtectedOptions() {
   const options = createProtectedSdkOptions();
@@ -39,99 +32,27 @@ function requiredString(formData: FormData, key: string) {
   return value;
 }
 
-function optionalBoolean(formData: FormData, key: string) {
-  return formData.get(key) === "on";
-}
-
 function redirectToPrices() {
   revalidatePath("/dashboard/prices");
   redirect("/dashboard/prices");
 }
 
-export async function submitPriceIntake(formData: FormData) {
-  const options = requireProtectedOptions();
-
-  const response = await postApiPricesIntakeBatches({
-    ...options,
-    body: {
-      sourceId: requiredString(formData, "sourceId"),
-      items: [
-        {
-          observedAt: requiredString(formData, "observedAt"),
-          merchantName: requiredString(formData, "merchantName"),
-          regionCode: requiredString(formData, "regionCode"),
-          title: requiredString(formData, "title"),
-          externalOfferId: requiredString(formData, "externalOfferId"),
-          priceAmount: Number(requiredString(formData, "priceAmount")),
-          categoryHint: optionalString(formData, "categoryHint"),
-          listingUrl: optionalString(formData, "listingUrl"),
-          normalizedUnit: optionalString(formData, "normalizedUnit")
-        }
-      ]
-    }
-  });
-
-  unwrapSdkData(response);
-  redirectToPrices();
+export async function submitPriceIntake(_formData: FormData) {
+  requireProtectedOptions();
+  throw new Error("Price intake endpoint has been removed from the API.");
 }
 
-export async function reconcilePriceItem(formData: FormData) {
-  const options = requireProtectedOptions();
-  const id = requiredString(formData, "unresolvedItemId");
-
-  const response = await postApiPricesUnresolvedItemsByIdReconcile({
-    ...options,
-    body: {
-      canonicalCategorySlug: requiredString(formData, "canonicalCategorySlug"),
-      canonicalCategoryName: requiredString(formData, "canonicalCategoryName"),
-      canonicalProductSlug: requiredString(formData, "canonicalProductSlug"),
-      canonicalProductName: requiredString(formData, "canonicalProductName"),
-      notes: optionalString(formData, "notes")
-    },
-    path: { id }
-  });
-
-  unwrapSdkData(response);
-  redirectToPrices();
+export async function reconcilePriceItem(_formData: FormData) {
+  requireProtectedOptions();
+  throw new Error("Price reconciliation endpoint has been removed from the API.");
 }
 
-export async function classifyPriceItem(formData: FormData) {
-  const options = requireProtectedOptions();
-  const id = requiredString(formData, "unresolvedItemId");
-
-  const response = await postApiPricesUnresolvedItemsByIdClassify({
-    ...options,
-    body: {
-      aiExposureLevel: optionalString(formData, "aiExposureLevel") as
-        | "high"
-        | "low"
-        | "medium"
-        | undefined,
-      aiExposureReason: optionalString(formData, "aiExposureReason"),
-      comparableUnitBasis: optionalString(formData, "comparableUnitBasis"),
-      countryOfOrigin: optionalString(formData, "countryOfOrigin"),
-      domesticValueShareBand: optionalString(formData, "domesticValueShareBand"),
-      isAustralianMade: optionalBoolean(formData, "isAustralianMade"),
-      isControlCandidate: optionalBoolean(formData, "isControlCandidate"),
-      manufacturerName: optionalString(formData, "manufacturerName"),
-      productFamilySlug: optionalString(formData, "productFamilySlug")
-    },
-    path: { id }
-  });
-
-  unwrapSdkData(response);
-  redirectToPrices();
+export async function classifyPriceItem(_formData: FormData) {
+  requireProtectedOptions();
+  throw new Error("Price classification endpoint has been removed from the API.");
 }
 
-export async function promotePriceItem(formData: FormData) {
-  const options = requireProtectedOptions();
-  const id = requiredString(formData, "unresolvedItemId");
-
-  const response = await postApiPricesUnresolvedItemsByIdPromote({
-    ...options,
-    path: { id }
-  });
-
-  unwrapSdkData(response);
-  redirectToPrices();
+export async function promotePriceItem(_formData: FormData) {
+  requireProtectedOptions();
+  throw new Error("Price promotion endpoint has been removed from the API.");
 }

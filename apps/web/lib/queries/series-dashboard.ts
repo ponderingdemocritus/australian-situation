@@ -1,4 +1,4 @@
-import { getApiSeriesById } from "@aus-dash/sdk";
+import { type MetricPoint, getSeries as getSeriesSdk } from "@aus-dash/sdk";
 import { createPublicSdkOptions } from "../sdk/public";
 import { unwrapSdkData } from "../sdk/unwrap";
 
@@ -19,7 +19,7 @@ export async function getSeriesDashboardData(
   seriesId = "prices.major_goods.overall.index",
   region = "AU"
 ): Promise<SeriesDashboardModel> {
-  const response = await getApiSeriesById({
+  const response = await getSeriesSdk({
     ...createPublicSdkOptions(),
     path: { id: seriesId },
     query: { region }
@@ -33,7 +33,7 @@ export async function getSeriesDashboardData(
     },
     seriesId: data.seriesId,
     region: data.region,
-    points: data.points.map((point) => ({
+    points: data.points.map((point: MetricPoint) => ({
       date: point.date,
       value: point.value.toFixed(2)
     }))

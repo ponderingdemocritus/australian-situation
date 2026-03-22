@@ -65,6 +65,16 @@ pub const AI_DEFLATION_SERIES_IDS: &[&str] = &[
     "prices.ai_deflation.spread.au_made_vs_control.index",
 ];
 
+/// Oil/petroleum series IDs.
+pub const OIL_PETROLEUM_SERIES_IDS: &[&str] = &[
+    "oil.production.crude.au.kbd",
+    "oil.imports.total.au.kbd",
+    "oil.exports.total.au.kbd",
+    "oil.consumption.total.au.kbd",
+    "oil.production.crude.country.kbd",
+    "oil.imports.total.country.kbd",
+];
+
 /// Tax status for energy pricing data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub enum TaxStatus {

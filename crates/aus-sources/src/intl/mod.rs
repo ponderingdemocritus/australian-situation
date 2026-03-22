@@ -1,5 +1,6 @@
 pub mod beijing;
 pub mod eia;
+pub mod eia_petroleum;
 pub mod entsoe;
 pub mod eurostat;
 pub mod nea_china;

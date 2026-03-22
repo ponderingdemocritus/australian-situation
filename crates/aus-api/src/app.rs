@@ -35,6 +35,8 @@ pub fn create_app(pool: PgPool) -> Router {
             "/api/v1/energy/compare/wholesale",
             get(routes::energy::wholesale_comparison),
         )
+        .route("/api/oil/overview", get(routes::oil::overview))
+        .route("/api/oil/timeseries", get(routes::oil::timeseries))
         .nest("/api/prices", price_routes)
         .route("/api/metadata/freshness", get(routes::metadata::freshness))
         .route("/api/metadata/sources", get(routes::metadata::sources))
