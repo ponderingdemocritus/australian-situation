@@ -77,7 +77,7 @@ pub fn iso3_to_iso2(code: &str) -> &'static str {
 pub async fn fetch_fuel_imports(
     client: &(impl SourceFetch + ?Sized),
 ) -> Result<Vec<WitsTradeImport>, SourceClientError> {
-    let url = "https://wits.worldbank.org/API/V1/SDMX/V21/rest/data/DF_WITS_TradeStats_Trade/A.AUS..27-27_Fuels.MPRT-TRD-VL";
+    let url = "https://wits.worldbank.org/API/V1/SDMX/V21/rest/data/DF_WITS_TradeStats_Trade/A.AUS..27-27_Fuels.MPRT-TRD-VL/";
 
     let resp = client.get(url, "application/xml").await?;
     parse_sdmx_response(&resp.body)
@@ -99,90 +99,75 @@ fn parse_sdmx_response(xml: &str) -> Result<Vec<WitsTradeImport>, SourceClientEr
     let mut obs_period: Option<String> = None;
     let mut obs_value: Option<f64> = None;
 
+    fn local_name_string(e: &quick_xml::events::BytesStart<'_>) -> String {
+        let ln = e.local_name();
+        std::str::from_utf8(ln.as_ref()).unwrap_or("").to_string()
+    }
+
+    fn attr_string(attr: &quick_xml::events::attributes::Attribute<'_>) -> (String, String) {
+        let kln = attr.key.local_name();
+        let k = std::str::from_utf8(kln.as_ref()).unwrap_or("").to_string();
+        let v = std::str::from_utf8(&attr.value).unwrap_or("").to_string();
+        (k, v)
+    }
+
     loop {
         match reader.read_event() {
-            Ok(Event::Start(ref e) | Event::Empty(ref e)) => {
-                let local_name = e.local_name();
-                let local_name_str = std::str::from_utf8(local_name.as_ref()).unwrap_or("");
-
-                match local_name_str {
-                    "Series" => {
-                        in_series = true;
-                        current_partner = None;
-                    }
-                    "Value" if in_series && !in_obs => {
-                        // SeriesKey Value element
-                        let mut id = None;
-                        let mut val = None;
-                        for attr in e.attributes().flatten() {
-                            let local = attr.key.local_name();
-                            let key = std::str::from_utf8(local.as_ref()).unwrap_or("");
-                            let v = std::str::from_utf8(&attr.value).unwrap_or("");
-                            match key {
-                                "id" => id = Some(v.to_string()),
-                                "value" => val = Some(v.to_string()),
-                                _ => {}
-                            }
-                        }
-                        if id.as_deref() == Some("PARTNER") {
-                            current_partner = val;
-                        }
-                    }
-                    "Obs" => {
-                        in_obs = true;
-                        obs_period = None;
-                        obs_value = None;
-                    }
-                    "ObsDimension" if in_obs => {
-                        for attr in e.attributes().flatten() {
-                            let local = attr.key.local_name();
-                            let key = std::str::from_utf8(local.as_ref()).unwrap_or("");
-                            if key == "value" {
-                                obs_period = Some(
-                                    std::str::from_utf8(&attr.value).unwrap_or("").to_string(),
-                                );
-                            }
-                        }
-                    }
-                    "ObsValue" if in_obs => {
-                        for attr in e.attributes().flatten() {
-                            let local = attr.key.local_name();
-                            let key = std::str::from_utf8(local.as_ref()).unwrap_or("");
-                            if key == "value" {
-                                obs_value = std::str::from_utf8(&attr.value)
-                                    .ok()
-                                    .and_then(|s| s.parse::<f64>().ok());
-                            }
-                        }
-                    }
-                    _ => {}
+            Ok(Event::Start(ref e)) => {
+                let name = local_name_string(e);
+                if name == "Series" {
+                    in_series = true;
+                    current_partner = None;
+                } else if name == "Obs" {
+                    in_obs = true;
+                    obs_period = None;
+                    obs_value = None;
                 }
-
-                // If this was an Empty Obs element, finalize it
-                if local_name_str == "Obs" && matches!(reader.read_event(), Ok(Event::End(_))) {
-                    // We already moved past the end; handle below
+            }
+            Ok(Event::Empty(ref e)) => {
+                let name = local_name_string(e);
+                if name == "Value" && in_series && !in_obs {
+                    let mut id = None;
+                    let mut val = None;
+                    for attr in e.attributes().flatten() {
+                        let (k, v) = attr_string(&attr);
+                        if k == "id" { id = Some(v); }
+                        else if k == "value" { val = Some(v); }
+                    }
+                    if id.as_deref() == Some("PARTNER") {
+                        current_partner = val;
+                    }
+                } else if name == "ObsDimension" && in_obs {
+                    for attr in e.attributes().flatten() {
+                        let (k, v) = attr_string(&attr);
+                        if k == "value" {
+                            obs_period = Some(v);
+                        }
+                    }
+                } else if name == "ObsValue" && in_obs {
+                    for attr in e.attributes().flatten() {
+                        let (k, v) = attr_string(&attr);
+                        if k == "value" {
+                            obs_value = v.parse::<f64>().ok();
+                        }
+                    }
                 }
             }
             Ok(Event::End(ref e)) => {
-                let local_name = e.local_name();
-                let local_name_str = std::str::from_utf8(local_name.as_ref()).unwrap_or("");
-
-                match local_name_str {
-                    "Obs" => {
-                        if let (Some(partner), Some(period), Some(value)) =
-                            (&current_partner, &obs_period, obs_value)
-                        {
-                            raw_records.push((partner.clone(), period.clone(), value));
-                        }
-                        in_obs = false;
-                        obs_period = None;
-                        obs_value = None;
+                let ln = e.local_name();
+                let name = std::str::from_utf8(ln.as_ref()).unwrap_or("");
+                if name == "Obs" {
+                    if let (Some(partner), Some(period), Some(value)) =
+                        (&current_partner, &obs_period, obs_value)
+                    {
+                        raw_records.push((partner.clone(), period.clone(), value));
                     }
-                    "Series" => {
-                        in_series = false;
-                        current_partner = None;
-                    }
-                    _ => {}
+                    in_obs = false;
+                    obs_period = None;
+                    obs_value = None;
+                } else if name == "Series" {
+                    in_series = false;
+                    current_partner = None;
                 }
             }
             Ok(Event::Eof) => break,
