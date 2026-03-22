@@ -1,6 +1,6 @@
 use aus_domain::observation::{LiveObservation, ObservationConfidence};
 use aus_sources::intl::eia_petroleum::EiaOilDataPoint;
-use aus_sources::intl::un_comtrade::{UnComtradeOilImport, m49_to_iso2};
+use aus_sources::intl::wits_trade::{WitsTradeImport, iso3_to_iso2};
 use chrono::Utc;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -58,65 +58,48 @@ pub fn map_eia_oil_points(points: Vec<EiaOilDataPoint>) -> Vec<LiveObservation> 
         .collect()
 }
 
-/// Map UN Comtrade oil import records into LiveObservations.
+/// Map WITS fuel import records into LiveObservations.
 ///
-/// Each import produces two observations:
-/// - One for USD value (`oil.imports.by_source.au.usd`)
-/// - One for net weight in kg (`oil.imports.by_source.au.kg`)
-pub fn map_comtrade_oil_imports(imports: Vec<UnComtradeOilImport>) -> Vec<LiveObservation> {
+/// Each import produces one observation for USD value.
+/// Values are converted from thousands of USD to USD.
+pub fn map_wits_fuel_imports(imports: Vec<WitsTradeImport>) -> Vec<LiveObservation> {
     let now = Utc::now();
-    let mut observations = Vec::with_capacity(imports.len() * 2);
 
-    for imp in imports {
-        let iso2 = m49_to_iso2(imp.partner_code);
-        let country_code = if iso2 == "XX" {
-            // Fall back to partner name for unmapped codes
-            imp.partner_name.clone()
-        } else {
-            iso2.to_string()
-        };
+    imports
+        .into_iter()
+        .filter_map(|imp| {
+            let iso2 = iso3_to_iso2(&imp.partner_code);
+            if iso2 == "XX" {
+                return None; // Skip unmapped partner codes
+            }
 
-        let base = LiveObservation {
-            series_id: String::new(),
-            region_code: "AU".to_string(),
-            date: imp.period.clone(),
-            value: Decimal::ZERO,
-            unit: String::new(),
-            source_name: "UN Comtrade".to_string(),
-            source_url: "https://comtradeapi.un.org".to_string(),
-            published_at: now,
-            ingested_at: now,
-            vintage: "latest".to_string(),
-            is_modeled: false,
-            confidence: ObservationConfidence::Official,
-            country_code: Some(country_code.clone()),
-            market: None,
-            metric_family: Some("petroleum_trade".to_string()),
-            currency: None,
-            interval_start_utc: None,
-            interval_end_utc: None,
-            tax_status: None,
-            consumption_band: None,
-            methodology_version: Some("oil-comtrade-v1".to_string()),
-        };
+            let value_usd = imp.value_thousand_usd * 1000.0;
 
-        // USD value observation
-        let mut usd_obs = base.clone();
-        usd_obs.series_id = format!("oil.imports.by_source.{}.usd", country_code.to_lowercase());
-        usd_obs.value = Decimal::from_f64(imp.value_usd).unwrap_or_default();
-        usd_obs.unit = "usd".to_string();
-        usd_obs.currency = Some("USD".to_string());
-        observations.push(usd_obs);
-
-        // Weight observation
-        let mut kg_obs = base;
-        kg_obs.series_id = format!("oil.imports.by_source.{}.kg", country_code.to_lowercase());
-        kg_obs.value = Decimal::from_f64(imp.net_weight_kg).unwrap_or_default();
-        kg_obs.unit = "kg".to_string();
-        observations.push(kg_obs);
-    }
-
-    observations
+            Some(LiveObservation {
+                series_id: format!("oil.imports.by_source.{}.usd", iso2.to_lowercase()),
+                region_code: "AU".to_string(),
+                date: imp.period,
+                value: Decimal::from_f64(value_usd).unwrap_or_default(),
+                unit: "usd".to_string(),
+                source_name: "World Bank WITS".to_string(),
+                source_url: "https://wits.worldbank.org".to_string(),
+                published_at: now,
+                ingested_at: now,
+                vintage: "latest".to_string(),
+                is_modeled: false,
+                confidence: ObservationConfidence::Official,
+                country_code: Some(iso2.to_string()),
+                market: None,
+                metric_family: Some("petroleum_trade".to_string()),
+                currency: Some("USD".to_string()),
+                interval_start_utc: None,
+                interval_end_utc: None,
+                tax_status: None,
+                consumption_band: None,
+                methodology_version: Some("oil-wits-trade-v1".to_string()),
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -194,48 +177,54 @@ mod tests {
         );
     }
 
-    fn sample_comtrade_import(partner_code: i64, partner_name: &str) -> UnComtradeOilImport {
-        UnComtradeOilImport {
-            partner_code,
-            partner_name: partner_name.to_string(),
-            hs_code: "2709".to_string(),
-            period: "2024".to_string(),
-            value_usd: 1_000_000.0,
-            net_weight_kg: 500_000.0,
+    fn sample_wits_import(partner_code: &str) -> WitsTradeImport {
+        WitsTradeImport {
+            partner_code: partner_code.to_string(),
+            partner_name: partner_code.to_string(),
+            product_code: "27-27_Fuels".to_string(),
+            period: "2023".to_string(),
+            value_thousand_usd: 1000.0,
         }
     }
 
     #[test]
-    fn maps_comtrade_imports_to_two_observations_each() {
-        let imports = vec![sample_comtrade_import(682, "Saudi Arabia")];
-        let obs = map_comtrade_oil_imports(imports);
-        assert_eq!(obs.len(), 2);
-        assert_eq!(obs[0].series_id, "oil.imports.by_source.sa.usd");
+    fn maps_wits_imports_to_one_observation_each() {
+        let imports = vec![sample_wits_import("SGP")];
+        let obs = map_wits_fuel_imports(imports);
+        assert_eq!(obs.len(), 1);
+        assert_eq!(obs[0].series_id, "oil.imports.by_source.sg.usd");
         assert_eq!(obs[0].unit, "usd");
         assert_eq!(obs[0].currency, Some("USD".to_string()));
-        assert_eq!(obs[1].series_id, "oil.imports.by_source.sa.kg");
-        assert_eq!(obs[1].unit, "kg");
     }
 
     #[test]
-    fn comtrade_sets_correct_metadata() {
-        let imports = vec![sample_comtrade_import(682, "Saudi Arabia")];
-        let obs = map_comtrade_oil_imports(imports);
+    fn wits_converts_thousands_to_usd() {
+        let imports = vec![sample_wits_import("KOR")];
+        let obs = map_wits_fuel_imports(imports);
+        // 1000 * 1000 = 1_000_000
+        let value: f64 = obs[0].value.to_string().parse().unwrap();
+        assert!((value - 1_000_000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn wits_sets_correct_metadata() {
+        let imports = vec![sample_wits_import("KOR")];
+        let obs = map_wits_fuel_imports(imports);
         let o = &obs[0];
         assert_eq!(o.region_code, "AU");
-        assert_eq!(o.source_name, "UN Comtrade");
-        assert_eq!(o.country_code, Some("SA".to_string()));
+        assert_eq!(o.source_name, "World Bank WITS");
+        assert_eq!(o.country_code, Some("KR".to_string()));
         assert_eq!(o.metric_family, Some("petroleum_trade".to_string()));
         assert_eq!(
             o.methodology_version,
-            Some("oil-comtrade-v1".to_string())
+            Some("oil-wits-trade-v1".to_string())
         );
     }
 
     #[test]
-    fn comtrade_unknown_partner_uses_name() {
-        let imports = vec![sample_comtrade_import(9999, "Atlantis")];
-        let obs = map_comtrade_oil_imports(imports);
-        assert_eq!(obs[0].country_code, Some("Atlantis".to_string()));
+    fn wits_skips_unknown_partner_codes() {
+        let imports = vec![sample_wits_import("ZZZ")];
+        let obs = map_wits_fuel_imports(imports);
+        assert!(obs.is_empty());
     }
 }

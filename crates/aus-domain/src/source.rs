@@ -219,10 +219,10 @@ pub fn source_catalog() -> Vec<SourceCatalogItem> {
             expected_cadence: "monthly".into(),
         },
         SourceCatalogItem {
-            source_id: "un_comtrade".into(),
+            source_id: "wits_trade".into(),
             domain: SourceDomain::Oil,
-            name: "UN Comtrade Trade Statistics".into(),
-            url: "https://comtradeapi.un.org".into(),
+            name: "World Bank WITS Trade Statistics".into(),
+            url: "https://wits.worldbank.org".into(),
             expected_cadence: "annual".into(),
         },
     ]

@@ -16,6 +16,7 @@ csv = { workspace = true }
 scraper = { workspace = true }
 async-trait = "0.1"
 regex = "1"
+quick-xml = "0.37"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }

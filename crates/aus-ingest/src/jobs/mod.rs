@@ -10,7 +10,7 @@ pub mod housing;
 pub mod interest_rates;
 pub mod major_goods;
 pub mod normalization;
-pub mod oil_comtrade;
+pub mod oil_wits;
 pub mod oil_petroleum;
 
 use aus_domain::observation::LiveObservation;
@@ -77,7 +77,7 @@ pub fn job_registry() -> Vec<JobDefinition> {
             cron: "0 0 5 * * *",
         },
         JobDefinition {
-            name: "sync-oil-comtrade-annual",
+            name: "sync-oil-wits-trade-annual",
             cron: "0 0 4 1 * *",
         },
     ]
@@ -103,7 +103,7 @@ pub async fn run_job(
         "sync-normalization-daily" => normalization::run(pool, client).await,
         "sync-major-goods-daily" => major_goods::run(pool, client).await,
         "sync-oil-eia-petroleum-daily" => oil_petroleum::run(pool, client).await,
-        "sync-oil-comtrade-annual" => oil_comtrade::run(pool, client).await,
+        "sync-oil-wits-trade-annual" => oil_wits::run(pool, client).await,
         _ => Err(format!("Unknown job: {name}").into()),
     }
 }

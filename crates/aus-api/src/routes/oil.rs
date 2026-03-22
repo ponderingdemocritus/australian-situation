@@ -188,7 +188,7 @@ pub async fn import_sources(
         period,
         total_value_usd: total_value,
         sources,
-        source_refs: source_refs(&["un_comtrade"]),
+        source_refs: source_refs(&["wits_trade"]),
         freshness: FreshnessInfo {
             updated_at: latest_ingested.map(|ts| ts.to_rfc3339()),
             status: freshness_status_label(freshness.status),
