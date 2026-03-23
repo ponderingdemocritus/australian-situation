@@ -2,8 +2,8 @@ pub mod models;
 pub mod pool;
 pub mod queries;
 
-/// Run all SQL migrations in order. Safe to call on every startup —
-/// each migration is guarded by IF NOT EXISTS / idempotent DDL.
+/// Run all SQL migrations in order. Safe to call on every startup.
+/// Tolerates "already exists" errors for idempotent bootstrap on existing DBs.
 pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
     sqlx::query("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT now())")
         .execute(pool)
@@ -25,20 +25,39 @@ pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
 
         if !already_applied {
             tracing::info!("applying migration: {name}");
-            // Execute each statement individually (sqlx doesn't support multi-statement in one query)
+            let mut had_error = false;
             for statement in sql.split(';') {
                 let trimmed = statement.trim();
-                if !trimmed.is_empty() {
-                    sqlx::query(trimmed).execute(pool).await?;
+                if trimmed.is_empty() {
+                    continue;
+                }
+                match sqlx::query(trimmed).execute(pool).await {
+                    Ok(_) => {}
+                    Err(sqlx::Error::Database(ref e)) if is_already_exists_error(e.as_ref()) => {
+                        tracing::debug!("skipping (already exists): {}", e.message());
+                    }
+                    Err(e) => {
+                        tracing::error!("migration {name} failed: {e}");
+                        had_error = true;
+                        return Err(e);
+                    }
                 }
             }
-            sqlx::query("INSERT INTO _migrations (name) VALUES ($1)")
-                .bind(name)
-                .execute(pool)
-                .await?;
+            if !had_error {
+                sqlx::query("INSERT INTO _migrations (name) VALUES ($1)")
+                    .bind(name)
+                    .execute(pool)
+                    .await?;
+            }
         }
     }
 
     tracing::info!("migrations complete");
     Ok(())
+}
+
+fn is_already_exists_error(e: &dyn sqlx::error::DatabaseError) -> bool {
+    // PostgreSQL error codes for "already exists" variants
+    // 42701 = duplicate_column, 42P07 = duplicate_table, 42710 = duplicate_object
+    matches!(e.code().as_deref(), Some("42701" | "42P07" | "42710"))
 }

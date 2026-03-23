@@ -24,6 +24,7 @@ impl HttpFetcher {
         Self {
             client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(120))
+                .user_agent("aus-dash/1.0 (https://github.com/ponderingdemocritus/australian-situation)")
                 .build()
                 .unwrap_or_else(|_| reqwest::Client::new()),
         }
