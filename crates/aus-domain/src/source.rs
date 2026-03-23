@@ -225,5 +225,12 @@ pub fn source_catalog() -> Vec<SourceCatalogItem> {
             url: "https://wits.worldbank.org".into(),
             expected_cadence: "annual".into(),
         },
+        SourceCatalogItem {
+            source_id: "jodi_oil".into(),
+            domain: SourceDomain::Oil,
+            name: "JODI Oil World Database".into(),
+            url: "https://www.jodidata.org".into(),
+            expected_cadence: "monthly".into(),
+        },
     ]
 }

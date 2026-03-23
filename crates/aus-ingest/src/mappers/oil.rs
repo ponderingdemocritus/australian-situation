@@ -1,5 +1,6 @@
 use aus_domain::observation::{LiveObservation, ObservationConfidence};
 use aus_sources::intl::eia_petroleum::EiaOilDataPoint;
+use aus_sources::intl::jodi_oil::JodiOilDataPoint;
 use aus_sources::intl::wits_trade::{WitsTradeImport, iso3_to_iso2};
 use chrono::Utc;
 use rust_decimal::prelude::FromPrimitive;
@@ -54,6 +55,50 @@ pub fn map_eia_oil_points(points: Vec<EiaOilDataPoint>) -> Vec<LiveObservation> 
                 consumption_band: None,
                 methodology_version: Some("oil-eia-international-v1".to_string()),
             }
+        })
+        .collect()
+}
+
+/// Map JODI Oil data points into LiveObservations.
+///
+/// Maps JODI flow codes to the same series IDs used by EIA, so JODI data
+/// supplements/updates EIA data with more recent observations.
+pub fn map_jodi_oil_points(points: Vec<JodiOilDataPoint>) -> Vec<LiveObservation> {
+    let now = Utc::now();
+    points
+        .into_iter()
+        .filter_map(|p| {
+            let series_id = match p.flow.as_str() {
+                "INDPROD" => "oil.production.crude.au.kbd",
+                "TOTIMPSB" => "oil.imports.total.au.kbd",
+                "TOTEXPSB" => "oil.exports.total.au.kbd",
+                "REFINOBS" => "oil.consumption.total.au.kbd",
+                _ => return None,
+            };
+
+            Some(LiveObservation {
+                series_id: series_id.to_string(),
+                region_code: "AU".to_string(),
+                date: p.period,
+                value: Decimal::from_f64(p.value_kbd).unwrap_or_default(),
+                unit: "kbd".to_string(),
+                source_name: "JODI".to_string(),
+                source_url: "https://www.jodidata.org".to_string(),
+                published_at: now,
+                ingested_at: now,
+                vintage: "latest".to_string(),
+                is_modeled: false,
+                confidence: ObservationConfidence::Official,
+                country_code: Some("AU".to_string()),
+                market: None,
+                metric_family: Some("petroleum".to_string()),
+                currency: None,
+                interval_start_utc: None,
+                interval_end_utc: None,
+                tax_status: None,
+                consumption_band: None,
+                methodology_version: Some("oil-jodi-primary-v1".to_string()),
+            })
         })
         .collect()
 }
@@ -226,5 +271,67 @@ mod tests {
         let imports = vec![sample_wits_import("ZZZ")];
         let obs = map_wits_fuel_imports(imports);
         assert!(obs.is_empty());
+    }
+
+    fn sample_jodi_point(flow: &str) -> JodiOilDataPoint {
+        JodiOilDataPoint {
+            country_code: "AU".to_string(),
+            period: "2025-06".to_string(),
+            product: "CRUDEOIL".to_string(),
+            flow: flow.to_string(),
+            value_kbd: 250.0,
+        }
+    }
+
+    #[test]
+    fn maps_jodi_production() {
+        let obs = map_jodi_oil_points(vec![sample_jodi_point("INDPROD")]);
+        assert_eq!(obs.len(), 1);
+        assert_eq!(obs[0].series_id, "oil.production.crude.au.kbd");
+    }
+
+    #[test]
+    fn maps_jodi_imports() {
+        let obs = map_jodi_oil_points(vec![sample_jodi_point("TOTIMPSB")]);
+        assert_eq!(obs.len(), 1);
+        assert_eq!(obs[0].series_id, "oil.imports.total.au.kbd");
+    }
+
+    #[test]
+    fn maps_jodi_exports() {
+        let obs = map_jodi_oil_points(vec![sample_jodi_point("TOTEXPSB")]);
+        assert_eq!(obs.len(), 1);
+        assert_eq!(obs[0].series_id, "oil.exports.total.au.kbd");
+    }
+
+    #[test]
+    fn maps_jodi_refinery_to_consumption() {
+        let obs = map_jodi_oil_points(vec![sample_jodi_point("REFINOBS")]);
+        assert_eq!(obs.len(), 1);
+        assert_eq!(obs[0].series_id, "oil.consumption.total.au.kbd");
+    }
+
+    #[test]
+    fn jodi_skips_unknown_flows() {
+        let obs = map_jodi_oil_points(vec![sample_jodi_point("UNKNOWN")]);
+        assert!(obs.is_empty());
+    }
+
+    #[test]
+    fn jodi_sets_correct_metadata() {
+        let obs = map_jodi_oil_points(vec![sample_jodi_point("INDPROD")]);
+        let o = &obs[0];
+        assert_eq!(o.region_code, "AU");
+        assert_eq!(o.unit, "kbd");
+        assert_eq!(o.source_name, "JODI");
+        assert_eq!(o.source_url, "https://www.jodidata.org");
+        assert_eq!(o.country_code, Some("AU".to_string()));
+        assert_eq!(o.metric_family, Some("petroleum".to_string()));
+        assert_eq!(
+            o.methodology_version,
+            Some("oil-jodi-primary-v1".to_string())
+        );
+        assert!(!o.is_modeled);
+        assert_eq!(o.confidence, ObservationConfidence::Official);
     }
 }

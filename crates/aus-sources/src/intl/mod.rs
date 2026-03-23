@@ -3,6 +3,7 @@ pub mod eia;
 pub mod eia_petroleum;
 pub mod entsoe;
 pub mod eurostat;
+pub mod jodi_oil;
 pub mod nea_china;
 pub mod pln;
 pub mod wits_trade;
