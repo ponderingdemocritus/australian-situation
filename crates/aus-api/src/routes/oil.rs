@@ -5,6 +5,50 @@ use sqlx::PgPool;
 use crate::dto::*;
 use crate::error::AppError;
 
+fn iso2_to_name(code: &str) -> String {
+    match code {
+        "KR" => "South Korea",
+        "SG" => "Singapore",
+        "MY" => "Malaysia",
+        "BN" => "Brunei",
+        "CN" => "China",
+        "JP" => "Japan",
+        "IN" => "India",
+        "US" => "United States",
+        "VN" => "Vietnam",
+        "ID" => "Indonesia",
+        "NZ" => "New Zealand",
+        "TH" => "Thailand",
+        "RU" => "Russia",
+        "AE" => "UAE",
+        "SA" => "Saudi Arabia",
+        "QA" => "Qatar",
+        "NG" => "Nigeria",
+        "PG" => "Papua New Guinea",
+        "GB" => "United Kingdom",
+        "DE" => "Germany",
+        "TW" => "Taiwan",
+        "CG" => "Congo",
+        "AO" => "Angola",
+        "GA" => "Gabon",
+        "AU" => "Australia",
+        "FR" => "France",
+        "IT" => "Italy",
+        "ES" => "Spain",
+        "CA" => "Canada",
+        "BR" => "Brazil",
+        "MX" => "Mexico",
+        "KW" => "Kuwait",
+        "OM" => "Oman",
+        "IQ" => "Iraq",
+        "IR" => "Iran",
+        "PK" => "Pakistan",
+        "PH" => "Philippines",
+        "MM" => "Myanmar",
+        other => return other.to_string(),
+    }.to_string()
+}
+
 fn parse_region(region: &str) -> Result<String, AppError> {
     let upper = region.to_uppercase();
     aus_domain::region::RegionCode::parse(&upper)?;
@@ -173,8 +217,8 @@ pub async fn import_sources(
                 .clone()
                 .unwrap_or_else(|| "XX".to_string());
             OilImportSource {
-                country_code: country_code.clone(),
-                country_name: country_code,
+                country_name: iso2_to_name(&country_code).to_string(),
+                country_code,
                 value_usd: value,
                 share_pct: (share * 100.0).round() / 100.0,
                 period: o.date.clone(),
