@@ -127,7 +127,7 @@ pub async fn fetch_oil_data(
 mod tests {
     use super::*;
     use crate::error::SourceClientError;
-    use crate::fetch::{FetchResponse, SourceFetch};
+    use crate::fetch::{FetchBytesResponse, FetchResponse, SourceFetch};
     use async_trait::async_trait;
 
     struct MockFetcher {
@@ -144,6 +144,17 @@ mod tests {
             Ok(FetchResponse {
                 status: 200,
                 body: self.body.clone(),
+            })
+        }
+
+        async fn get_bytes(
+            &self,
+            _url: &str,
+            _accept: &str,
+        ) -> Result<FetchBytesResponse, SourceClientError> {
+            Ok(FetchBytesResponse {
+                status: 200,
+                body: self.body.as_bytes().to_vec(),
             })
         }
     }

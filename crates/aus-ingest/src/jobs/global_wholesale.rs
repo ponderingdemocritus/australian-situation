@@ -9,23 +9,31 @@ pub async fn run(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tracing::info!("sync-global-wholesale-daily: starting");
 
-    // ENTSO-E Europe
-    let entsoe_url = super::source_url("entsoe_wholesale");
-    let entsoe_points = aus_sources::intl::entsoe::fetch_wholesale(client, &entsoe_url).await?;
-    let entsoe_obs = mappers::energy::map_entsoe_wholesale(entsoe_points);
+    let mut all_observations = Vec::new();
 
-    // EIA US (returns both retail and wholesale; we only take wholesale here)
+    // ENTSO-E Europe (requires API key; best-effort)
+    let entsoe_url = super::source_url("entsoe_wholesale");
+    match aus_sources::intl::entsoe::fetch_wholesale(client, &entsoe_url).await {
+        Ok(points) => all_observations.extend(mappers::energy::map_entsoe_wholesale(points)),
+        Err(e) => tracing::warn!("ENTSO-E fetch failed (non-fatal): {e}"),
+    }
+
+    // EIA US (requires API key; best-effort)
     let eia_url = super::source_url("eia_electricity");
-    let (_retail, wholesale) = aus_sources::intl::eia::fetch_electricity(client, &eia_url).await?;
-    let eia_obs = mappers::energy::map_eia_wholesale(wholesale);
+    match aus_sources::intl::eia::fetch_electricity(client, &eia_url).await {
+        Ok((_retail, wholesale)) => {
+            all_observations.extend(mappers::energy::map_eia_wholesale(wholesale));
+        }
+        Err(e) => tracing::warn!("EIA fetch failed (non-fatal): {e}"),
+    }
 
     // NEA China
-    let nea_points = aus_sources::intl::nea_china::fetch_wholesale_proxy(client).await?;
-    let nea_obs = mappers::energy::map_nea_china_wholesale(nea_points);
-
-    let mut all_observations = entsoe_obs;
-    all_observations.extend(eia_obs);
-    all_observations.extend(nea_obs);
+    match aus_sources::intl::nea_china::fetch_wholesale_proxy(client).await {
+        Ok(points) => {
+            all_observations.extend(mappers::energy::map_nea_china_wholesale(points));
+        }
+        Err(e) => tracing::warn!("NEA China fetch failed (non-fatal): {e}"),
+    }
 
     let obs_models = super::to_db_observations(&all_observations);
     let (inserted, _updated) =

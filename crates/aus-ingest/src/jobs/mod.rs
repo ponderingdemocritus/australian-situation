@@ -8,6 +8,7 @@ pub mod global_retail;
 pub mod global_wholesale;
 pub mod housing;
 pub mod interest_rates;
+pub mod lending;
 pub mod major_goods;
 pub mod normalization;
 pub mod oil_jodi;
@@ -85,6 +86,10 @@ pub fn job_registry() -> Vec<JobDefinition> {
             name: "sync-oil-jodi-monthly",
             cron: "0 0 6 * * *",
         },
+        JobDefinition {
+            name: "sync-lending-quarterly",
+            cron: "0 0 8 1 * *",
+        },
     ]
 }
 
@@ -110,6 +115,7 @@ pub async fn run_job(
         "sync-oil-eia-petroleum-daily" => oil_petroleum::run(pool, client).await,
         "sync-oil-wits-trade-annual" => oil_wits::run(pool, client).await,
         "sync-oil-jodi-monthly" => oil_jodi::run(pool, client).await,
+        "sync-lending-quarterly" => lending::run(pool, client).await,
         _ => Err(format!("Unknown job: {name}").into()),
     }
 }

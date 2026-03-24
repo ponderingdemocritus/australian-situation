@@ -7,16 +7,22 @@ pub fn map_aemo_wholesale(
     points: Vec<aus_sources::au::aemo::AemoWholesalePoint>,
 ) -> Vec<LiveObservation> {
     let now = Utc::now();
-    points
-        .into_iter()
-        .map(|p| LiveObservation {
-            series_id: "energy.wholesale_price_5m".to_string(),
-            region_code: p.region_code,
+
+    // Produce per-region observations and compute a demand-weighted AU average.
+    let mut region_obs: Vec<LiveObservation> = Vec::new();
+    let mut total_rrp_demand = 0.0_f64;
+    let mut total_demand = 0.0_f64;
+
+    for p in &points {
+        // Per-region observation
+        region_obs.push(LiveObservation {
+            series_id: "energy.wholesale.rrp.region_aud_mwh".to_string(),
+            region_code: p.region_code.clone(),
             date: p.settlement_date.clone(),
             value: Decimal::from_f64(p.rrp_aud_mwh).unwrap_or_default(),
             unit: "AUD/MWh".to_string(),
             source_name: "AEMO".to_string(),
-            source_url: "https://www.nemweb.com.au".to_string(),
+            source_url: "https://nemweb.com.au".to_string(),
             published_at: now,
             ingested_at: now,
             vintage: "latest".to_string(),
@@ -31,8 +37,44 @@ pub fn map_aemo_wholesale(
             tax_status: None,
             consumption_band: None,
             methodology_version: None,
-        })
-        .collect()
+        });
+
+        // Accumulate for weighted average (use equal weight if no demand data)
+        let demand = p.demand_mwh.unwrap_or(1.0);
+        total_rrp_demand += p.rrp_aud_mwh * demand;
+        total_demand += demand;
+    }
+
+    // Compute demand-weighted AU average
+    if total_demand > 0.0 && !points.is_empty() {
+        let avg_rrp = total_rrp_demand / total_demand;
+        let date = points[0].settlement_date.clone();
+        region_obs.push(LiveObservation {
+            series_id: "energy.wholesale.rrp.au_weighted_aud_mwh".to_string(),
+            region_code: "AU".to_string(),
+            date,
+            value: Decimal::from_f64(avg_rrp).unwrap_or_default(),
+            unit: "AUD/MWh".to_string(),
+            source_name: "AEMO".to_string(),
+            source_url: "https://nemweb.com.au".to_string(),
+            published_at: now,
+            ingested_at: now,
+            vintage: "latest".to_string(),
+            is_modeled: false,
+            confidence: ObservationConfidence::Derived,
+            country_code: Some("AU".to_string()),
+            market: Some("NEM".to_string()),
+            metric_family: Some("energy.wholesale".to_string()),
+            currency: Some("AUD".to_string()),
+            interval_start_utc: None,
+            interval_end_utc: None,
+            tax_status: None,
+            consumption_band: None,
+            methodology_version: None,
+        });
+    }
+
+    region_obs
 }
 
 pub fn map_eia_retail(

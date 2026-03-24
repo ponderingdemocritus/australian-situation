@@ -235,6 +235,17 @@ mod tests {
                 body: self.body.clone(),
             })
         }
+
+        async fn get_bytes(
+            &self,
+            _url: &str,
+            _accept: &str,
+        ) -> Result<crate::fetch::FetchBytesResponse, SourceClientError> {
+            Ok(crate::fetch::FetchBytesResponse {
+                status: 200,
+                body: self.body.as_bytes().to_vec(),
+            })
+        }
     }
 
     fn sample_sdmx_xml() -> String {

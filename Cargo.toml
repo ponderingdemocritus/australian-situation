@@ -51,6 +51,7 @@ clap = { version = "4", features = ["derive", "env"] }
 # Parsing
 csv = "1"
 scraper = "0.22"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 # Testing
 insta = { version = "1", features = ["json", "redactions"] }
