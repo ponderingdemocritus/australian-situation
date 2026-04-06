@@ -9,8 +9,5 @@ cd "$ROOT_DIR"
 echo "Migrating Postgres schema..."
 bun --filter @aus-dash/db db:migrate
 
-echo "Running Postgres-backed API parity..."
-bun --filter @aus-dash/api test tests/postgres-parity.test.ts
-
 echo "Running Postgres-backed ingest persistence checks..."
 bun --filter @aus-dash/ingest test tests/postgres-persistence-integration.test.ts

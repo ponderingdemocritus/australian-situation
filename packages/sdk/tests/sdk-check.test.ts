@@ -28,7 +28,7 @@ describe("@aus-dash/sdk drift checks", () => {
     });
     writeFileSync(
       staleOpenApiPath,
-      `${readFileSync(path.join(repoRoot, "apps/api/generated/openapi.json"), "utf8")}\n`,
+      `${readFileSync(path.join(repoRoot, "generated/openapi.json"), "utf8")}\n`,
       "utf8"
     );
     writeFileSync(

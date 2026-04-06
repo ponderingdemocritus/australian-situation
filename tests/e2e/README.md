@@ -9,7 +9,7 @@ bun --filter @aus-dash/e2e test
 ```
 
 This starts:
-- `@aus-dash/api` against `apps/ingest/data/live-store.json`
+- `aus-api` (Rust) via `cargo run -p aus-api`
 - `@aus-dash/web` with `NEXT_PUBLIC_API_BASE_URL` pointed at that API
 
 The web server uses host/port from Playwright config (default `127.0.0.1:3000`).

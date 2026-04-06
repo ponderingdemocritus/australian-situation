@@ -1,9 +1,6 @@
-import { spawn } from "node:child_process";
-import { createServer as createHttpServer } from "node:http";
+import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import path from "node:path";
-import { getRequestListener } from "@hono/node-server";
-import { createApp } from "../../../apps/api/src/app";
 
 export type CliResult = {
   status: number | null;
@@ -18,7 +15,6 @@ export type StartedServer = {
 
 const packageRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(packageRoot, "..", "..", "..");
-const storePath = path.join(repoRoot, "data/live-store.json");
 
 function getAvailablePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -47,22 +43,31 @@ function getAvailablePort(): Promise<number> {
 
 export async function startServer(): Promise<StartedServer> {
   const port = await getAvailablePort();
-  process.env.AUS_DASH_STORE_PATH = storePath;
-  const app = createApp({
+  const child: ChildProcess = spawn("cargo", ["run", "-p", "aus-api"], {
+    cwd: repoRoot,
     env: {
       ...process.env,
-      AUS_DASH_STORE_PATH: storePath
-    }
+      API_PORT: String(port)
+    },
+    stdio: ["ignore", "pipe", "pipe"]
   });
-  const server = createHttpServer(getRequestListener(app.fetch));
 
-  await new Promise<void>((resolve) => {
-    server.listen(port, "127.0.0.1", () => resolve());
-  });
+  // Wait for the server to be ready by polling the health endpoint
+  const url = `http://127.0.0.1:${port}`;
+  const maxAttempts = 60;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const res = await fetch(`${url}/api/health`);
+      if (res.ok) break;
+    } catch {
+      // not ready yet
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
 
   return {
-    stop: () => server.close(),
-    url: `http://127.0.0.1:${port}`
+    stop: () => child.kill(),
+    url
   };
 }
 

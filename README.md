@@ -35,7 +35,7 @@ Monorepo for AUS Dash ingestion, API, and dashboard apps.
 
 - Housing, energy, and major-goods price index metrics
 - Source metadata + freshness metadata
-- Internal API-first architecture (`apps/api`) used by the dashboard (`apps/web`)
+- Internal API-first architecture (`crates/aus-api`) used by the dashboard (`apps/web`)
 
 ## How It Works
 
@@ -54,7 +54,7 @@ Monorepo for AUS Dash ingestion, API, and dashboard apps.
   - Postgres (optional)
         |
         v
-[apps/api repositories + routes]
+[crates/aus-api routes]
         |
         v
 [apps/web dashboard]
@@ -121,7 +121,7 @@ The generated contract is the source of truth:
 
 - `/api/docs` serves ReDoc for the current API.
 - `/api/openapi.json` serves the generated OpenAPI document.
-- `bun run docs:check` validates the generated docs in CI and local validation.
+- `bun run sdk:check` validates the generated SDK artifacts in CI and local validation.
 
 Use the generated docs instead of maintaining endpoint tables by hand in `README.md`.
 
@@ -252,22 +252,21 @@ How the index is calculated:
 How to add another price source:
 
 1. Add a stable `sourceId` to `packages/shared/src/live-store.ts`.
-2. Add any new public series ids to `packages/data-contract/src/series.ts`.
+2. Add any new public series ids to `packages/shared/src/live-store.ts`.
 3. Implement fetch/parse in `apps/ingest/src/sources/live-source-clients.ts`.
 4. Extend or add a sync job in `apps/ingest/src/jobs/` that maps source rows into the canonical price warehouse shape.
 5. Persist raw rows through `apps/ingest/src/repositories/postgres-price-warehouse.ts`.
 6. Publish any new curated index outputs through `persistIngestArtifacts(...)`.
-7. If the public API contract changes, update `apps/api/src/routes/`, repository methods, OpenAPI tests, and this README.
+7. If the public API contract changes, update `crates/aus-api/` routes, OpenAPI spec, and this README.
 
 Validation flow for price-index changes:
 
 ```bash
 bun --filter @aus-dash/db test
-bun --filter @aus-dash/data-contract test
 bun --filter @aus-dash/shared test
 bun --filter @aus-dash/ingest test
-bun --filter @aus-dash/api test
-bun run docs:check
+cargo test -p aus-api
+bun run sdk:check
 ```
 
 ## Data Backends
@@ -293,11 +292,11 @@ Ingest backend is selected via `AUS_DASH_INGEST_BACKEND` with the same values (`
 ```text
 apps/
   web/       Next.js dashboard
-  api/       Hono API
   ingest/    ingestion jobs + source clients
+crates/
+  aus-api/   Rust/Axum API (serves OpenAPI at /api/openapi.json)
 packages/
   ui/            shared UI components
-  data-contract/ canonical series + region contracts
   db/            Drizzle schema/config
   shared/        shared helpers/types + live-store utilities
 tests/
@@ -307,7 +306,7 @@ tests/
 ## Contributing
 
 - Source-of-truth contributor workflow is in `AGENTS.md`.
-- If you add or modify endpoints, update the route contracts and keep `bun run docs:check` green.
+- If you add or modify endpoints, update the route contracts and keep `bun run sdk:check` green.
 
 ## Planning Docs
 
