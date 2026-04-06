@@ -1,29 +1,36 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import * as sdk from "@aus-dash/sdk";
 import { getDashboardOverview } from "../lib/queries/dashboard-overview";
 
-const sdkMocks = vi.hoisted(() => ({
-  getApiEnergyOverview: vi.fn(),
-  getApiHealth: vi.fn(),
-  getApiHousingOverview: vi.fn(),
-  getApiMetadataFreshness: vi.fn(),
-  getApiMetadataSources: vi.fn()
+vi.mock("@aus-dash/sdk", () => ({
+  overview: vi.fn(),
+  health: vi.fn(),
+  overview2: vi.fn(),
+  freshness: vi.fn(),
+  sources: vi.fn()
 }));
 
-vi.mock("@aus-dash/sdk", () => sdkMocks);
+const sdkMocks = {
+  overview: vi.mocked(sdk.overview),
+  health: vi.mocked(sdk.health),
+  overview2: vi.mocked(sdk.overview2),
+  freshness: vi.mocked(sdk.freshness),
+  sources: vi.mocked(sdk.sources)
+};
 
 describe("getDashboardOverview", () => {
   beforeEach(() => {
-    sdkMocks.getApiHealth.mockReset();
-    sdkMocks.getApiEnergyOverview.mockReset();
-    sdkMocks.getApiHousingOverview.mockReset();
-    sdkMocks.getApiMetadataFreshness.mockReset();
-    sdkMocks.getApiMetadataSources.mockReset();
+    sdkMocks.health.mockReset();
+    sdkMocks.overview.mockReset();
+    sdkMocks.overview2.mockReset();
+    sdkMocks.freshness.mockReset();
+    sdkMocks.sources.mockReset();
 
-    sdkMocks.getApiHealth.mockResolvedValue({
+    sdkMocks.health.mockResolvedValue({
       service: "aus-dash-api",
       status: "ok"
-    });
-    sdkMocks.getApiEnergyOverview.mockResolvedValue({
+    } as any);
+    sdkMocks.overview.mockResolvedValue({
       region: "AU",
       methodSummary: "Combines wholesale, retail, benchmark, and CPI source data.",
       sourceRefs: [
@@ -51,8 +58,8 @@ describe("getDashboardOverview", () => {
         status: "fresh",
         updatedAt: "2026-03-07T03:00:00Z"
       }
-    });
-    sdkMocks.getApiHousingOverview.mockResolvedValue({
+    } as any);
+    sdkMocks.overview2.mockResolvedValue({
       region: "AU",
       requiredSeriesIds: [],
       missingSeriesIds: [],
@@ -63,8 +70,8 @@ describe("getDashboardOverview", () => {
         { seriesId: "lending.investor.count", date: "2025-12-31", value: 16950 }
       ],
       updatedAt: "2025-12-31"
-    });
-    sdkMocks.getApiMetadataFreshness.mockResolvedValue({
+    } as any);
+    sdkMocks.freshness.mockResolvedValue({
       generatedAt: "2026-03-07T03:10:00Z",
       staleSeriesCount: 2,
       series: [
@@ -77,8 +84,8 @@ describe("getDashboardOverview", () => {
           freshnessStatus: "stale"
         }
       ]
-    });
-    sdkMocks.getApiMetadataSources.mockResolvedValue({
+    } as any);
+    sdkMocks.sources.mockResolvedValue({
       generatedAt: "2026-03-07T03:10:00Z",
       sources: [
         {
@@ -96,7 +103,7 @@ describe("getDashboardOverview", () => {
           expectedCadence: "monthly"
         }
       ]
-    });
+    } as any);
   });
 
   test("maps SDK responses into dashboard-ready overview cards", async () => {
@@ -136,20 +143,64 @@ describe("getDashboardOverview", () => {
   test("requests public overview data for the Australian national view", async () => {
     await getDashboardOverview();
 
-    expect(sdkMocks.getApiHealth).toHaveBeenCalledTimes(1);
-    expect(sdkMocks.getApiEnergyOverview).toHaveBeenCalledWith(
+    expect(sdkMocks.health).toHaveBeenCalledTimes(1);
+    expect(sdkMocks.overview).toHaveBeenCalledWith(
       expect.objectContaining({
         query: { region: "AU" },
         responseStyle: "data",
         throwOnError: true
       })
     );
-    expect(sdkMocks.getApiHousingOverview).toHaveBeenCalledWith(
+    expect(sdkMocks.overview2).toHaveBeenCalledWith(
       expect.objectContaining({
         query: { region: "AU" },
         responseStyle: "data",
         throwOnError: true
       })
     );
+  });
+
+  test("keeps the overview renderable when the energy overview panels are missing", async () => {
+    sdkMocks.overview.mockResolvedValueOnce({
+      region: "AU",
+      methodSummary: "Combines wholesale, retail, benchmark, and CPI source data.",
+      sourceRefs: [],
+      sourceMixViews: [],
+      panels: {
+        liveWholesale: null,
+        retailAverage: null,
+        benchmark: null,
+        cpiElectricity: null
+      },
+      freshness: {
+        status: "stale",
+        updatedAt: null
+      }
+    } as any);
+
+    const overview = await getDashboardOverview();
+
+    expect(overview.metrics).toEqual([
+      {
+        label: "API health",
+        value: "Operational",
+        detail: "aus-dash-api"
+      },
+      {
+        label: "Live wholesale",
+        value: "Unavailable",
+        detail: "Overview panel unavailable"
+      },
+      {
+        label: "Retail average",
+        value: "Unavailable",
+        detail: "Median unavailable"
+      },
+      {
+        label: "Housing coverage",
+        value: "4 tracked metrics",
+        detail: "Updated 2025-12-31"
+      }
+    ]);
   });
 });

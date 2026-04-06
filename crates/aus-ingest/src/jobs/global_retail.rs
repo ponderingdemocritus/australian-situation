@@ -9,29 +9,37 @@ pub async fn run(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tracing::info!("sync-global-retail-daily: starting");
 
+    let mut all_observations = Vec::new();
+
     // Eurostat
     let eurostat_url = super::source_url("eurostat_retail");
-    let eurostat_points = aus_sources::intl::eurostat::fetch_retail(client, &eurostat_url).await?;
-    let eurostat_obs = mappers::energy::map_eurostat_retail(eurostat_points);
+    match aus_sources::intl::eurostat::fetch_retail(client, &eurostat_url).await {
+        Ok(points) => all_observations.extend(mappers::energy::map_eurostat_retail(points)),
+        Err(e) => tracing::warn!("Eurostat fetch failed (non-fatal): {e}"),
+    }
 
-    // EIA US retail
+    // EIA US retail (requires API key; best-effort)
     let eia_url = super::source_url("eia_electricity");
-    let (eia_retail, _wholesale) =
-        aus_sources::intl::eia::fetch_electricity(client, &eia_url).await?;
-    let eia_obs = mappers::energy::map_eia_retail(eia_retail);
+    match aus_sources::intl::eia::fetch_electricity(client, &eia_url).await {
+        Ok((retail, _wholesale)) => {
+            all_observations.extend(mappers::energy::map_eia_retail(retail));
+        }
+        Err(e) => tracing::warn!("EIA fetch failed (non-fatal): {e}"),
+    }
 
     // PLN Indonesia
-    let pln_points = aus_sources::intl::pln::fetch_tariff(client).await?;
-    let pln_obs = mappers::energy::map_pln_retail(pln_points);
+    match aus_sources::intl::pln::fetch_tariff(client).await {
+        Ok(points) => all_observations.extend(mappers::energy::map_pln_retail(points)),
+        Err(e) => tracing::warn!("PLN fetch failed (non-fatal): {e}"),
+    }
 
     // Beijing China
-    let beijing_points = aus_sources::intl::beijing::fetch_tariff(client).await?;
-    let beijing_obs = mappers::energy::map_beijing_residential(beijing_points);
-
-    let mut all_observations = eia_obs;
-    all_observations.extend(eurostat_obs);
-    all_observations.extend(pln_obs);
-    all_observations.extend(beijing_obs);
+    match aus_sources::intl::beijing::fetch_tariff(client).await {
+        Ok(points) => {
+            all_observations.extend(mappers::energy::map_beijing_residential(points));
+        }
+        Err(e) => tracing::warn!("Beijing fetch failed (non-fatal): {e}"),
+    }
 
     let obs_models = super::to_db_observations(&all_observations);
     let (inserted, _updated) =

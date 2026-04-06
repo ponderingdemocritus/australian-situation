@@ -25,12 +25,12 @@ export function DashboardFrame({ children, eyebrow, summary, title }: DashboardF
         <CardHeader>
           <CardTitle>Freshness and provenance</CardTitle>
           <CardDescription>
-            Every dashboard page should end in source and methodology context, not unexplained metrics.
+            Every section includes source and methodology context alongside the data.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm leading-6 text-muted-foreground">
-            The new frontend is organized around SDK-backed domains so data ownership stays explicit.
+            Data is organized by domain so you can trace each indicator back to its original source.
           </p>
         </CardContent>
       </Card>

@@ -6,7 +6,7 @@ import { createOpenApiTsConfig } from "../openapi-ts.config";
 
 const packageRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
-const openApiArtifactPath = path.join(repoRoot, "apps/api/generated/openapi.json");
+const openApiArtifactPath = path.join(repoRoot, "generated/openapi.json");
 const generatedArtifactPath = path.join(packageRoot, "src/generated");
 
 function runCommand(command: string, args: string[], cwd: string) {
@@ -74,8 +74,8 @@ export async function checkGeneratedArtifacts(options: {
     const tempConfigPath = path.join(tempDir, "openapi-ts.config.mjs");
 
     runCommand(
-      "bun",
-      ["../../apps/api/scripts/export-openapi.ts", "--output", tempOpenApiPath],
+      "curl",
+      ["-sf", "http://localhost:3002/api/openapi.json", "-o", tempOpenApiPath],
       packageRoot
     );
 

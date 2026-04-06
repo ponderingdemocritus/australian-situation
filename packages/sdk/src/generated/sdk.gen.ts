@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetApiEnergyHouseholdEstimateData, GetApiEnergyHouseholdEstimateErrors, GetApiEnergyHouseholdEstimateResponses, GetApiEnergyLiveWholesaleData, GetApiEnergyLiveWholesaleErrors, GetApiEnergyLiveWholesaleResponses, GetApiEnergyOverviewData, GetApiEnergyOverviewErrors, GetApiEnergyOverviewResponses, GetApiEnergyRetailAverageData, GetApiEnergyRetailAverageErrors, GetApiEnergyRetailAverageResponses, GetApiHealthData, GetApiHealthResponses, GetApiHousingOverviewData, GetApiHousingOverviewResponses, GetApiMetadataFreshnessData, GetApiMetadataFreshnessResponses, GetApiMetadataSourcesData, GetApiMetadataSourcesResponses, GetApiPricesAiDeflationData, GetApiPricesAiDeflationErrors, GetApiPricesAiDeflationResponses, GetApiPricesMajorGoodsData, GetApiPricesMajorGoodsErrors, GetApiPricesMajorGoodsResponses, GetApiPricesUnresolvedItemsData, GetApiPricesUnresolvedItemsErrors, GetApiPricesUnresolvedItemsResponses, GetApiSeriesByIdData, GetApiSeriesByIdErrors, GetApiSeriesByIdResponses, GetApiV1EnergyCompareRetailData, GetApiV1EnergyCompareRetailErrors, GetApiV1EnergyCompareRetailResponses, GetApiV1EnergyCompareWholesaleData, GetApiV1EnergyCompareWholesaleErrors, GetApiV1EnergyCompareWholesaleResponses, GetApiV1MetadataMethodologyData, GetApiV1MetadataMethodologyErrors, GetApiV1MetadataMethodologyResponses, PostApiPricesIntakeBatchesData, PostApiPricesIntakeBatchesErrors, PostApiPricesIntakeBatchesResponses, PostApiPricesUnresolvedItemsByIdClassifyData, PostApiPricesUnresolvedItemsByIdClassifyErrors, PostApiPricesUnresolvedItemsByIdClassifyResponses, PostApiPricesUnresolvedItemsByIdPromoteData, PostApiPricesUnresolvedItemsByIdPromoteErrors, PostApiPricesUnresolvedItemsByIdPromoteResponses, PostApiPricesUnresolvedItemsByIdReconcileData, PostApiPricesUnresolvedItemsByIdReconcileErrors, PostApiPricesUnresolvedItemsByIdReconcileResponses } from './types.gen';
+import type { AiDeflationData, AiDeflationResponses, FreshnessData, FreshnessResponses, GetSeriesData, GetSeriesResponses, HealthData, HealthResponses, ImportSourcesData, ImportSourcesResponses, LiveWholesaleData, LiveWholesaleResponses, MajorGoodsData, MajorGoodsResponses, MethodologyData, MethodologyResponses, Overview2Data, Overview2Responses, Overview3Data, Overview3Responses, OverviewData, OverviewResponses, RetailAverageData, RetailAverageResponses, RetailComparisonData, RetailComparisonResponses, SourcesData, SourcesResponses, TimeseriesData, TimeseriesResponses, WholesaleComparisonData, WholesaleComparisonResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -18,137 +18,34 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
     meta?: Record<string, unknown>;
 };
 
-/**
- * Service health check
- */
-export const getApiHealth = <ThrowOnError extends boolean = false>(options?: Options<GetApiHealthData, ThrowOnError>) => (options?.client ?? client).get<GetApiHealthResponses, unknown, ThrowOnError>({ url: '/api/health', ...options });
+export const liveWholesale = <ThrowOnError extends boolean = false>(options?: Options<LiveWholesaleData, ThrowOnError>) => (options?.client ?? client).get<LiveWholesaleResponses, unknown, ThrowOnError>({ url: '/api/energy/live-wholesale', ...options });
 
-/**
- * Housing metrics overview
- */
-export const getApiHousingOverview = <ThrowOnError extends boolean = false>(options?: Options<GetApiHousingOverviewData, ThrowOnError>) => (options?.client ?? client).get<GetApiHousingOverviewResponses, unknown, ThrowOnError>({ url: '/api/housing/overview', ...options });
+export const overview = <ThrowOnError extends boolean = false>(options?: Options<OverviewData, ThrowOnError>) => (options?.client ?? client).get<OverviewResponses, unknown, ThrowOnError>({ url: '/api/energy/overview', ...options });
 
-/**
- * Submit a batch of discovered price items
- */
-export const postApiPricesIntakeBatches = <ThrowOnError extends boolean = false>(options?: Options<PostApiPricesIntakeBatchesData, ThrowOnError>) => (options?.client ?? client).post<PostApiPricesIntakeBatchesResponses, PostApiPricesIntakeBatchesErrors, ThrowOnError>({
-    security: [{ scheme: 'basic', type: 'http' }],
-    url: '/api/prices/intake/batches',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers
-    }
-});
+export const retailAverage = <ThrowOnError extends boolean = false>(options?: Options<RetailAverageData, ThrowOnError>) => (options?.client ?? client).get<RetailAverageResponses, unknown, ThrowOnError>({ url: '/api/energy/retail-average', ...options });
 
-/**
- * List unresolved discovered price items
- */
-export const getApiPricesUnresolvedItems = <ThrowOnError extends boolean = false>(options?: Options<GetApiPricesUnresolvedItemsData, ThrowOnError>) => (options?.client ?? client).get<GetApiPricesUnresolvedItemsResponses, GetApiPricesUnresolvedItemsErrors, ThrowOnError>({
-    security: [{ scheme: 'basic', type: 'http' }],
-    url: '/api/prices/unresolved-items',
-    ...options
-});
+export const health = <ThrowOnError extends boolean = false>(options?: Options<HealthData, ThrowOnError>) => (options?.client ?? client).get<HealthResponses, unknown, ThrowOnError>({ url: '/api/health', ...options });
 
-/**
- * Reconcile an unresolved discovered price item
- */
-export const postApiPricesUnresolvedItemsByIdReconcile = <ThrowOnError extends boolean = false>(options: Options<PostApiPricesUnresolvedItemsByIdReconcileData, ThrowOnError>) => (options.client ?? client).post<PostApiPricesUnresolvedItemsByIdReconcileResponses, PostApiPricesUnresolvedItemsByIdReconcileErrors, ThrowOnError>({
-    security: [{ scheme: 'basic', type: 'http' }],
-    url: '/api/prices/unresolved-items/{id}/reconcile',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
+export const overview2 = <ThrowOnError extends boolean = false>(options?: Options<Overview2Data, ThrowOnError>) => (options?.client ?? client).get<Overview2Responses, unknown, ThrowOnError>({ url: '/api/housing/overview', ...options });
 
-/**
- * Classify a reconciled price item for cohort publication
- */
-export const postApiPricesUnresolvedItemsByIdClassify = <ThrowOnError extends boolean = false>(options: Options<PostApiPricesUnresolvedItemsByIdClassifyData, ThrowOnError>) => (options.client ?? client).post<PostApiPricesUnresolvedItemsByIdClassifyResponses, PostApiPricesUnresolvedItemsByIdClassifyErrors, ThrowOnError>({
-    security: [{ scheme: 'basic', type: 'http' }],
-    url: '/api/prices/unresolved-items/{id}/classify',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
+export const freshness = <ThrowOnError extends boolean = false>(options?: Options<FreshnessData, ThrowOnError>) => (options?.client ?? client).get<FreshnessResponses, unknown, ThrowOnError>({ url: '/api/metadata/freshness', ...options });
 
-/**
- * Promote a reconciled price item for downstream publication
- */
-export const postApiPricesUnresolvedItemsByIdPromote = <ThrowOnError extends boolean = false>(options: Options<PostApiPricesUnresolvedItemsByIdPromoteData, ThrowOnError>) => (options.client ?? client).post<PostApiPricesUnresolvedItemsByIdPromoteResponses, PostApiPricesUnresolvedItemsByIdPromoteErrors, ThrowOnError>({
-    security: [{ scheme: 'basic', type: 'http' }],
-    url: '/api/prices/unresolved-items/{id}/promote',
-    ...options
-});
+export const sources = <ThrowOnError extends boolean = false>(options?: Options<SourcesData, ThrowOnError>) => (options?.client ?? client).get<SourcesResponses, unknown, ThrowOnError>({ url: '/api/metadata/sources', ...options });
 
-/**
- * AI-deflation cohort overview
- */
-export const getApiPricesAiDeflation = <ThrowOnError extends boolean = false>(options?: Options<GetApiPricesAiDeflationData, ThrowOnError>) => (options?.client ?? client).get<GetApiPricesAiDeflationResponses, GetApiPricesAiDeflationErrors, ThrowOnError>({
-    security: [{ scheme: 'basic', type: 'http' }],
-    url: '/api/prices/ai-deflation',
-    ...options
-});
+export const importSources = <ThrowOnError extends boolean = false>(options?: Options<ImportSourcesData, ThrowOnError>) => (options?.client ?? client).get<ImportSourcesResponses, unknown, ThrowOnError>({ url: '/api/oil/import-sources', ...options });
 
-/**
- * Major goods price index overview
- */
-export const getApiPricesMajorGoods = <ThrowOnError extends boolean = false>(options?: Options<GetApiPricesMajorGoodsData, ThrowOnError>) => (options?.client ?? client).get<GetApiPricesMajorGoodsResponses, GetApiPricesMajorGoodsErrors, ThrowOnError>({
-    security: [{ scheme: 'basic', type: 'http' }],
-    url: '/api/prices/major-goods',
-    ...options
-});
+export const overview3 = <ThrowOnError extends boolean = false>(options?: Options<Overview3Data, ThrowOnError>) => (options?.client ?? client).get<Overview3Responses, unknown, ThrowOnError>({ url: '/api/oil/overview', ...options });
 
-/**
- * Get series points by id
- */
-export const getApiSeriesById = <ThrowOnError extends boolean = false>(options: Options<GetApiSeriesByIdData, ThrowOnError>) => (options.client ?? client).get<GetApiSeriesByIdResponses, GetApiSeriesByIdErrors, ThrowOnError>({ url: '/api/series/{id}', ...options });
+export const timeseries = <ThrowOnError extends boolean = false>(options?: Options<TimeseriesData, ThrowOnError>) => (options?.client ?? client).get<TimeseriesResponses, unknown, ThrowOnError>({ url: '/api/oil/timeseries', ...options });
 
-/**
- * Live wholesale energy snapshot
- */
-export const getApiEnergyLiveWholesale = <ThrowOnError extends boolean = false>(options?: Options<GetApiEnergyLiveWholesaleData, ThrowOnError>) => (options?.client ?? client).get<GetApiEnergyLiveWholesaleResponses, GetApiEnergyLiveWholesaleErrors, ThrowOnError>({ url: '/api/energy/live-wholesale', ...options });
+export const aiDeflation = <ThrowOnError extends boolean = false>(options?: Options<AiDeflationData, ThrowOnError>) => (options?.client ?? client).get<AiDeflationResponses, unknown, ThrowOnError>({ url: '/api/prices/ai-deflation', ...options });
 
-/**
- * Retail average summary
- */
-export const getApiEnergyRetailAverage = <ThrowOnError extends boolean = false>(options?: Options<GetApiEnergyRetailAverageData, ThrowOnError>) => (options?.client ?? client).get<GetApiEnergyRetailAverageResponses, GetApiEnergyRetailAverageErrors, ThrowOnError>({ url: '/api/energy/retail-average', ...options });
+export const majorGoods = <ThrowOnError extends boolean = false>(options?: Options<MajorGoodsData, ThrowOnError>) => (options?.client ?? client).get<MajorGoodsResponses, unknown, ThrowOnError>({ url: '/api/prices/major-goods', ...options });
 
-/**
- * Energy dashboard overview
- */
-export const getApiEnergyOverview = <ThrowOnError extends boolean = false>(options?: Options<GetApiEnergyOverviewData, ThrowOnError>) => (options?.client ?? client).get<GetApiEnergyOverviewResponses, GetApiEnergyOverviewErrors, ThrowOnError>({ url: '/api/energy/overview', ...options });
+export const getSeries = <ThrowOnError extends boolean = false>(options: Options<GetSeriesData, ThrowOnError>) => (options.client ?? client).get<GetSeriesResponses, unknown, ThrowOnError>({ url: '/api/series/{id}', ...options });
 
-/**
- * Feature-flagged household cost estimate
- */
-export const getApiEnergyHouseholdEstimate = <ThrowOnError extends boolean = false>(options?: Options<GetApiEnergyHouseholdEstimateData, ThrowOnError>) => (options?.client ?? client).get<GetApiEnergyHouseholdEstimateResponses, GetApiEnergyHouseholdEstimateErrors, ThrowOnError>({ url: '/api/energy/household-estimate', ...options });
+export const retailComparison = <ThrowOnError extends boolean = false>(options?: Options<RetailComparisonData, ThrowOnError>) => (options?.client ?? client).get<RetailComparisonResponses, unknown, ThrowOnError>({ url: '/api/v1/energy/compare/retail', ...options });
 
-/**
- * Freshness metadata for key series
- */
-export const getApiMetadataFreshness = <ThrowOnError extends boolean = false>(options?: Options<GetApiMetadataFreshnessData, ThrowOnError>) => (options?.client ?? client).get<GetApiMetadataFreshnessResponses, unknown, ThrowOnError>({ url: '/api/metadata/freshness', ...options });
+export const wholesaleComparison = <ThrowOnError extends boolean = false>(options?: Options<WholesaleComparisonData, ThrowOnError>) => (options?.client ?? client).get<WholesaleComparisonResponses, unknown, ThrowOnError>({ url: '/api/v1/energy/compare/wholesale', ...options });
 
-/**
- * Source provenance metadata
- */
-export const getApiMetadataSources = <ThrowOnError extends boolean = false>(options?: Options<GetApiMetadataSourcesData, ThrowOnError>) => (options?.client ?? client).get<GetApiMetadataSourcesResponses, unknown, ThrowOnError>({ url: '/api/metadata/sources', ...options });
-
-/**
- * Cross-country retail electricity comparison
- */
-export const getApiV1EnergyCompareRetail = <ThrowOnError extends boolean = false>(options?: Options<GetApiV1EnergyCompareRetailData, ThrowOnError>) => (options?.client ?? client).get<GetApiV1EnergyCompareRetailResponses, GetApiV1EnergyCompareRetailErrors, ThrowOnError>({ url: '/api/v1/energy/compare/retail', ...options });
-
-/**
- * Cross-country wholesale electricity comparison
- */
-export const getApiV1EnergyCompareWholesale = <ThrowOnError extends boolean = false>(options?: Options<GetApiV1EnergyCompareWholesaleData, ThrowOnError>) => (options?.client ?? client).get<GetApiV1EnergyCompareWholesaleResponses, GetApiV1EnergyCompareWholesaleErrors, ThrowOnError>({ url: '/api/v1/energy/compare/wholesale', ...options });
-
-/**
- * Methodology metadata by metric key
- */
-export const getApiV1MetadataMethodology = <ThrowOnError extends boolean = false>(options?: Options<GetApiV1MetadataMethodologyData, ThrowOnError>) => (options?.client ?? client).get<GetApiV1MetadataMethodologyResponses, GetApiV1MetadataMethodologyErrors, ThrowOnError>({ url: '/api/v1/metadata/methodology', ...options });
+export const methodology = <ThrowOnError extends boolean = false>(options?: Options<MethodologyData, ThrowOnError>) => (options?.client ?? client).get<MethodologyResponses, unknown, ThrowOnError>({ url: '/api/v1/metadata/methodology', ...options });

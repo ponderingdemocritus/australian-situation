@@ -1,27 +1,37 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import * as sdk from "@aus-dash/sdk";
 import { getEnergyDashboardData } from "../lib/queries/energy-dashboard";
 import { getHousingDashboardData } from "../lib/queries/housing-dashboard";
 import { getSourcesDashboardData } from "../lib/queries/sources-dashboard";
 
-  const sdkMocks = vi.hoisted(() => ({
-  getApiEnergyHouseholdEstimate: vi.fn(),
-  getApiEnergyLiveWholesale: vi.fn(),
-  getApiEnergyOverview: vi.fn(),
-  getApiEnergyRetailAverage: vi.fn(),
-  getApiHousingOverview: vi.fn(),
-  getApiMetadataFreshness: vi.fn(),
-  getApiMetadataSources: vi.fn(),
-  getApiV1EnergyCompareRetail: vi.fn(),
-  getApiV1EnergyCompareWholesale: vi.fn()
+vi.mock("@aus-dash/sdk", () => ({
+  liveWholesale: vi.fn(),
+  overview: vi.fn(),
+  retailAverage: vi.fn(),
+  overview2: vi.fn(),
+  freshness: vi.fn(),
+  sources: vi.fn(),
+  retailComparison: vi.fn(),
+  wholesaleComparison: vi.fn()
 }));
 
-vi.mock("@aus-dash/sdk", () => sdkMocks);
+const sdkMocks = {
+  liveWholesale: vi.mocked(sdk.liveWholesale),
+  overview: vi.mocked(sdk.overview),
+  retailAverage: vi.mocked(sdk.retailAverage),
+  overview2: vi.mocked(sdk.overview2),
+  freshness: vi.mocked(sdk.freshness),
+  sources: vi.mocked(sdk.sources),
+  retailComparison: vi.mocked(sdk.retailComparison),
+  wholesaleComparison: vi.mocked(sdk.wholesaleComparison)
+};
 
 describe("dashboard domain queries", () => {
   beforeEach(() => {
     Object.values(sdkMocks).forEach((mock) => mock.mockReset());
 
-    sdkMocks.getApiEnergyLiveWholesale.mockResolvedValue({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sdkMocks.liveWholesale.mockResolvedValue({
       region: "AU",
       window: "5m",
       isModeled: false,
@@ -40,8 +50,8 @@ describe("dashboard domain queries", () => {
         updatedAt: "2026-02-27T02:00:00Z",
         status: "stale"
       }
-    });
-    sdkMocks.getApiEnergyRetailAverage.mockResolvedValue({
+    } as any);
+    sdkMocks.retailAverage.mockResolvedValue({
       region: "AU",
       customerType: "residential",
       isModeled: false,
@@ -55,16 +65,8 @@ describe("dashboard domain queries", () => {
         updatedAt: "2026-02-27",
         status: "stale"
       }
-    });
-    sdkMocks.getApiEnergyHouseholdEstimate.mockRejectedValue({
-      data: {
-        error: {
-          code: "FEATURE_DISABLED",
-          message: "Energy household estimate is disabled"
-        }
-      }
-    });
-    sdkMocks.getApiEnergyOverview.mockResolvedValue({
+    } as any);
+    sdkMocks.overview.mockResolvedValue({
       region: "AU",
       methodSummary: "Combines wholesale, retail, benchmark, and CPI source data.",
       sourceRefs: [
@@ -90,8 +92,8 @@ describe("dashboard domain queries", () => {
         cpiElectricity: { indexValue: 151.2, period: "2025-Q4" }
       },
       freshness: { updatedAt: "2026-03-07T03:00:00Z", status: "fresh" }
-    });
-    sdkMocks.getApiV1EnergyCompareRetail.mockResolvedValue({
+    } as any);
+    sdkMocks.retailComparison.mockResolvedValue({
       country: "AU",
       peers: ["US", "DE", "ID", "CN"],
       basis: "nominal",
@@ -100,16 +102,16 @@ describe("dashboard domain queries", () => {
       auRank: 3,
       methodologyVersion: "energy-comparison-v1",
       rows: []
-    });
-    sdkMocks.getApiV1EnergyCompareWholesale.mockResolvedValue({
+    } as any);
+    sdkMocks.wholesaleComparison.mockResolvedValue({
       country: "AU",
       peers: ["US", "DE", "CN"],
       auRank: 2,
       auPercentile: 66,
       methodologyVersion: "energy-comparison-v1",
       rows: []
-    });
-    sdkMocks.getApiHousingOverview.mockResolvedValue({
+    } as any);
+    sdkMocks.overview2.mockResolvedValue({
       region: "AU",
       requiredSeriesIds: [],
       missingSeriesIds: ["rates.investor.variable_pct"],
@@ -120,8 +122,8 @@ describe("dashboard domain queries", () => {
         { seriesId: "lending.investor.count", date: "2025-12-31", value: 16950 }
       ],
       updatedAt: "2025-12-31"
-    });
-    sdkMocks.getApiMetadataFreshness.mockResolvedValue({
+    } as any);
+    sdkMocks.freshness.mockResolvedValue({
       generatedAt: "2026-03-07T03:10:00Z",
       staleSeriesCount: 2,
       series: [
@@ -134,8 +136,8 @@ describe("dashboard domain queries", () => {
           freshnessStatus: "stale"
         }
       ]
-    });
-    sdkMocks.getApiMetadataSources.mockResolvedValue({
+    } as any);
+    sdkMocks.sources.mockResolvedValue({
       generatedAt: "2026-03-07T03:10:00Z",
       sources: [
         {
@@ -153,11 +155,11 @@ describe("dashboard domain queries", () => {
           expectedCadence: "monthly"
         }
       ]
-    });
+    } as any);
   });
 
   test("maps region-scoped energy data and keeps national comparison detail", async () => {
-    sdkMocks.getApiV1EnergyCompareRetail.mockResolvedValue({
+    sdkMocks.retailComparison.mockResolvedValue({
       country: "AU",
       peers: ["US", "DE", "ID", "CN"],
       basis: "nominal",
@@ -192,8 +194,8 @@ describe("dashboard domain queries", () => {
         { peerCountryCode: "US", peerValue: 0.18, gap: 0.14, gapPct: 77.78 },
         { peerCountryCode: "DE", peerValue: 0.3, gap: 0.02, gapPct: 6.67 }
       ]
-    });
-    sdkMocks.getApiV1EnergyCompareWholesale.mockResolvedValue({
+    } as any);
+    sdkMocks.wholesaleComparison.mockResolvedValue({
       country: "AU",
       peers: ["US", "DE", "CN"],
       auRank: 2,
@@ -216,21 +218,21 @@ describe("dashboard domain queries", () => {
         }
       ],
       comparisons: [{ peerCountryCode: "US", peerValue: 70, gap: 50, gapPct: 71.43 }]
-    });
+    } as any);
 
     const result = await getEnergyDashboardData("NSW");
 
-    expect(sdkMocks.getApiEnergyOverview).toHaveBeenCalledWith(
+    expect(sdkMocks.overview).toHaveBeenCalledWith(
       expect.objectContaining({
         query: { region: "NSW" }
       })
     );
-    expect(sdkMocks.getApiEnergyLiveWholesale).toHaveBeenCalledWith(
+    expect(sdkMocks.liveWholesale).toHaveBeenCalledWith(
       expect.objectContaining({
         query: { region: "NSW", window: "5m" }
       })
     );
-    expect(sdkMocks.getApiV1EnergyCompareRetail).toHaveBeenCalledWith(
+    expect(sdkMocks.retailComparison).toHaveBeenCalledWith(
       expect.objectContaining({
         query: expect.objectContaining({
           country: "AU"
@@ -248,7 +250,7 @@ describe("dashboard domain queries", () => {
     expect(result.nationalComparisons[0]).toEqual({
       title: "Retail electricity",
       summary: "Australia ranks 3 of 5 peers",
-      detail: "Nominal household electricity · energy-comparison-v1",
+      detail: "Nominal household electricity \u00b7 energy-comparison-v1",
       peerGaps: ["US +77.8%", "DE +6.7%"],
       rows: [
         { countryCode: "US", rank: "1", value: "0.18 USD/kWh", updatedAt: "2026-02" },
@@ -257,7 +259,7 @@ describe("dashboard domain queries", () => {
       ]
     });
     expect(result.nationalComparisons[1].summary).toBe(
-      "Australia ranks 2 of 4 peers · Percentile 66"
+      "Australia ranks 2 of 4 peers \u00b7 Percentile 66"
     );
     expect(result.mixes[0]).toEqual({
       coverage: "AU annual",
@@ -266,24 +268,24 @@ describe("dashboard domain queries", () => {
       updatedAt: "2025-12-31"
     });
     expect(result.liveWholesale).toEqual({
-      detail: "1h avg 116.5 AUD/MWh · 24h avg 116.5 AUD/MWh",
+      detail: "1h avg 116.5 AUD/MWh \u00b7 24h avg 116.5 AUD/MWh",
       label: "Latest interval",
       value: "119.4 AUD/MWh"
     });
     expect(result.retailAverage).toEqual({
-      detail: "31.2 c/kWh · 1.1 AUD/day",
+      detail: "31.2 c/kWh \u00b7 1.1 AUD/day",
       label: "Residential mean bill",
       value: "1,998 AUD/year"
     });
     expect(result.householdEstimate).toEqual({
-      detail: "Energy household estimate is disabled",
+      detail: "Household estimate endpoint not available",
       label: "Household estimate",
       value: "Unavailable"
     });
   });
 
   test("keeps state dashboards available when direct live wholesale is unsupported", async () => {
-    sdkMocks.getApiEnergyLiveWholesale.mockRejectedValueOnce(
+    sdkMocks.liveWholesale.mockRejectedValueOnce(
       new Error("Unsupported region: WA")
     );
 
@@ -303,10 +305,10 @@ describe("dashboard domain queries", () => {
   });
 
   test("keeps rendering energy metrics when comparison endpoints fail", async () => {
-    sdkMocks.getApiV1EnergyCompareRetail.mockRejectedValueOnce(
+    sdkMocks.retailComparison.mockRejectedValueOnce(
       new Error("NO_COMPARABLE_PEER_DATA")
     );
-    sdkMocks.getApiV1EnergyCompareWholesale.mockRejectedValueOnce(
+    sdkMocks.wholesaleComparison.mockRejectedValueOnce(
       new Error("NO_COMPARABLE_PEER_DATA")
     );
 
@@ -351,6 +353,7 @@ describe("dashboard domain queries", () => {
       generatedAt: "Generated 2026-03-07"
     });
     expect(result.sources[0]).toEqual({
+      sourceId: "aemo_wholesale",
       cadence: "5m",
       domain: "energy",
       name: "AEMO Wholesale",

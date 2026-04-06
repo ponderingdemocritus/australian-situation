@@ -1,0 +1,1590 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Australian Economic Dashboard API",
+    "description": "API for Australian economic data — energy, housing, and prices",
+    "license": {
+      "name": ""
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/energy/live-wholesale": {
+      "get": {
+        "tags": [
+          "crate::routes::energy"
+        ],
+        "operationId": "live_wholesale",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Region code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "window",
+            "in": "query",
+            "description": "Time window: 5m, 1h, 24h",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnergyLiveWholesaleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/energy/overview": {
+      "get": {
+        "tags": [
+          "crate::routes::energy"
+        ],
+        "operationId": "overview",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Region code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnergyOverviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/energy/retail-average": {
+      "get": {
+        "tags": [
+          "crate::routes::energy"
+        ],
+        "operationId": "retail_average",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Region code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnergyRetailAverageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "crate::routes::health"
+        ],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/housing/overview": {
+      "get": {
+        "tags": [
+          "crate::routes::housing"
+        ],
+        "operationId": "overview",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Region code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HousingOverviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metadata/freshness": {
+      "get": {
+        "tags": [
+          "crate::routes::metadata"
+        ],
+        "operationId": "freshness",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataFreshnessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metadata/sources": {
+      "get": {
+        "tags": [
+          "crate::routes::metadata"
+        ],
+        "operationId": "sources",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataSourcesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oil/import-sources": {
+      "get": {
+        "tags": [
+          "crate::routes::oil"
+        ],
+        "operationId": "import_sources",
+        "parameters": [
+          {
+            "name": "hs_code",
+            "in": "query",
+            "description": "HS commodity code (default 2709)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "description": "Year filter (e.g. 2024)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OilImportSourcesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oil/overview": {
+      "get": {
+        "tags": [
+          "crate::routes::oil"
+        ],
+        "operationId": "overview",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Region code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OilOverviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oil/timeseries": {
+      "get": {
+        "tags": [
+          "crate::routes::oil"
+        ],
+        "operationId": "timeseries",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "query",
+            "description": "Oil series ID (e.g. oil.production.kbd)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Region code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OilTimeSeriesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prices/ai-deflation": {
+      "get": {
+        "tags": [
+          "crate::routes::prices"
+        ],
+        "operationId": "ai_deflation",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Region code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceIndexOverviewResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "basic": []
+          }
+        ]
+      }
+    },
+    "/api/prices/major-goods": {
+      "get": {
+        "tags": [
+          "crate::routes::prices"
+        ],
+        "operationId": "major_goods",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Region code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceIndexOverviewResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "basic": []
+          }
+        ]
+      }
+    },
+    "/api/series/{id}": {
+      "get": {
+        "tags": [
+          "crate::routes::series"
+        ],
+        "operationId": "get_series",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Series identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Region code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start date filter",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End date filter",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/energy/compare/retail": {
+      "get": {
+        "tags": [
+          "crate::routes::energy"
+        ],
+        "operationId": "retail_comparison",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "description": "Country code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "peers",
+            "in": "query",
+            "description": "Comma-separated peer country codes",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "basis",
+            "in": "query",
+            "description": "nominal or ppp",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tax_status",
+            "in": "query",
+            "description": "Tax status filter",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "consumption_band",
+            "in": "query",
+            "description": "Consumption band filter",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/energy/compare/wholesale": {
+      "get": {
+        "tags": [
+          "crate::routes::energy"
+        ],
+        "operationId": "wholesale_comparison",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "description": "Country code (default AU)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "peers",
+            "in": "query",
+            "description": "Comma-separated peer country codes",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/methodology": {
+      "get": {
+        "tags": [
+          "crate::routes::metadata"
+        ],
+        "operationId": "methodology",
+        "parameters": [
+          {
+            "name": "metric",
+            "in": "query",
+            "description": "Metric identifier",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MethodologyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ComparisonPeer": {
+        "type": "object",
+        "required": [
+          "peerCountryCode",
+          "peerValue",
+          "gap",
+          "gapPct"
+        ],
+        "properties": {
+          "gap": {
+            "type": "number",
+            "format": "double"
+          },
+          "gapPct": {
+            "type": "number",
+            "format": "double"
+          },
+          "peerCountryCode": {
+            "type": "string"
+          },
+          "peerValue": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "ComparisonResponse": {
+        "type": "object",
+        "required": [
+          "country",
+          "peers",
+          "methodologyVersion",
+          "rows",
+          "comparisons"
+        ],
+        "properties": {
+          "auPercentile": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "auRank": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "comparisons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComparisonPeer"
+            }
+          },
+          "country": {
+            "type": "string"
+          },
+          "methodologyVersion": {
+            "type": "string"
+          },
+          "peers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComparisonRow"
+            }
+          }
+        }
+      },
+      "ComparisonRow": {
+        "type": "object",
+        "required": [
+          "countryCode",
+          "date",
+          "value",
+          "rank"
+        ],
+        "properties": {
+          "countryCode": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "methodologyVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "EnergyLiveWholesaleResponse": {
+        "type": "object",
+        "required": [
+          "region",
+          "window",
+          "isModeled",
+          "methodSummary",
+          "sourceRefs",
+          "freshness"
+        ],
+        "properties": {
+          "freshness": {
+            "$ref": "#/components/schemas/FreshnessInfo"
+          },
+          "isModeled": {
+            "type": "boolean"
+          },
+          "latest": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WholesaleLatestPoint"
+              }
+            ]
+          },
+          "methodSummary": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "rollups": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WholesaleRollups"
+              }
+            ]
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          },
+          "window": {
+            "type": "string"
+          }
+        }
+      },
+      "EnergyOverviewResponse": {
+        "type": "object",
+        "required": [
+          "region",
+          "methodSummary",
+          "sourceRefs",
+          "sourceMixViews",
+          "panels",
+          "freshness"
+        ],
+        "properties": {
+          "freshness": {
+            "$ref": "#/components/schemas/FreshnessInfo"
+          },
+          "methodSummary": {
+            "type": "string"
+          },
+          "panels": {
+            "$ref": "#/components/schemas/EnergyPanels"
+          },
+          "region": {
+            "type": "string"
+          },
+          "sourceMixViews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceMixViewDto"
+            }
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          }
+        }
+      },
+      "EnergyPanels": {
+        "type": "object",
+        "properties": {
+          "benchmark": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PanelBenchmark"
+              }
+            ]
+          },
+          "cpiElectricity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PanelCpi"
+              }
+            ]
+          },
+          "liveWholesale": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PanelWholesale"
+              }
+            ]
+          },
+          "retailAverage": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PanelRetail"
+              }
+            ]
+          }
+        }
+      },
+      "EnergyRetailAverageResponse": {
+        "type": "object",
+        "required": [
+          "region",
+          "customerType",
+          "isModeled",
+          "methodSummary",
+          "sourceRefs",
+          "freshness"
+        ],
+        "properties": {
+          "annualBillAudMean": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "annualBillAudMedian": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "customerType": {
+            "type": "string"
+          },
+          "dailyChargeAudDayMean": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/FreshnessInfo"
+          },
+          "isModeled": {
+            "type": "boolean"
+          },
+          "methodSummary": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          },
+          "usageRateCKwhMean": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "FreshnessInfo": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "FreshnessSeriesItem": {
+        "type": "object",
+        "required": [
+          "seriesId",
+          "regionCode",
+          "expectedCadence",
+          "freshnessStatus"
+        ],
+        "properties": {
+          "expectedCadence": {
+            "type": "string"
+          },
+          "freshnessStatus": {
+            "type": "string"
+          },
+          "lagMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "regionCode": {
+            "type": "string"
+          },
+          "seriesId": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "service"
+        ],
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "HousingMetric": {
+        "type": "object",
+        "required": [
+          "seriesId",
+          "date",
+          "value"
+        ],
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "seriesId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "HousingOverviewResponse": {
+        "type": "object",
+        "required": [
+          "region",
+          "requiredSeriesIds",
+          "missingSeriesIds",
+          "metrics"
+        ],
+        "properties": {
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HousingMetric"
+            }
+          },
+          "missingSeriesIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "region": {
+            "type": "string"
+          },
+          "requiredSeriesIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MetadataFreshnessResponse": {
+        "type": "object",
+        "required": [
+          "generatedAt",
+          "staleSeriesCount",
+          "series"
+        ],
+        "properties": {
+          "generatedAt": {
+            "type": "string"
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FreshnessSeriesItem"
+            }
+          },
+          "staleSeriesCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "MetadataSourcesResponse": {
+        "type": "object",
+        "required": [
+          "generatedAt",
+          "sources"
+        ],
+        "properties": {
+          "generatedAt": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceCatalogDto"
+            }
+          }
+        }
+      },
+      "MethodologyResponse": {
+        "type": "object",
+        "required": [
+          "metric",
+          "methodologyVersion",
+          "description",
+          "requiredDimensions"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "methodologyVersion": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "requiredDimensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "MetricPoint": {
+        "type": "object",
+        "required": [
+          "date",
+          "value"
+        ],
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "OilImportSource": {
+        "type": "object",
+        "required": [
+          "countryCode",
+          "countryName",
+          "valueUsd",
+          "sharePct",
+          "period"
+        ],
+        "properties": {
+          "countryCode": {
+            "type": "string"
+          },
+          "countryName": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "sharePct": {
+            "type": "number",
+            "format": "double"
+          },
+          "valueUsd": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "OilImportSourcesResponse": {
+        "type": "object",
+        "required": [
+          "period",
+          "totalValueUsd",
+          "sources",
+          "sourceRefs",
+          "freshness"
+        ],
+        "properties": {
+          "freshness": {
+            "$ref": "#/components/schemas/FreshnessInfo"
+          },
+          "period": {
+            "type": "string"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OilImportSource"
+            }
+          },
+          "totalValueUsd": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "OilMetricPoint": {
+        "type": "object",
+        "required": [
+          "period",
+          "valueKbd",
+          "countryCode"
+        ],
+        "properties": {
+          "countryCode": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "valueKbd": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "OilOverviewResponse": {
+        "type": "object",
+        "required": [
+          "region",
+          "sourceRefs",
+          "freshness"
+        ],
+        "properties": {
+          "consumption": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OilMetricPoint"
+              }
+            ]
+          },
+          "exports": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OilMetricPoint"
+              }
+            ]
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/FreshnessInfo"
+          },
+          "imports": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OilMetricPoint"
+              }
+            ]
+          },
+          "production": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OilMetricPoint"
+              }
+            ]
+          },
+          "region": {
+            "type": "string"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          }
+        }
+      },
+      "OilTimeSeriesPoint": {
+        "type": "object",
+        "required": [
+          "period",
+          "valueKbd"
+        ],
+        "properties": {
+          "period": {
+            "type": "string"
+          },
+          "valueKbd": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "OilTimeSeriesResponse": {
+        "type": "object",
+        "required": [
+          "seriesId",
+          "region",
+          "points",
+          "sourceRefs",
+          "freshness"
+        ],
+        "properties": {
+          "freshness": {
+            "$ref": "#/components/schemas/FreshnessInfo"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OilTimeSeriesPoint"
+            }
+          },
+          "region": {
+            "type": "string"
+          },
+          "seriesId": {
+            "type": "string"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          }
+        }
+      },
+      "PanelBenchmark": {
+        "type": "object",
+        "required": [
+          "dmoAnnualBillAud"
+        ],
+        "properties": {
+          "dmoAnnualBillAud": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "PanelCpi": {
+        "type": "object",
+        "required": [
+          "indexValue",
+          "period"
+        ],
+        "properties": {
+          "indexValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "period": {
+            "type": "string"
+          }
+        }
+      },
+      "PanelRetail": {
+        "type": "object",
+        "required": [
+          "annualBillAudMean",
+          "annualBillAudMedian"
+        ],
+        "properties": {
+          "annualBillAudMean": {
+            "type": "number",
+            "format": "double"
+          },
+          "annualBillAudMedian": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "PanelWholesale": {
+        "type": "object",
+        "required": [
+          "valueAudMwh",
+          "valueCKwh"
+        ],
+        "properties": {
+          "valueAudMwh": {
+            "type": "number",
+            "format": "double"
+          },
+          "valueCKwh": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "PriceIndexItem": {
+        "type": "object",
+        "required": [
+          "seriesId",
+          "label",
+          "date",
+          "value"
+        ],
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "seriesId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "PriceIndexOverviewResponse": {
+        "type": "object",
+        "required": [
+          "region",
+          "methodologyVersion",
+          "methodSummary",
+          "sourceRefs",
+          "indexes",
+          "freshness"
+        ],
+        "properties": {
+          "freshness": {
+            "$ref": "#/components/schemas/FreshnessInfo"
+          },
+          "indexes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceIndexItem"
+            }
+          },
+          "methodSummary": {
+            "type": "string"
+          },
+          "methodologyVersion": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          }
+        }
+      },
+      "SeriesResponse": {
+        "type": "object",
+        "required": [
+          "seriesId",
+          "region",
+          "points"
+        ],
+        "properties": {
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetricPoint"
+            }
+          },
+          "region": {
+            "type": "string"
+          },
+          "seriesId": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceCatalogDto": {
+        "type": "object",
+        "required": [
+          "sourceId",
+          "domain",
+          "name",
+          "url",
+          "expectedCadence"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "expectedCadence": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceMixRowDto": {
+        "type": "object",
+        "required": [
+          "sourceKey",
+          "label",
+          "sharePct"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "sharePct": {
+            "type": "number",
+            "format": "double"
+          },
+          "sourceKey": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceMixViewDto": {
+        "type": "object",
+        "required": [
+          "viewId",
+          "title",
+          "coverageLabel",
+          "sourceRefs",
+          "rows"
+        ],
+        "properties": {
+          "coverageLabel": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceMixRowDto"
+            }
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "viewId": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceRef": {
+        "type": "object",
+        "required": [
+          "sourceId",
+          "name",
+          "url"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "WholesaleLatestPoint": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "valueAudMwh",
+          "valueCKwh"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "valueAudMwh": {
+            "type": "number",
+            "format": "double"
+          },
+          "valueCKwh": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "WholesaleRollups": {
+        "type": "object",
+        "properties": {
+          "oneHourAvgAudMwh": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "twentyFourHourAvgAudMwh": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          }
+        }
+      }
+    }
+  }
+}

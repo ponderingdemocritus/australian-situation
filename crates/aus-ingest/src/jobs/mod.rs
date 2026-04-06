@@ -8,8 +8,12 @@ pub mod global_retail;
 pub mod global_wholesale;
 pub mod housing;
 pub mod interest_rates;
+pub mod lending;
 pub mod major_goods;
 pub mod normalization;
+pub mod oil_jodi;
+pub mod oil_wits;
+pub mod oil_petroleum;
 
 use aus_domain::observation::LiveObservation;
 use aus_sources::fetch::SourceFetch;
@@ -70,6 +74,22 @@ pub fn job_registry() -> Vec<JobDefinition> {
             name: "sync-major-goods-daily",
             cron: "0 0 12 * * *",
         },
+        JobDefinition {
+            name: "sync-oil-eia-petroleum-daily",
+            cron: "0 0 5 * * *",
+        },
+        JobDefinition {
+            name: "sync-oil-wits-trade-annual",
+            cron: "0 0 4 1 * *",
+        },
+        JobDefinition {
+            name: "sync-oil-jodi-monthly",
+            cron: "0 0 6 * * *",
+        },
+        JobDefinition {
+            name: "sync-lending-quarterly",
+            cron: "0 0 8 1 * *",
+        },
     ]
 }
 
@@ -92,6 +112,10 @@ pub async fn run_job(
         "sync-global-wholesale-daily" => global_wholesale::run(pool, client).await,
         "sync-normalization-daily" => normalization::run(pool, client).await,
         "sync-major-goods-daily" => major_goods::run(pool, client).await,
+        "sync-oil-eia-petroleum-daily" => oil_petroleum::run(pool, client).await,
+        "sync-oil-wits-trade-annual" => oil_wits::run(pool, client).await,
+        "sync-oil-jodi-monthly" => oil_jodi::run(pool, client).await,
+        "sync-lending-quarterly" => lending::run(pool, client).await,
         _ => Err(format!("Unknown job: {name}").into()),
     }
 }

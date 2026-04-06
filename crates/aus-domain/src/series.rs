@@ -65,6 +65,39 @@ pub const AI_DEFLATION_SERIES_IDS: &[&str] = &[
     "prices.ai_deflation.spread.au_made_vs_control.index",
 ];
 
+/// Oil/petroleum series IDs.
+pub const OIL_PETROLEUM_SERIES_IDS: &[&str] = &[
+    "oil.production.crude.au.kbd",
+    "oil.imports.total.au.kbd",
+    "oil.exports.total.au.kbd",
+    "oil.consumption.total.au.kbd",
+    "oil.production.crude.country.kbd",
+    "oil.imports.total.country.kbd",
+];
+
+/// Oil import source series IDs (UN Comtrade).
+/// These are dynamically generated per country code, but the prefixes are:
+pub const OIL_IMPORT_SOURCE_SERIES_PREFIX_USD: &str = "oil.imports.by_source.";
+pub const OIL_IMPORT_SOURCE_SERIES_PREFIX_KG: &str = "oil.imports.by_source.";
+
+/// Example series IDs for common Australian oil import sources:
+pub const OIL_IMPORT_SOURCE_SERIES_IDS: &[&str] = &[
+    "oil.imports.by_source.sa.usd",
+    "oil.imports.by_source.sa.kg",
+    "oil.imports.by_source.ae.usd",
+    "oil.imports.by_source.ae.kg",
+    "oil.imports.by_source.my.usd",
+    "oil.imports.by_source.my.kg",
+    "oil.imports.by_source.us.usd",
+    "oil.imports.by_source.us.kg",
+    "oil.imports.by_source.pg.usd",
+    "oil.imports.by_source.pg.kg",
+    "oil.imports.by_source.id.usd",
+    "oil.imports.by_source.id.kg",
+    "oil.imports.by_source.sg.usd",
+    "oil.imports.by_source.sg.kg",
+];
+
 /// Tax status for energy pricing data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub enum TaxStatus {

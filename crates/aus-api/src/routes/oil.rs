@@ -1,0 +1,290 @@
+use axum::Json;
+use axum::extract::{Query, State};
+use sqlx::PgPool;
+
+use crate::dto::*;
+use crate::error::AppError;
+
+fn iso2_to_name(code: &str) -> String {
+    match code {
+        "KR" => "South Korea",
+        "SG" => "Singapore",
+        "MY" => "Malaysia",
+        "BN" => "Brunei",
+        "CN" => "China",
+        "JP" => "Japan",
+        "IN" => "India",
+        "US" => "United States",
+        "VN" => "Vietnam",
+        "ID" => "Indonesia",
+        "NZ" => "New Zealand",
+        "TH" => "Thailand",
+        "RU" => "Russia",
+        "AE" => "UAE",
+        "SA" => "Saudi Arabia",
+        "QA" => "Qatar",
+        "NG" => "Nigeria",
+        "PG" => "Papua New Guinea",
+        "GB" => "United Kingdom",
+        "DE" => "Germany",
+        "TW" => "Taiwan",
+        "CG" => "Congo",
+        "AO" => "Angola",
+        "GA" => "Gabon",
+        "AU" => "Australia",
+        "FR" => "France",
+        "IT" => "Italy",
+        "ES" => "Spain",
+        "CA" => "Canada",
+        "BR" => "Brazil",
+        "MX" => "Mexico",
+        "KW" => "Kuwait",
+        "OM" => "Oman",
+        "IQ" => "Iraq",
+        "IR" => "Iran",
+        "PK" => "Pakistan",
+        "PH" => "Philippines",
+        "MM" => "Myanmar",
+        other => return other.to_string(),
+    }.to_string()
+}
+
+fn parse_region(region: &str) -> Result<String, AppError> {
+    let upper = region.to_uppercase();
+    aus_domain::region::RegionCode::parse(&upper)?;
+    Ok(upper)
+}
+
+fn source_refs(ids: &[&str]) -> Vec<SourceRef> {
+    let catalog = aus_domain::source::source_catalog();
+    ids.iter()
+        .filter_map(|source_id| catalog.iter().find(|item| item.source_id == *source_id))
+        .map(|item| SourceRef {
+            source_id: item.source_id.clone(),
+            name: item.name.clone(),
+            url: item.url.clone(),
+        })
+        .collect()
+}
+
+fn observation_value(observation: Option<&aus_db::models::Observation>) -> f64 {
+    observation
+        .map(|item| item.value.to_string().parse::<f64>().unwrap_or(0.0))
+        .unwrap_or(0.0)
+}
+
+fn freshness_status_label(status: aus_domain::freshness::FreshnessStatus) -> String {
+    match status {
+        aus_domain::freshness::FreshnessStatus::Fresh => "fresh".to_string(),
+        aus_domain::freshness::FreshnessStatus::Stale => "stale".to_string(),
+    }
+}
+
+fn build_oil_metric_point(
+    obs: Option<&aus_db::models::Observation>,
+    region: &str,
+) -> Option<OilMetricPoint> {
+    obs.map(|o| OilMetricPoint {
+        period: o.date.clone(),
+        value_kbd: observation_value(Some(o)),
+        country_code: o
+            .country_code
+            .clone()
+            .unwrap_or_else(|| region.to_string()),
+    })
+}
+
+const OIL_SERIES_PRODUCTION: &str = "oil.production.crude.au.kbd";
+const OIL_SERIES_IMPORTS: &str = "oil.imports.total.au.kbd";
+const OIL_SERIES_EXPORTS: &str = "oil.exports.total.au.kbd";
+const OIL_SERIES_CONSUMPTION: &str = "oil.consumption.total.au.kbd";
+
+#[utoipa::path(
+    get,
+    path = "/api/oil/overview",
+    params(
+        ("region" = Option<String>, Query, description = "Region code (default AU)"),
+    ),
+    responses((status = 200, body = OilOverviewResponse))
+)]
+pub async fn overview(
+    State(pool): State<PgPool>,
+    Query(params): Query<OilOverviewQuery>,
+) -> Result<Json<OilOverviewResponse>, AppError> {
+    let region = parse_region(params.region.as_deref().unwrap_or("AU"))?;
+
+    let production =
+        aus_db::queries::observations::latest_by_series(&pool, OIL_SERIES_PRODUCTION, &region)
+            .await?;
+    let imports =
+        aus_db::queries::observations::latest_by_series(&pool, OIL_SERIES_IMPORTS, &region)
+            .await?;
+    let exports =
+        aus_db::queries::observations::latest_by_series(&pool, OIL_SERIES_EXPORTS, &region)
+            .await?;
+    let consumption =
+        aus_db::queries::observations::latest_by_series(&pool, OIL_SERIES_CONSUMPTION, &region)
+            .await?;
+
+    let latest_ingested = [
+        production.as_ref(),
+        imports.as_ref(),
+        exports.as_ref(),
+        consumption.as_ref(),
+    ]
+    .iter()
+    .filter_map(|o| o.map(|obs| obs.ingested_at))
+    .max();
+
+    let freshness = aus_domain::freshness::compute_freshness(
+        "oil_petroleum",
+        "monthly",
+        latest_ingested,
+    );
+
+    Ok(Json(OilOverviewResponse {
+        region: region.clone(),
+        source_refs: source_refs(&["eia_petroleum"]),
+        production: build_oil_metric_point(production.as_ref(), &region),
+        imports: build_oil_metric_point(imports.as_ref(), &region),
+        exports: build_oil_metric_point(exports.as_ref(), &region),
+        consumption: build_oil_metric_point(consumption.as_ref(), &region),
+        freshness: FreshnessInfo {
+            updated_at: latest_ingested.map(|ts| ts.to_rfc3339()),
+            status: freshness_status_label(freshness.status),
+        },
+    }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/oil/import-sources",
+    params(
+        ("hs_code" = Option<String>, Query, description = "HS commodity code (default 2709)"),
+        ("period" = Option<String>, Query, description = "Year filter (e.g. 2024)"),
+    ),
+    responses((status = 200, body = OilImportSourcesResponse))
+)]
+pub async fn import_sources(
+    State(pool): State<PgPool>,
+    Query(params): Query<OilImportSourcesQuery>,
+) -> Result<Json<OilImportSourcesResponse>, AppError> {
+    let _hs_code = params.hs_code.as_deref().unwrap_or("2709");
+
+    // Query observations with series prefix for USD import sources
+    let observations = aus_db::queries::observations::list_by_series_prefix(
+        &pool,
+        "oil.imports.by_source.",
+        params.period.as_deref(),
+    )
+    .await?;
+
+    // Filter to USD series only (not kg)
+    let usd_obs: Vec<_> = observations
+        .iter()
+        .filter(|o| o.series_id.ends_with(".usd"))
+        .collect();
+
+    let total_value: f64 = usd_obs
+        .iter()
+        .map(|o| o.value.to_string().parse::<f64>().unwrap_or(0.0))
+        .sum();
+
+    let period = usd_obs
+        .first()
+        .map(|o| o.date.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let latest_ingested = usd_obs.iter().map(|o| o.ingested_at).max();
+
+    let freshness = aus_domain::freshness::compute_freshness(
+        "oil_comtrade",
+        "annual",
+        latest_ingested,
+    );
+
+    let mut sources: Vec<OilImportSource> = usd_obs
+        .iter()
+        .map(|o| {
+            let value = o.value.to_string().parse::<f64>().unwrap_or(0.0);
+            let share = if total_value > 0.0 {
+                (value / total_value) * 100.0
+            } else {
+                0.0
+            };
+            let country_code = o
+                .country_code
+                .clone()
+                .unwrap_or_else(|| "XX".to_string());
+            OilImportSource {
+                country_name: iso2_to_name(&country_code).to_string(),
+                country_code,
+                value_usd: value,
+                share_pct: (share * 100.0).round() / 100.0,
+                period: o.date.clone(),
+            }
+        })
+        .collect();
+
+    sources.sort_by(|a, b| b.value_usd.partial_cmp(&a.value_usd).unwrap_or(std::cmp::Ordering::Equal));
+
+    Ok(Json(OilImportSourcesResponse {
+        period,
+        total_value_usd: total_value,
+        sources,
+        source_refs: source_refs(&["wits_trade"]),
+        freshness: FreshnessInfo {
+            updated_at: latest_ingested.map(|ts| ts.to_rfc3339()),
+            status: freshness_status_label(freshness.status),
+        },
+    }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/oil/timeseries",
+    params(
+        ("series_id" = Option<String>, Query, description = "Oil series ID (e.g. oil.production.kbd)"),
+        ("region" = Option<String>, Query, description = "Region code (default AU)"),
+    ),
+    responses((status = 200, body = OilTimeSeriesResponse))
+)]
+pub async fn timeseries(
+    State(pool): State<PgPool>,
+    Query(params): Query<OilTimeSeriesQuery>,
+) -> Result<Json<OilTimeSeriesResponse>, AppError> {
+    let series_id = params.series_id.as_deref().ok_or_else(|| {
+        AppError::bad_request("MISSING_SERIES_ID", "series_id query parameter is required")
+    })?;
+    let region = parse_region(params.region.as_deref().unwrap_or("AU"))?;
+
+    let observations =
+        aus_db::queries::observations::list_by_series(&pool, series_id, &region).await?;
+
+    let latest_ingested = observations.first().map(|o| o.ingested_at);
+
+    let freshness = aus_domain::freshness::compute_freshness(
+        "oil_petroleum",
+        "monthly",
+        latest_ingested,
+    );
+
+    let points: Vec<OilTimeSeriesPoint> = observations
+        .iter()
+        .map(|o| OilTimeSeriesPoint {
+            period: o.date.clone(),
+            value_kbd: o.value.to_string().parse::<f64>().unwrap_or(0.0),
+        })
+        .collect();
+
+    Ok(Json(OilTimeSeriesResponse {
+        series_id: series_id.to_string(),
+        region: region.clone(),
+        points,
+        source_refs: source_refs(&["eia_petroleum"]),
+        freshness: FreshnessInfo {
+            updated_at: latest_ingested.map(|ts| ts.to_rfc3339()),
+            status: freshness_status_label(freshness.status),
+        },
+    }))
+}

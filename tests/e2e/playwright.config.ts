@@ -23,7 +23,7 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: `AUS_DASH_STORE_PATH=${repoRoot}/apps/ingest/data/live-store.json bun --filter @aus-dash/api start`,
+          command: `cargo run -p aus-api`,
           url: `${apiBaseURL}/api/health`,
           timeout: 180_000,
           reuseExistingServer: true,

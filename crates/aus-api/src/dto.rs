@@ -346,3 +346,81 @@ pub struct PriceIndexItem {
     pub date: String,
     pub value: f64,
 }
+
+// ---------------------------------------------------------------------------
+// Oil / Petroleum
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilOverviewResponse {
+    pub region: String,
+    pub source_refs: Vec<SourceRef>,
+    pub production: Option<OilMetricPoint>,
+    pub imports: Option<OilMetricPoint>,
+    pub exports: Option<OilMetricPoint>,
+    pub consumption: Option<OilMetricPoint>,
+    pub freshness: FreshnessInfo,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilMetricPoint {
+    pub period: String,
+    pub value_kbd: f64,
+    pub country_code: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilTimeSeriesResponse {
+    pub series_id: String,
+    pub region: String,
+    pub points: Vec<OilTimeSeriesPoint>,
+    pub source_refs: Vec<SourceRef>,
+    pub freshness: FreshnessInfo,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilTimeSeriesPoint {
+    pub period: String,
+    pub value_kbd: f64,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct OilOverviewQuery {
+    pub region: Option<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct OilTimeSeriesQuery {
+    pub series_id: Option<String>,
+    pub region: Option<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct OilImportSourcesQuery {
+    pub hs_code: Option<String>,
+    pub period: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilImportSource {
+    pub country_code: String,
+    pub country_name: String,
+    pub value_usd: f64,
+    pub share_pct: f64,
+    pub period: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OilImportSourcesResponse {
+    pub period: String,
+    pub total_value_usd: f64,
+    pub sources: Vec<OilImportSource>,
+    pub source_refs: Vec<SourceRef>,
+    pub freshness: FreshnessInfo,
+}

@@ -6,9 +6,20 @@ mod openapi;
 mod routes;
 
 use tracing_subscriber::EnvFilter;
+use utoipa::OpenApi;
 
 #[tokio::main]
 async fn main() {
+    // Dump OpenAPI spec and exit if requested
+    if std::env::args().any(|a| a == "--dump-openapi") {
+        let spec = openapi::ApiDoc::openapi();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&spec).expect("Failed to serialize OpenAPI spec")
+        );
+        return;
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
@@ -17,9 +28,15 @@ async fn main() {
         .await
         .expect("Failed to create database pool");
 
+    aus_db::run_migrations(&pool)
+        .await
+        .expect("Failed to run database migrations");
+
     let app = app::create_app(pool);
 
-    let port = std::env::var("API_PORT").unwrap_or_else(|_| "3002".to_string());
+    let port = std::env::var("PORT")
+        .or_else(|_| std::env::var("API_PORT"))
+        .unwrap_or_else(|_| "3002".to_string());
     let addr = format!("0.0.0.0:{port}");
     tracing::info!("aus-api listening on {addr}");
 

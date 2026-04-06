@@ -37,6 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     let pool = aus_db::pool::create_pool().await?;
+    aus_db::run_migrations(&pool).await?;
 
     if let Some(job_name) = cli.run_once {
         let client = aus_sources::fetch::HttpFetcher::new();

@@ -4,7 +4,7 @@
 
 1. Keep changes small, test-backed, and backward compatible for API consumers.
 2. When route behavior changes, update both:
-   - `apps/api/tests/*`
+   - `crates/aus-api/` tests
    - `README.md` API endpoint table
 3. Prefer additive changes to contracts and route payloads unless a breaking change is explicitly planned.
 
@@ -108,11 +108,8 @@ Use this workflow when adding a new upstream data source or expanding an existin
 
 ### 5) Expose through API
 
-1. Update repository implementations in both:
-   - `apps/api/src/repositories/live-store-repository.ts`
-   - `apps/api/src/repositories/postgres-live-repository.ts`
-2. Add/extend route handlers + validation in `apps/api/src/app.ts`.
-3. If the source should appear in metadata:
+1. Update route handlers and repositories in `crates/aus-api/`.
+2. If the source should appear in metadata:
    - ensure `/api/metadata/sources` includes it
    - update `/api/metadata/freshness` key-series list when freshness tracking is required
 
@@ -122,13 +119,13 @@ At minimum, add or update:
 
 1. Source client tests in `apps/ingest/tests/source-clients.test.ts` (or adjacent source/job tests).
 2. Ingestion job tests in `apps/ingest/tests/*`.
-3. API tests in `apps/api/tests/*` for any new/changed endpoint behavior.
+3. Rust API tests in `crates/aus-api/` for any new/changed endpoint behavior.
 
 Run before opening PR:
 
 ```bash
 bun --filter @aus-dash/ingest test
-bun --filter @aus-dash/api test
+cargo test -p aus-api
 bun --filter @aus-dash/web test
 bun --filter @aus-dash/web build
 ```

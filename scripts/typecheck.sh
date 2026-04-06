@@ -5,11 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 projects=(
-  "packages/data-contract"
   "packages/shared"
   "packages/db"
   "packages/ui"
-  "apps/api"
   "apps/ingest"
   "apps/web"
 )

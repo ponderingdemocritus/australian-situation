@@ -1,7 +1,7 @@
 import {
-  getApiPricesAiDeflation,
-  getApiPricesMajorGoods,
-  getApiPricesUnresolvedItems
+  type PriceIndexItem,
+  aiDeflation as aiDeflationSdk,
+  majorGoods as majorGoodsSdk
 } from "@aus-dash/sdk";
 import { formatIsoDate, formatOneDecimal } from "../format";
 import { createProtectedSdkOptions } from "../sdk/protected";
@@ -61,47 +61,37 @@ export async function getPricesDashboardData(): Promise<PricesDashboardModel> {
     };
   }
 
-  const [majorGoodsResponse, aiDeflationResponse, unresolvedItemsResponse] = await Promise.all([
-    getApiPricesMajorGoods({
+  const [majorGoodsResponse, aiDeflationResponse] = await Promise.all([
+    majorGoodsSdk({
       ...options,
       query: { region: "AU" }
     }),
-    getApiPricesAiDeflation({
+    aiDeflationSdk({
       ...options,
       query: { region: "AU" }
-    }),
-    getApiPricesUnresolvedItems({
-      ...options
     })
   ]);
   const majorGoods = unwrapSdkData(majorGoodsResponse);
   const aiDeflation = unwrapSdkData(aiDeflationResponse);
-  const unresolvedItems = unwrapSdkData(unresolvedItemsResponse);
 
   return {
     hero: lockedHero,
     mode: "ready",
-    majorGoods: majorGoods.indexes.map((index) => ({
+    majorGoods: majorGoods.indexes.map((index: PriceIndexItem) => ({
       date: formatIsoDate(index.date),
       label: index.label,
       value: formatOneDecimal(index.value)
     })),
-    aiDeflation: aiDeflation.indexes.map((index) => ({
+    aiDeflation: aiDeflation.indexes.map((index: PriceIndexItem) => ({
       date: formatIsoDate(index.date),
       label: index.label,
       value: formatOneDecimal(index.value)
     })),
     metadata: {
-      freshness: `Major goods: ${majorGoods.freshness.status} · AI deflation: ${aiDeflation.freshness.status}`,
+      freshness: `Major goods: ${majorGoods.freshness.status} \u00b7 AI deflation: ${aiDeflation.freshness.status}`,
       methodSummary: majorGoods.methodSummary,
       secondarySummary: aiDeflation.methodSummary
     },
-    unresolvedItems: unresolvedItems.items.map((item) => ({
-      merchantName: item.merchantName,
-      priceAmount: `${item.priceAmount.toFixed(2)} AUD`,
-      status: item.status,
-      title: item.title,
-      unresolvedItemId: item.unresolvedItemId
-    }))
+    unresolvedItems: []
   };
 }

@@ -1,9 +1,10 @@
 import {
-  getApiEnergyOverview,
-  getApiHealth,
-  getApiHousingOverview,
-  getApiMetadataFreshness,
-  getApiMetadataSources
+  type FreshnessSeriesItem,
+  overview as overviewSdk,
+  health as healthSdk,
+  overview2 as housingOverviewSdk,
+  freshness as freshnessSdk,
+  sources as sourcesSdk
 } from "@aus-dash/sdk";
 import { createPublicSdkOptions } from "../sdk/public";
 import { unwrapSdkData } from "../sdk/unwrap";
@@ -49,27 +50,75 @@ function formatTrackedMetricCount(count: number) {
   return `${count} tracked metric${count === 1 ? "" : "s"}`;
 }
 
+function buildLiveWholesaleMetric(
+  panel:
+    | {
+        valueAudMwh: number;
+        valueCKwh: number;
+      }
+    | null
+    | undefined
+): DashboardOverviewMetric {
+  if (!panel) {
+    return {
+      label: "Live wholesale",
+      value: "Unavailable",
+      detail: "Overview panel unavailable"
+    };
+  }
+
+  return {
+    label: "Live wholesale",
+    value: `${oneDecimal.format(panel.valueAudMwh)} AUD/MWh`,
+    detail: `${oneDecimal.format(panel.valueCKwh)} c/kWh`
+  };
+}
+
+function buildRetailAverageMetric(
+  panel:
+    | {
+        annualBillAudMean: number;
+        annualBillAudMedian: number;
+      }
+    | null
+    | undefined
+): DashboardOverviewMetric {
+  if (!panel) {
+    return {
+      label: "Retail average",
+      value: "Unavailable",
+      detail: "Median unavailable"
+    };
+  }
+
+  return {
+    label: "Retail average",
+    value: `${wholeNumber.format(panel.annualBillAudMean)} AUD/year`,
+    detail: `Median ${wholeNumber.format(panel.annualBillAudMedian)} AUD`
+  };
+}
+
 export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
   const options = createPublicSdkOptions();
 
   const [healthResponse, energyResponse, housingResponse, freshnessResponse, sourcesResponse] =
     await Promise.all([
-    getApiHealth(options),
-    getApiEnergyOverview({
+    healthSdk(options),
+    overviewSdk({
       ...options,
       query: { region: "AU" }
     }),
-    getApiHousingOverview({
+    housingOverviewSdk({
       ...options,
       query: { region: "AU" }
     }),
-    getApiMetadataFreshness(options),
-    getApiMetadataSources(options)
+    freshnessSdk(options),
+    sourcesSdk(options)
   ]);
   const health = unwrapSdkData(healthResponse);
   const energy = unwrapSdkData(energyResponse);
   const housing = unwrapSdkData(housingResponse);
-  const freshness = unwrapSdkData(freshnessResponse);
+  const freshnessData = unwrapSdkData(freshnessResponse);
   const sources = unwrapSdkData(sourcesResponse);
 
   return {
@@ -78,9 +127,9 @@ export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
       description: "Live conditions drawn directly from the generated SDK.",
       detail: `${sources.sources.length} public source${sources.sources.length === 1 ? "" : "s"}`
     },
-    chart: freshness.series.slice(0, 6).map((series) => ({
+    chart: freshnessData.series.slice(0, 6).map((series: FreshnessSeriesItem) => ({
       label: series.seriesId.split(".").slice(-2).join("."),
-      lag: series.lagMinutes
+      lag: series.lagMinutes ?? 0
     })),
     metrics: [
       {
@@ -88,16 +137,8 @@ export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
         value: health.status === "ok" ? "Operational" : health.status,
         detail: health.service
       },
-      {
-        label: "Live wholesale",
-        value: `${oneDecimal.format(energy.panels.liveWholesale.valueAudMwh)} AUD/MWh`,
-        detail: `${oneDecimal.format(energy.panels.liveWholesale.valueCKwh)} c/kWh`
-      },
-      {
-        label: "Retail average",
-        value: `${wholeNumber.format(energy.panels.retailAverage.annualBillAudMean)} AUD/year`,
-        detail: `Median ${wholeNumber.format(energy.panels.retailAverage.annualBillAudMedian)} AUD`
-      },
+      buildLiveWholesaleMetric(energy.panels.liveWholesale),
+      buildRetailAverageMetric(energy.panels.retailAverage),
       {
         label: "Housing coverage",
         value: formatTrackedMetricCount(housing.metrics.length),
@@ -105,8 +146,8 @@ export async function getDashboardOverview(): Promise<DashboardOverviewModel> {
       }
     ],
     metadata: {
-      freshness: `${freshness.staleSeriesCount} stale series`,
-      generatedAt: `Generated ${formatShortDate(freshness.generatedAt)}`,
+      freshness: `${freshnessData.staleSeriesCount} stale series`,
+      generatedAt: `Generated ${formatShortDate(freshnessData.generatedAt)}`,
       methodSummary: energy.methodSummary
     }
   };

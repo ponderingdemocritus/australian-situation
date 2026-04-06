@@ -8,7 +8,7 @@
     "tests/*"
   ],
   "scripts": {
-    "api:openapi:export": "bun apps/api/scripts/export-openapi.ts",
+    "api:openapi:export": "curl -sf http://localhost:3002/api/openapi.json | python3 -m json.tool > generated/openapi.json",
     "dev:web": "bun --filter @aus-dash/web dev",
     "dev:api": "cargo run -p aus-api",
     "dev:ingest": "cargo run -p aus-ingest",
@@ -22,7 +22,6 @@
     "sdk:check": "bun --filter @aus-dash/sdk check",
     "sdk:build": "bun --filter @aus-dash/sdk build",
     "typecheck": "bash ./scripts/typecheck.sh",
-    "docs:check": "bun --filter @aus-dash/api test tests/openapi.test.ts tests/openapi-schema-contract.test.ts",
     "test": "vitest --workspace vitest.workspace.ts --run",
     "test:watch": "vitest --workspace vitest.workspace.ts",
     "test:client": "bun --filter @aus-dash/web test && bun --filter @aus-dash/web build && bun run test:e2e:real",
@@ -32,7 +31,7 @@
     "test:e2e:real": "bun --filter @aus-dash/e2e test specs/live-api-overview.spec.ts",
     "test:postgres": "bash ./scripts/test-postgres.sh",
     "validate:sdk-cli": "bun --filter @aus-dash/sdk test && bun run sdk:check",
-    "validate": "bun run lint && bun run typecheck && bun run test && bun run docs:check && bun run sdk:check",
+    "validate": "bun run lint && bun run typecheck && bun run test && bun run sdk:check",
     "validate:full": "bun run validate && bun run test:postgres && bun run test:e2e:real",
     "test:all": "./run-all.sh test",
     "test:all:e2e": "./run-all.sh test --with-e2e"
